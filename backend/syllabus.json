@@ -1,0 +1,37 @@
+{
+  "Sem 1": {
+    "BCS-011": "Computer Basics",
+    "BCS-012": "Basic Mathematics",
+    "FEG-02": "Foundation English",
+    "ECO-01": "Business & Economics"
+  },
+  "Sem 2": {
+    "MCS-011": "Problem Solving with C",
+    "MCS-012": "Computer Organization",
+    "MCS-015": "Communication Skills",
+    "ECO-02": "Accounting & Finance"
+  },
+  "Sem 3": {
+    "MCS-021": "Data Structures",
+    "MCS-023": "Database Management Systems",
+    "BCS-031": "Object Oriented Programming",
+    "MCS-014": "Systems Analysis & Design"
+  },
+  "Sem 4": {
+    "BCS-040": "Statistical Techniques",
+    "MCS-024": "Java Programming",
+    "BCS-041": "Fundamentals of Computer Networks",
+    "BCS-042": "Mathematical Methods"
+  },
+  "Sem 5": {
+    "BCS-051": "Software Engineering",
+    "BCS-052": "Network Programming",
+    "BCS-053": "Web Programming",
+    "BCS-054": "Numerical Methods"
+  },
+  "Sem 6": {
+    "BCS-062": "E-Commerce",
+    "MCS-022": "Operating Systems",
+    "BCS-092": "AI & Intelligent Systems"
+  }
+}

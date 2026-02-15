@@ -1,0 +1,47 @@
+# BCABuddy Backend Requirements
+# Core Framework
+fastapi==0.115.12
+uvicorn[standard]==0.34.0
+python-multipart==0.0.19
+
+# AI & ML
+groq==0.13.0
+langchain-community==0.4.1
+langchain-text-splitters==1.1.0
+sentence-transformers==3.3.1
+faiss-cpu==1.13.2
+
+# Used by backend/rag_service.py
+langchain-huggingface==1.2.0
+
+# Database
+sqlalchemy==2.0.37
+alembic==1.14.1
+
+# Authentication
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt<5
+
+# OCR
+easyocr==1.7.2
+pytesseract==0.3.13
+
+# Image Processing
+Pillow>=11.2.0
+
+# Utilities
+python-dotenv==1.0.1
+pydantic>=2.11.0
+requests>=2.32.5,<3
+
+# Testing
+pytest>=8.0,<9
+
+# PDF Processing
+pypdf==5.1.0
+PyPDF2==3.0.1
+
+# Vector Embeddings
+huggingface-hub>=0.33.4,<1
+torch==2.10.0

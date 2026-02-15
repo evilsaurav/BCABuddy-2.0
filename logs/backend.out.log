@@ -1,0 +1,413 @@
+INFO:     127.0.0.1:51799 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53203 - "GET /profile_pics/1_1770207929.969913.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:61184 - "OPTIONS /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52914 - "OPTIONS /dashboard-stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62877 - "OPTIONS /profile HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61184 - "OPTIONS /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59210 - "OPTIONS /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62877 - "GET /profile HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59210 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52914 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62877 - "GET /profile HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61184 - "GET /dashboard-stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59210 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52914 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61184 - "GET /dashboard-stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62877 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52914 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62877 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52914 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58756 - "POST /login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58756 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62962 - "GET /profile HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60553 - "GET /dashboard-stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57690 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58756 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62962 - "GET /profile HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60553 - "GET /dashboard-stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57690 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58756 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57690 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58756 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57690 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57652 - "OPTIONS /syllabus-progress?subject=BCS-040 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57652 - "GET /syllabus-progress?subject=BCS-040 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57652 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60394 - "OPTIONS /chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60394 - "POST /chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60394 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62186 - "POST /chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53195 - "POST /chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54301 - "POST /chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65300 - "POST /chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60355 - "POST /chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56234 - "POST /chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65312 - "POST /chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63606 - "POST /chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50192 - "POST /chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52759 - "POST /chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60089 - "POST /chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56963 - "GET /dashboard-stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60901 - "GET /profile HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58350 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54467 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60901 - "GET /profile HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56963 - "GET /dashboard-stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54467 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58350 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54467 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56963 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54467 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56963 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60901 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58350 - "GET /profile HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56963 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54467 - "GET /dashboard-stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58350 - "GET /profile HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60901 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56963 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54467 - "GET /dashboard-stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60901 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56963 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60901 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56963 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58151 - "OPTIONS /history?session_id=129 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58151 - "GET /history?session_id=129 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58151 - "GET /history?session_id=129 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65040 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65040 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65040 - "GET /history?session_id=129 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51931 - "POST /chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56888 - "POST /chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49720 - "POST /chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64315 - "OPTIONS /sessions/34 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64315 - "DELETE /sessions/34 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64315 - "OPTIONS /sessions/36 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64315 - "DELETE /sessions/36 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64315 - "OPTIONS /sessions/35 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64315 - "DELETE /sessions/35 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64315 - "OPTIONS /sessions/72 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64315 - "DELETE /sessions/72 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64315 - "OPTIONS /sessions/38 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64315 - "DELETE /sessions/38 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64315 - "OPTIONS /history?session_id=96 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64315 - "GET /history?session_id=96 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64315 - "GET /history?session_id=96 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64315 - "OPTIONS /sessions/96 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64315 - "DELETE /sessions/96 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64315 - "OPTIONS /sessions/37 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64315 - "DELETE /sessions/37 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56505 - "GET /history?session_id=129 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56505 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56505 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56505 - "GET /history?session_id=129 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62124 - "POST /chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57151 - "POST /chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54164 - "OPTIONS /history HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65100 - "OPTIONS /history HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55961 - "GET /profile HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54164 - "GET /history HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55961 - "GET /profile HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65100 - "GET /history HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58842 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58837 - "GET /profile HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52307 - "GET /dashboard-stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54266 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58837 - "GET /profile HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58842 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54266 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52307 - "GET /dashboard-stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58842 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54266 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58842 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54266 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64980 - "POST /login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64980 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60315 - "GET /profile HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55286 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50237 - "GET /dashboard-stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64980 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55286 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60315 - "GET /profile HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64980 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55286 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50237 - "GET /dashboard-stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64980 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55286 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61003 - "GET /profile_pics/32_1770205905.902816.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:49980 - "OPTIONS /sessions/126?title=OSI%20MOdel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49980 - "PUT /sessions/126?title=OSI%20MOdel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56959 - "OPTIONS /sessions/125 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56959 - "DELETE /sessions/125 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58632 - "GET /profile HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53884 - "GET /history HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58632 - "GET /profile HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53884 - "GET /history HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56772 - "PUT /profile HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56772 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55321 - "GET /dashboard-stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54097 - "GET /profile HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63896 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56772 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55321 - "GET /dashboard-stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54097 - "GET /profile HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63896 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56772 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63896 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56772 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63896 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65475 - "GET /profile HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64602 - "GET /history HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65475 - "GET /profile HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64602 - "GET /history HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58754 - "PUT /profile HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58754 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51777 - "GET /dashboard-stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52427 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59170 - "GET /profile HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58754 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51777 - "GET /dashboard-stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59170 - "GET /profile HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52427 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58754 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52427 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58754 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52427 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62057 - "OPTIONS /sessions/70 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62057 - "DELETE /sessions/70 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62057 - "OPTIONS /history?session_id=69 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62057 - "GET /history?session_id=69 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62057 - "OPTIONS /sessions/69 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62057 - "DELETE /sessions/69 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62057 - "OPTIONS /sessions/68 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62057 - "DELETE /sessions/68 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62057 - "OPTIONS /sessions/67 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62057 - "DELETE /sessions/67 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62350 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62350 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61985 - "POST /chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61985 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65322 - "POST /chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61772 - "POST /chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60830 - "POST /chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53191 - "POST /chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64275 - "POST /chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52199 - "POST /chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59272 - "POST /chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60191 - "POST /chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61609 - "OPTIONS /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52098 - "OPTIONS /dashboard-stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61609 - "OPTIONS /profile HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54651 - "OPTIONS /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63354 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52098 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54651 - "GET /profile HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61609 - "GET /dashboard-stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52098 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54651 - "GET /profile HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61609 - "GET /dashboard-stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63354 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63354 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52098 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63354 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52098 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53920 - "GET /profile_pics/32_1770205905.902816.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:52098 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61609 - "GET /profile HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63354 - "GET /dashboard-stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54651 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61609 - "GET /profile HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52098 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54651 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63354 - "GET /dashboard-stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52098 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54651 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52098 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54651 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60163 - "POST /login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63447 - "GET /profile HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60163 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62655 - "GET /dashboard-stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51910 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63447 - "GET /profile HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60163 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62655 - "GET /dashboard-stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51910 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60163 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51910 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60163 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51910 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64678 - "GET /profile_pics/1_1770207929.969913.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:54419 - "OPTIONS /chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54419 - "POST /chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54419 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62571 - "OPTIONS /sessions/131 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62571 - "DELETE /sessions/131 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60309 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60309 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52065 - "GET /profile_pics/1_1770207929.969913.png HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:62612 - "OPTIONS /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51283 - "OPTIONS /dashboard-stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50281 - "OPTIONS /profile HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63219 - "OPTIONS /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51283 - "OPTIONS /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62612 - "GET /sessions HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:50281 - "GET /dashboard-stats HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:63219 - "GET /syllabus-progress HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:62536 - "GET /profile HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:62612 - "GET /sessions HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:50281 - "GET /dashboard-stats HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:62536 - "GET /profile HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:63219 - "GET /syllabus-progress HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:62612 - "GET /sessions HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:63219 - "GET /syllabus-progress HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:62612 - "GET /sessions HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:63219 - "GET /syllabus-progress HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:63219 - "GET /sessions HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:63219 - "GET /sessions HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:62536 - "GET /profile HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:62612 - "GET /dashboard-stats HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:50281 - "GET /syllabus-progress HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:63219 - "GET /sessions HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:62612 - "GET /dashboard-stats HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:62536 - "GET /profile HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:50281 - "GET /syllabus-progress HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:63219 - "GET /sessions HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:50281 - "GET /syllabus-progress HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:63219 - "GET /sessions HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:50281 - "GET /syllabus-progress HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:50281 - "GET /sessions HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:62536 - "GET /profile HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:62612 - "GET /syllabus-progress HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:63219 - "GET /dashboard-stats HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:50281 - "GET /sessions HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:62536 - "GET /profile HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:63219 - "GET /dashboard-stats HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:50281 - "GET /sessions HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:62612 - "GET /syllabus-progress HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:50281 - "GET /sessions HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:62612 - "GET /syllabus-progress HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:62612 - "GET /syllabus-progress HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:62612 - "GET /sessions HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:62612 - "GET /sessions HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:62612 - "GET /sessions HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:50281 - "GET /dashboard-stats HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:63219 - "GET /profile HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:62536 - "GET /syllabus-progress HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:62612 - "GET /sessions HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:62536 - "GET /syllabus-progress HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:50281 - "GET /profile HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:63219 - "GET /dashboard-stats HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:62536 - "GET /syllabus-progress HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:62612 - "GET /sessions HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:62612 - "GET /sessions HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:62536 - "GET /syllabus-progress HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:62536 - "GET /sessions HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:60604 - "POST /login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60604 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50630 - "GET /profile HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56534 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50187 - "GET /dashboard-stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56590 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50630 - "GET /profile HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56534 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50187 - "GET /dashboard-stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56590 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56534 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56534 - "GET /syllabus-progress HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56590 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51297 - "OPTIONS /syllabus-progress?subject=BCS-012 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51297 - "GET /syllabus-progress?subject=BCS-012 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64760 - "OPTIONS /chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64760 - "POST /chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64760 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58328 - "POST /chat HTTP/1.1" 200 OK
+RAG: Loaded existing FAISS index.
+[WARN] LLM JSON parse/validation failed: Missing 'answer' or 'next_suggestions' fields. Raw: 🎤 Viva shuru karte hain for BCS-040. Pehla question: MCSL204 ke bare mein aapko pata hai? Yeh kis subject se related hai? 
+
+1. MCSL204 ko define karein.
+2. Iska practical application kya hai?
+3. Real-...
+[WARN] LLM JSON parse/validation failed: Invalid JSON: Expecting value: line 1 column 1 (char 0). Raw: MCSL204 ke examples discuss karna zaroori hai, kyunki yeh concept ko samajhne mein madad karta hai. 
+
+1. **Sampling Distribution**: MCSL204 mein hum sampling distribution ke bare mein padhte hain. Ek ...
+[WARN] LLM JSON parse/validation failed: Invalid JSON: Expecting value: line 1 column 1 (char 0). Raw: Dekh yaar, local account aur Microsoft account mein kuch antar hain. 
+
+1. **Local Account**: Local account ek aisa account hai jo sirf ek specific computer ya device par access karne ke liye use hota ...
+[WARN] LLM JSON parse/validation failed: Invalid JSON: Expecting value: line 1 column 1 (char 0). Raw: Saurav bhai, ipconfig ek command hai jo Windows mein use hota hai. 
+
+1. **IP Configuration**: Ipconfig ka full form "Internet Protocol Configuration" hai. Iska use hum apne computer ki network setting...
+[WARN] LLM JSON parse/validation failed: Invalid JSON: Expecting value: line 1 column 1 (char 0). Raw: Saurav bhai, ipconfig ka simple example yeh hai:
+
+1. **Command Prompt**: Aapko command prompt khola hai, aur aapne `ipconfig` command enter kiya hai.
+2. **Network Settings**: Ab, aapko apne computer k...
+[WARN] LLM JSON parse/validation failed: Invalid JSON: Expecting value: line 1 column 1 (char 0). Raw: Saurav bhai, disk defragmentation ek process hai jo aapke computer ki hard disk ko optimize karta hai. 
+
+1. **Fragmentation**: Jab aap files create aur delete karte hain, toh unke fragments hard disk ...
+[WARN] LLM JSON parse/validation failed: Invalid JSON: Expecting value: line 1 column 1 (char 0). Raw: Saurav bhai, defragmentation ka simple example yeh hai:
+
+1. **File Creation**: Aapne ek 10 MB ka file create kiya, jiska naam "document.txt" hai. Yeh file aapki hard disk par save hua hai.
+2. **File D...
+[WARN] LLM JSON parse/validation failed: Invalid JSON: Unterminated string starting at: line 2 column 13 (char 14). Raw: {
+  "answer": "Saurav bhai, defragmentation ke bare mein 5 simple points yeh hain: \n1. **File Fragmentation**: Jab aap files create aur delete karte hain, toh unke fragments hard disk par scattered h...
+[WARN] LLM JSON parse/validation failed: Invalid JSON: Expecting value: line 1 column 1 (char 0). Raw: Saurav bhai, system restore ek feature hai jo aapke computer ki current state ko save karta hai, taaki agar aapke computer mein koi problem aa jaye, toh aap usse previous state mein restore kar sakte ...
+[WARN] LLM JSON parse/validation failed: Invalid JSON: Expecting value: line 1 column 1 (char 0). Raw: Saurav bhai, system restore ke bare mein 10 MCQs yeh hain:
+
+1. **What is System Restore?**: 
+A) A feature that deletes all system files
+B) A feature that saves the current state of the system
+C) A fea...
+[WARN] LLM JSON parse/validation failed: Invalid JSON: Expecting value: line 1 column 1 (char 0). Raw: Saurav bhai, root user in Linux ek special user account hai jo sabse high-level privileges ke saath aata hai. Root user ko "superuser" bhi kehte hain.
+
+1. **Root User Privileges**: Root user ke paas s...
+[WARN] LLM JSON parse/validation failed: Invalid JSON: Invalid control character at: line 2 column 375 (char 376). Raw: {
+  "answer": "Saurav bhai, root user in Linux ek special user account hai jo sabse high-level privileges ke saath aata hai. Root user ko 'superuser' bhi kehte hain. Iske paas system configuration fil...
+[WARN] LLM JSON parse/validation failed: Invalid JSON: Invalid control character at: line 2 column 224 (char 225). Raw: {
+  "answer": "Saurav bhai, file permission rwx ek important concept hai Linux mein. Yeh permissions files aur directories ke liye set kiye jate hain, aur yeh decide karte hain ki kaun si actions ko p...
+[WARN] LLM JSON parse/validation failed: Invalid JSON: Expecting value: line 1 column 1 (char 0). Raw: Saurav bhai, ek simple example hai:
+
+Maan lijiye ki aapke paas ek file hai `example.txt` aur aap uske permissions ko dekhte hain:
+```
+-rw-r--r--
+```
+Isse hum yeh samajh sakte hain:
+
+* `r` (Read) permi...
+[WARN] LLM JSON parse/validation failed: Invalid JSON: Expecting value: line 1 column 1 (char 0). Raw: {
+  "answer": "Saurav bhai, ab main aapko aur ache se explain karta hoon. Jaise ki humne pehle dekha, `example.txt` file ke permissions hain:
+```
+-rw-r--r--
+```
+Yeh permissions humne teen hisso mein d...
+[WARN] LLM JSON parse/validation failed: Invalid JSON: Invalid control character at: line 2 column 205 (char 206). Raw: {
+  "answer": "Okay, let's switch to English. So, we were discussing file permissions in Linux. To recap, the permissions for a file are represented by a series of letters and symbols, such as `-rw-r-...
+[WARN] LLM JSON parse/validation failed: Invalid JSON: Expecting value: line 1 column 2 (char 1). Raw: {
+  "answer": "Here is a simple diagram of the TCP/IP protocol suite:
+```mermaid
+graph LR
+    A[Application Layer] --> B[Transport Layer]
+    B --> C[Internet Layer]
+    C --> D[Link Layer]
+    D --> ...
+[WARN] LLM JSON parse/validation failed: Missing 'answer' or 'next_suggestions' fields. Raw: Dekh yaar, Saurav Kumar ka project BCABuddy hai, jo ki ek AI-powered learning companion hai 🤖. Iska main goal hai ki IGNOU BCA students ko apne academics mein madad karna, unhein concepts samjhane, au...
+[WARN] LLM JSON parse/validation failed: Missing 'answer' or 'next_suggestions' fields. Raw: Behen, sem 1-6 course structure diagram ke baare mein bataunga. IGNOU BCA course mein 6 semesters hote hain, jismein students ko various subjects ke baare mein padhaya jata hai. Yeh raha sem-wise cour...
+[WARN] LLM JSON parse/validation failed: Missing 'answer' or 'next_suggestions' fields. Raw: Behen, IGNOU BCA course ki fee structure ke baare mein bataunga. IGNOU BCA course ki fee structure semester-wise hoti hai, aur yeh raha overall fee structure:
+1. Registration fee: ₹100
+2. Programme fe...
+[WARN] LLM JSON parse/validation failed: Missing 'answer' or 'next_suggestions' fields. Raw: Behen, IGNOU BCA course ki placement opportunities ke baare mein bataunga. IGNOU BCA course ke baad, students ko various industries mein job mil sakti hai, jaise ki:
+1. IT sector: Students ko IT compa...
+[WARN] LLM JSON parse/validation failed: Missing 'answer' or 'next_suggestions' fields. Raw: Behen, let me tell you about the placement opportunities for IGNOU BCA course in English. After completing the IGNOU BCA course, students can get jobs in various industries such as:
+1. IT sector: Stud...
+[WARN] LLM JSON parse/validation failed: Missing 'answer' or 'next_suggestions' fields. Raw: Behen, the purpose of building this app, BCABuddy, is to provide a comprehensive learning platform for IGNOU BCA students. The app aims to help students navigate through their course curriculum, under...
+[WARN] LLM JSON parse/validation failed: Invalid JSON: Expecting value: line 1 column 1 (char 0). Raw: Arre Saurav bhai, Java Inheritance kya hai, ye samajhte hain! 🚀
+Java mein Inheritance ek fundamental concept hai, jismein hum ek class ko doosri class se inherit kar sakte hain. Isse hum code ko reuse...
+[WARN] LLM JSON parse/validation failed: Missing 'answer' or 'next_suggestions' fields. Raw: Arre haan, Saurav bhai! 😊 Aap kya jaanne chahte hain? BCS-012 ke baare mein kuchh puchhna chahte hain? Main yahaan aapki madad ke liye hoon. 
+
+next_suggestions: 
+["BCS-012 ke units ke baare mein jaann...
+[WARN] LLM JSON parse/validation failed: Invalid JSON: Expecting value: line 1 column 1 (char 0). Raw: Dekh yaar, C++ ko DBMS (Database Management System) se connect karne ke liye aapko kuch steps follow karne honge. Yeh raha step-by-step process:
+1. **Choose a DBMS**: Aapko pehle decide karna hoga ki ...
+[WARN] LLM JSON parse/validation failed: Invalid JSON: Expecting property name enclosed in double quotes: line 1 column 3 (char 2). Raw: Accha sun, Saurav bhai! 😊 C++ ko MySQL DBMS se connect karne ka ek simple example yeh hai:
+1. **Include necessary headers**: `#include <mysql.h>`
+2. **Initialize MySQL library**: `mysql_library_init(0...INFO:     127.0.0.1:60921 - "POST /chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57878 - "POST /chat HTTP/1.1" 200 OK

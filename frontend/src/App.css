@@ -1,0 +1,205 @@
+/* 
+ * BCABuddy Frontend - Neural Glass Aesthetic Styles
+ * License: MIT
+ * Author: Saurav Kumar
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+* {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', system-ui, sans-serif;
+  box-sizing: border-box;
+}
+
+/* Smooth scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(187, 134, 252, 0.3);
+  border-radius: 4px;
+  transition: background 200ms ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(187, 134, 252, 0.6);
+}
+
+/* Typography */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  letter-spacing: -0.5px;
+}
+
+code {
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 14px;
+}
+
+/* Input focus states */
+input:focus, textarea:focus, select:focus {
+  outline: none;
+}
+
+/* Message animations */
+@keyframes messageSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.message-item {
+  animation: messageSlideIn 300ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Pulse glow */
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 10px rgba(3, 218, 198, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(3, 218, 198, 0.6); }
+}
+
+.pulse-glow {
+  animation: pulseGlow 2s ease-in-out infinite;
+}
+
+body.frenzy-mode {
+  background: radial-gradient(circle at 20% 20%, rgba(44, 38, 58, 0.9), rgba(7, 7, 10, 1) 55%),
+    radial-gradient(circle at 80% 0%, rgba(64, 50, 42, 0.3), transparent 55%);
+  color: #e6e1d8;
+  filter: grayscale(1) contrast(1.2);
+  transition: background 2.5s ease, filter 2.5s ease, color 2.5s ease;
+}
+
+body.frenzy-mode * {
+  backdrop-filter: blur(30px) saturate(0.7);
+}
+
+body.frenzy-mode #root {
+  background: transparent;
+}
+
+.frenzy-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(5, 5, 8, 0.6);
+  backdrop-filter: blur(30px) saturate(0.7);
+}
+
+.frenzy-panel {
+  width: min(92vw, 760px);
+  padding: 28px 30px 26px;
+  border-radius: 22px;
+  background: rgba(18, 17, 24, 0.82);
+  border: 1px solid rgba(220, 210, 190, 0.2);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.45);
+  text-align: left;
+}
+
+.frenzy-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 38px;
+  letter-spacing: 0.08em;
+  color: #f1ece3;
+  text-transform: uppercase;
+}
+
+.frenzy-subtitle {
+  margin-top: 6px;
+  font-size: 12px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: rgba(233, 225, 212, 0.7);
+}
+
+.frenzy-poem-wrap {
+  margin-top: 18px;
+  padding: 14px 4px 6px;
+  border-top: 1px solid rgba(216, 205, 190, 0.18);
+  position: relative;
+}
+
+.frenzy-poem-scroll {
+  max-height: 70vh;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.frenzy-poem-scroll::-webkit-scrollbar {
+  width: 3px;
+}
+
+.frenzy-poem-scroll::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 4px;
+}
+
+.frenzy-poem-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.frenzy-fade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 6px;
+  height: 48px;
+  background: linear-gradient(to bottom, rgba(18, 17, 24, 0), rgba(18, 17, 24, 0.9));
+  pointer-events: none;
+}
+
+.frenzy-poem {
+  white-space: pre-wrap;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 20px;
+  line-height: 1.7;
+  color: rgba(242, 236, 227, 0.92);
+  min-height: 140px;
+}
+
+.frenzy-reset {
+  margin-top: 22px;
+  padding: 10px 18px;
+  background: rgba(225, 215, 198, 0.08);
+  border: 1px solid rgba(225, 215, 198, 0.25);
+  border-radius: 999px;
+  color: #efe6d8;
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 200ms ease, background 200ms ease, border 200ms ease;
+}
+
+.frenzy-reset-fixed {
+  position: fixed;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  opacity: 0.3;
+  z-index: 2600;
+}
+
+.frenzy-reset-fixed:hover {
+  opacity: 0.7;
+}
+
+.frenzy-reset:hover {
+  transform: translateY(-1px);
+  background: rgba(225, 215, 198, 0.16);
+  border-color: rgba(225, 215, 198, 0.4);
+}

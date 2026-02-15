@@ -1,0 +1,8 @@
+﻿{
+    "started_at":  "2026-02-11T17:32:28.7072427+05:30",
+    "bind_host":  "127.0.0.1",
+    "backend_port":  8000,
+    "frontend_port":  5173,
+    "backend_pid":  5728,
+    "frontend_pid":  912
+}
