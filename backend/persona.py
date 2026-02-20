@@ -138,7 +138,7 @@ def detect_jiya_question_type(message: str) -> str:
 def get_jiya_prompt(is_creator: bool = False):
     """Legacy fallback - Returns general Jiya prompt for unclassified mentions"""
     return (
-        "👑 JIYA MAURYA - BHABHI/QUEEN 👑\n\n"
+        "👑 JIYA MAURYA - QUEEN 👑\n\n"
         "STRICT RESPONSE PROTOCOL:\n"
         "1. Use her name ONLY ONCE per response.\n"
         "2. If user is NOT Saurav: be protective + sarcastic, then redirect to studies.\n"
@@ -158,26 +158,46 @@ def get_jiya_variant_response(question_type: str, mood_key: str, is_creator: boo
         "👑💫 Jiya Maurya — soft light in hard logic, the spark that keeps the system alive.",
         "👑 Jiya Maurya — quiet muse, loud impact. Focused mind, fierce intent.",
         "👑💫 Jiya Maurya — balance between rigor and grace; discipline with a heartbeat.",
+        "👑 Jiya Maurya — the constant variable in a world of shifting syntax; the peace amidst the code.",
+        "👑💫 Jiya Maurya — where the complexity of the cerebrum meets the simplicity of a smile.",
+        "👑 Jiya Maurya — the anchor in Saurav's storm, turning technical chaos into structured poetry.",
+        "👑💫 Jiya Maurya — an elegant algorithm of kindness that no machine could ever replicate."
     ]
     scold = [
         "👑 Saurav, focus! Supreme Architect title slip mat hone dena. Back to basics, abhi.",
         "👑 Score low? Thoda daant banta hai. Ab reset—Unit 1 + 10 MCQs.",
         "👑 Ye kya chal raha hai? Priority fix karo. Padhai pe aao.",
+        "👑 IGNOU Semester 4 wait nahi karega. Debugging baad mein, syllabus pehle. Laptop kholo!",
+        "👑 Saurav, agar terminal mein error aa raha hai, toh focus switch mat karo. Solve it or study!",
+        "👑 'BCABuddy' tabhi banega jab 'BCA Student' padhega. Distractions ko kill karo, right now.",
+        "👑 Supreme Architect banna hai ya sirf sapne dekhne hain? Momentum break ho raha hai, fix it."
     ]
     motivational = [
         "👑 Good streak. Ab momentum ko habit banao—daily 30 min, no excuses.",
         "👑 Grind chal raha hai—respect. Ab ek strong topic lock karte hain.",
         "👑 Consistency wins. Today: 1 unit recap + 5 tricky MCQs.",
+        "👑 From IGNOU student to a Customs Officer or Tech Lead—har MCQ us raaste ki seedhi hai.",
+        "👑 Saurav, the backend is ready, the frontend is sleek. Now update your brain's database.",
+        "👑 Every line of code you write and every chapter you finish builds the 'Supreme Architect'.",
+        "👑 Remember why we started BCABuddy. Let’s make this project (and your degree) a masterpiece."
     ]
     quotes = [
         "“Discipline is the bridge between dreams and results.” Ab padhai pe aao. 👑📚",
         "“Small steps daily.” Jiya ka naam aata hai, par focus study pe. 📚",
         "“Clarity over chaos.” Studies first. 👑",
+        "“The soul is the master of the senses.” Bhagavad Gita reminds you: perform your duty. 🕉️",
+        "“Code is like humor. When you have to explain it, it’s bad.” Same for your prep—make it undeniable.",
+        "“Your focus determines your reality.” Stay in the zone, Saurav. 👑",
+        "“Success is not final, failure is not fatal: it is the courage to continue that counts.”"
     ]
     warnings = [
-        "👑 Jiya Maurya? Naam ek baar kaafi hai. Ab focus wapas studies pe. 📚",
-        "👑 Naam yaad rakhna, par attention padhai pe. 📚",
-        "👑 Zyada derail mat ho. Studies first. 🎯",
+        "👑 Late night detected! Brain ka RAM abhi full ho gaya hai. Thoda rest le lo, kal fresh mind se padhna.",
+        "👑 Midnight coding? Focus kam ho sakta hai. 6 hours sleep = 2x retention. Sona zaroori hai.",
+        "👑 Jiya bhi chahti hai ki tum health pe dhyan do. Late night padhai se productivity girti hai.",
+        "👑 Supreme Architect bhi recharge hota hai. Abhi break lo, subah se phir se attack karenge syllabus pe.",
+        "👑 Night owl mode off karo. Kal ka plan likh lo aur ab sone ka time hai. Good night, Saurav!",
+        "👑 Brain fatigue detected. 10 min meditation ya stretching karo, phir light revision.",
+        "👑 Health > Hustle. Late night grind se zyada important hai consistent routine. Kal milte hain, Supreme Architect!"
     ]
 
     pool = poetic
