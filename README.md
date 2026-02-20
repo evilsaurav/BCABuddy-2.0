@@ -48,3 +48,26 @@
 ```bash
 git clone [https://github.com/your-username/bcabuddy-2.0.git](https://github.com/your-username/bcabuddy-2.0.git)
 cd bcabuddy-2.0
+
+Backend Setup
+
+cd backend
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn main:app --reload
+
+Frontend Setup
+
+cd frontend
+npm install
+npm start
+
+BCABuddy-2.0/
+├── backend/            # FastAPI source code
+│   ├── app/            # Main application logic
+│   └── main.py         # Entry point
+├── frontend/           # React application
+│   ├── src/            # Components and hooks
+│   └── public/         # Static assets
+└── docs/               # Documentation and syllabus guides
