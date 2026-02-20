@@ -1,6 +1,6 @@
 # 🚀 BCABuddy-2.0
 
-> Your ultimate AI-powered companion for mastering the BCA curriculum, specifically tailored for IGNOU Semester 4 and beyond.
+> Your ultimate AI-powered companion for mastering the BCA curriculum, specifically tailored for IGNOU Semesters and beyond.
 
 ![Python](https://img.shields.io/badge/Python-3.9+-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?style=for-the-badge&logo=fastapi&logoColor=white)
