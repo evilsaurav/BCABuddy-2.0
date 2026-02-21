@@ -50,24 +50,47 @@ git clone [https://github.com/your-username/bcabuddy-2.0.git](https://github.com
 cd bcabuddy-2.0
 
 Backend Setup
-
+# Navigate to the backend directory
 cd backend
+
+# Create a virtual environment
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Activate the virtual environment
+# On Windows:
+venv\Scripts\activate
+# On macOS/Linux:
+source venv/bin/activate
+
+# Install the required Python packages
 pip install -r requirements.txt
+
+# Start the FastAPI backend server (runs on http://127.0.0.1:8000)
 uvicorn main:app --reload
 
 Frontend Setup
-
+# Navigate to the frontend directory
 cd frontend
+
+# Install the required Node modules
 npm install
-npm start
+
+# Start the frontend development server
+npm run dev
+# Note: If you are using Create React App instead of Vite, use: npm start
+
+Build frontend for production
+cd frontend
+npm run build
+
 
 BCABuddy-2.0/
 ├── backend/            # FastAPI source code
 │   ├── app/            # Main application logic
-│   └── main.py         # Entry point
+│   ├── requirements.txt# Backend dependencies
+│   └── main.py         # Entry point for the server
 ├── frontend/           # React application
-│   ├── src/            # Components and hooks
-│   └── public/         # Static assets
+│   ├── src/            # Components, pages, and hooks
+│   ├── package.json    # Frontend dependencies and scripts
+│   └── public/         # Static assets (images, icons)
 └── docs/               # Documentation and syllabus guides
