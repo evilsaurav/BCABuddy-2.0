@@ -16,7 +16,7 @@
 ### 🌟 Key Features
 
 * **🧠 Intelligent Tutoring:** Specialized AI models that understand the BCA syllabus (Networking, DBMS, Java, etc.).
-* **📝 Exam Prep Mode:** Tailored assistance for IGNOU Semester 4 exam patterns and previous year question analysis.
+* **📝 Exam Prep Mode:** Tailored assistance for IGNOU exam patterns and previous year question analysis.
 * **⚡ High-Performance API:** Powered by **FastAPI** for lightning-fast response times.
 * **💻 Modern UI:** A sleek, responsive dashboard built with **React**.
 * **📚 Subject Mastery:** Deep-dive explanations for core subjects like MCS-024, MCS-021, and more.
