@@ -45,7 +45,7 @@ const NEON_PURPLE = '#bb86fc';
 const NEON_CYAN = '#03dac6';
 const GLASS_BG = 'rgba(30, 41, 59, 0.5)';
 const GLASS_BORDER = '1px solid rgba(255, 255, 255, 0.1)';
-const API_BASE = 'http://127.0.0.1:8000';
+const API_BASE = 'https://bcabuddy-2-0.onrender.com';
 
 const STUDY_ACTIVITY_KEY = 'bcabuddy_study_activity_v1';
 const DAILY_GOALS_KEY = 'bcabuddy_daily_goals_v1';
