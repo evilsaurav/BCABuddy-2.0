@@ -24,6 +24,7 @@ passlib[bcrypt]==1.7.4
 bcrypt<5
 
 # OCR
+easyocr>=1.7.0
 torch==2.10.0
 pytesseract==0.3.13
 
