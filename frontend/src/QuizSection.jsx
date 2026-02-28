@@ -44,6 +44,8 @@ const QuizSection = ({ onClose, API_BASE }) => {
   const [quizCompleted, setQuizCompleted] = useState(false);
   const [reviewMode, setReviewMode] = useState(false); // Toggle between results and review
   const [userAnswers, setUserAnswers] = useState({}); // Track all user answers
+  const [explanations, setExplanations] = useState({}); // idx -> explanation text
+  const [explainingIndex, setExplainingIndex] = useState(null);
 
   const safeParse = (raw, fallback) => {
     try {
@@ -237,6 +239,55 @@ const QuizSection = ({ onClose, API_BASE }) => {
     return { emoji: '📚', text: 'Padhai kar bhai! Practice more!' };
   };
 
+  const fetchExplanation = async (idx, question) => {
+    if (!question) return;
+    if (explanations[idx]) return; // already loaded
+
+    const token = localStorage.getItem('token');
+    if (!token) {
+      alert('Please login again to view explanations.');
+      return;
+    }
+
+    setExplainingIndex(idx);
+    try {
+      const semesterInt = semester ? parseInt(String(semester).replace(/\D/g, ''), 10) : null;
+      const res = await fetch(`${API_BASE}/explain-mcq`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          question: String(question.question || ''),
+          options: question.options || [],
+          correct_answer: resolveCorrectAnswerText(question),
+          subject,
+          semester: Number.isFinite(semesterInt) ? semesterInt : null
+        })
+      });
+
+      if (!res.ok) {
+        throw new Error(await res.text());
+      }
+
+      const data = await res.json();
+      const text = typeof data === 'string'
+        ? data
+        : String(data.explanation || data.answer || 'Explanation not available.');
+
+      setExplanations(prev => ({ ...prev, [idx]: text }));
+    } catch (error) {
+      console.error('Explain MCQ error:', error);
+      setExplanations(prev => ({
+        ...prev,
+        [idx]: 'Failed to fetch explanation. Please try again later.'
+      }));
+    } finally {
+      setExplainingIndex(null);
+    }
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', bgcolor: 'rgba(10, 13, 23, 0.95)' }}>
@@ -357,6 +408,30 @@ const QuizSection = ({ onClose, API_BASE }) => {
                           </Box>
                         );
                       })}
+
+                      {/* Explanation */}
+                      <Box sx={{ mt: 1.5 }}>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          onClick={() => fetchExplanation(idx, question)}
+                          disabled={explainingIndex === idx}
+                          sx={{
+                            borderColor: NEON_CYAN,
+                            color: NEON_CYAN,
+                            textTransform: 'none',
+                            fontSize: '12px',
+                            fontWeight: 600
+                          }}
+                        >
+                          {explainingIndex === idx ? 'Explaining...' : 'Explain this question'}
+                        </Button>
+                        {explanations[idx] && (
+                          <Typography sx={{ mt: 1, color: '#E6EAF0', fontSize: '13px' }}>
+                            {explanations[idx]}
+                          </Typography>
+                        )}
+                      </Box>
                     </Card>
                   </motion.div>
                 );

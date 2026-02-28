@@ -58,6 +58,14 @@ class SubjectiveGradeResponse(BaseModel):
     strengths: List[str] = Field(default_factory=list)
     improvements: List[str] = Field(default_factory=list)
 
+
+class MCQExplainRequest(BaseModel):
+    question: str
+    options: List[str]
+    correct_answer: str
+    subject: Optional[str] = None
+    semester: Optional[int] = None
+
 class ChatResponse(BaseModel):
     answer: str
     next_suggestions: List[str]

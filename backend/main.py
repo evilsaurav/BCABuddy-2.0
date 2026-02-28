@@ -22,33 +22,34 @@ if sys.stderr and hasattr(sys.stderr, "buffer"):
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from groq import Groq
 from typing import Optional, Any, cast
 import os, shutil
 from datetime import datetime, timedelta
-from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 from database import ChatHistory, User, ChatSession, get_db
-from jose import JWTError, jwt
-from passlib.context import CryptContext
 from rag_service import RAGService 
 from PIL import Image
 import io
 import json
 import time
 import re
-import requests
 import difflib
 import random
+
+from config import get_settings
+from auth_utils import get_current_user
+from routes.auth import router as auth_router
 
 # Import modular components
 from models import (
     UserCreate, Token, ChatRequest, QuizRequest, QuizQuestion,
     MixedExamRequest, SubjectiveGradeRequest, SubjectiveGradeResponse,
-    DashboardStats, UserProfile, UserProfileUpdate, PasswordChange, ChatResponse
+    DashboardStats, UserProfile, UserProfileUpdate, PasswordChange, ChatResponse,
+    MCQExplainRequest,
 )
 from persona import (
     get_saurav_prompt, get_jiya_prompt, get_april_19_prompt,
@@ -60,13 +61,13 @@ from persona import (
 )
 
 # --- CONFIG ---
-load_dotenv()
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-SECRET_KEY = "SAURAV_IS_THE_BEST_DEV_19_APRIL"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 1440 
-UPLOAD_DIR = "uploads"
-PROFILE_PICS_DIR = "profile_pics"
+settings = get_settings()
+GROQ_API_KEY = settings.groq_api_key
+SECRET_KEY = settings.secret_key
+ALGORITHM = settings.algorithm
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
+UPLOAD_DIR = settings.upload_dir
+PROFILE_PICS_DIR = settings.profile_pics_dir
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(PROFILE_PICS_DIR, exist_ok=True)
 
@@ -75,12 +76,35 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 SUPABASE_AVATAR_BUCKET = os.getenv("SUPABASE_AVATAR_BUCKET", "avatars")
 
+
 # --- SERVICES ---
 rag_system = RAGService(groq_api_key=GROQ_API_KEY)
 client = Groq(api_key=GROQ_API_KEY)
 
 # --- SESSION STATE (in-memory, best-effort) ---
 SESSION_STATE: dict[str, dict] = {}
+
+# --- SIMPLE IN-MEMORY RATE LIMITER (PER USER) ---
+_RATE_BUCKETS: dict[str, dict[str, float]] = {}
+
+def _check_rate_limit(bucket: str, user_id: Optional[int], limit_per_minute: int) -> None:
+    """Very lightweight per-user fixed-window limiter. Best-effort only."""
+    if not user_id or limit_per_minute <= 0:
+        return
+    now = time.time()
+    window = 60.0
+    key = f"{bucket}:{user_id}"
+    bucket_state = _RATE_BUCKETS.get(key)
+    if not bucket_state or now >= bucket_state.get("reset", 0):
+        _RATE_BUCKETS[key] = {"count": 1.0, "reset": now + window}
+        return
+    count = bucket_state.get("count", 0.0) + 1.0
+    if count > float(limit_per_minute):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many requests for this feature. Please wait a bit before trying again.",
+        )
+    bucket_state["count"] = count
 
 # --- bcrypt/passlib compatibility shim ---
 # Some bcrypt builds don't expose `__about__`, but passlib expects it.
@@ -93,14 +117,12 @@ try:
 except Exception:
     pass
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
-
 app = FastAPI(title="BCABuddy Ultimate")
 
 # Serve uploaded files
 app.mount("/profile_pics", StaticFiles(directory=PROFILE_PICS_DIR), name="profile_pics")
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+app.include_router(auth_router)
 
 
 # --- SYLLABUS MAPPING (STRICT) ---
@@ -501,14 +523,7 @@ def _is_topic_switch(current_message: str, previous_messages: list) -> bool:
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:5174",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ],
+    allow_origins=settings.backend_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -552,199 +567,6 @@ def _extract_text_from_image_bytes(data: bytes) -> str:
             text = ""
 
     return (text or "").strip()
-
-# --- AUTH HELPERS ---
-def get_password_hash(p): return pwd_context.hash(p)
-def verify_password(p, h): return pwd_context.verify(p, h)
-def create_access_token(data: dict):
-    to_encode = data.copy()
-    to_encode.update({"exp": datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-
-async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username = payload.get("sub")
-        if not username: raise HTTPException(status_code=401)
-    except JWTError: 
-        raise HTTPException(status_code=401)
-    user = db.query(User).filter(User.username == username).first()
-    if not user: raise HTTPException(status_code=401)
-    return user
-
-# --- AUTH ENDPOINTS ---
-@app.post("/signup")
-def signup(user: UserCreate, db: Session = Depends(get_db)):
-    if db.query(User).filter(User.username == user.username).first():
-        raise HTTPException(status_code=400, detail="Username taken")
-    new_user = User(
-        username=user.username, 
-        hashed_password=get_password_hash(user.password),
-        display_name=user.username,
-        gender=None,
-        mobile_number=None,
-        profile_picture_url=None
-    )
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-    return {
-        "message": "User created",
-        "username": new_user.username,
-        "display_name": new_user.display_name
-    }
-
-@app.post("/login", response_model=Token)
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == form_data.username).first()
-    if not user or not verify_password(form_data.password, user.hashed_password):
-        raise HTTPException(status_code=400, detail="Incorrect credentials")
-    return {"access_token": create_access_token(data={"sub": user.username}), "token_type": "bearer"}
-
-# --- NEW: PROFILE ENDPOINTS ---
-
-@app.get("/profile")
-def get_profile(current_user: User = Depends(get_current_user)):
-    current_user_any = cast(Any, current_user)
-    username_val = getattr(current_user_any, "username", None)
-    display_name_val = getattr(current_user_any, "display_name", None)
-    gender_val = getattr(current_user_any, "gender", None)
-    mobile_val = getattr(current_user_any, "mobile_number", None)
-    profile_pic_val = getattr(current_user_any, "profile_picture_url", None)
-    is_creator_val = bool(getattr(current_user_any, "is_creator", 0))
-    return UserProfile(
-        username=str(username_val) if username_val is not None else "",
-        display_name=str(display_name_val if display_name_val is not None else username_val) if (display_name_val is not None or username_val is not None) else "",
-        gender=str(gender_val) if gender_val is not None else None,
-        mobile_number=str(mobile_val) if mobile_val is not None else None,
-        email=getattr(current_user, "email", None),
-        college=getattr(current_user, "college", None),
-        enrollment_id=getattr(current_user, "enrollment_id", None),
-        bio=getattr(current_user, "bio", None),
-        profile_picture_url=str(profile_pic_val) if profile_pic_val is not None else None,
-        is_creator=is_creator_val
-    )
-
-@app.put("/profile")
-def update_profile(profile_data: UserProfileUpdate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    current_user_any = cast(Any, current_user)
-    if profile_data.display_name is not None:
-        current_user_any.display_name = profile_data.display_name
-    if profile_data.gender is not None:
-        current_user_any.gender = profile_data.gender
-    if profile_data.mobile_number is not None:
-        current_user_any.mobile_number = profile_data.mobile_number
-    if getattr(profile_data, "email", None) is not None:
-        current_user_any.email = profile_data.email
-    if getattr(profile_data, "college", None) is not None:
-        current_user_any.college = profile_data.college
-    if getattr(profile_data, "enrollment_id", None) is not None:
-        current_user_any.enrollment_id = profile_data.enrollment_id
-    if getattr(profile_data, "bio", None) is not None:
-        current_user_any.bio = profile_data.bio
-    db.commit()
-    return {"message": "Profile updated"}
-
-@app.post("/profile/upload-picture")
-async def upload_profile_picture(file: UploadFile = File(...), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    try:
-        current_user_any = cast(Any, current_user)
-        filename = file.filename or "profile_pic"
-        file_extension = filename.split('.')[-1]
-        filename = f"{current_user_any.id}_{datetime.utcnow().timestamp()}.{file_extension}"
-        file_path = os.path.join(PROFILE_PICS_DIR, filename)
-        
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        
-        current_user_any.profile_picture_url = f"/profile_pics/{filename}"
-        db.commit()
-        
-        return {"message": "Profile picture uploaded", "url": str(current_user_any.profile_picture_url)}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error uploading picture: {str(e)}")
-
-
-def _supabase_public_avatar_url(object_path: str) -> str:
-    if not SUPABASE_URL:
-        raise RuntimeError("SUPABASE_URL not set")
-    return f"{SUPABASE_URL}/storage/v1/object/public/{SUPABASE_AVATAR_BUCKET}/{object_path}"
-
-
-def _upload_bytes_to_supabase_avatars(*, object_path: str, content_type: str, data: bytes) -> str:
-    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
-        raise RuntimeError("Supabase env missing: SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY")
-
-    upload_url = f"{SUPABASE_URL}/storage/v1/object/{SUPABASE_AVATAR_BUCKET}/{object_path}"
-    headers = {
-        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-        "apikey": SUPABASE_SERVICE_ROLE_KEY,
-        "Content-Type": content_type or "application/octet-stream",
-        "x-upsert": "true",
-    }
-    resp = requests.put(upload_url, headers=headers, data=data, timeout=30)
-    if resp.status_code not in (200, 201):
-        raise RuntimeError(f"Supabase upload failed: {resp.status_code} {resp.text}")
-    return _supabase_public_avatar_url(object_path)
-
-
-@app.post("/upload-avatar")
-async def upload_avatar(
-    file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """Uploads avatar to Supabase Storage and stores its public URL on the user's profile row."""
-    try:
-        if not file:
-            raise HTTPException(status_code=400, detail="file is required")
-
-        content_type = str(file.content_type or "").lower()
-        if not content_type.startswith("image/"):
-            raise HTTPException(status_code=400, detail="Only image uploads are allowed")
-
-        current_user_any = cast(Any, current_user)
-
-        original_name = file.filename or "avatar.png"
-        ext = (original_name.split(".")[-1] if "." in original_name else "png").lower()
-        if ext not in {"png", "jpg", "jpeg", "webp"}:
-            ext = "png"
-
-        data = await file.read()
-        if not data:
-            raise HTTPException(status_code=400, detail="Empty file")
-
-        object_path = f"{current_user_any.id}/avatar_{int(time.time())}.{ext}"
-        public_url = _upload_bytes_to_supabase_avatars(
-            object_path=object_path,
-            content_type=content_type,
-            data=data,
-        )
-
-        current_user_any.profile_picture_url = public_url
-        db.commit()
-
-        return {"message": "Avatar uploaded", "url": str(public_url)}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error uploading avatar: {str(e)}")
-
-@app.post("/profile/change-password")
-def change_password(pwd_data: PasswordChange, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    if not verify_password(pwd_data.old_password, current_user.hashed_password):
-        raise HTTPException(status_code=400, detail="Old password is incorrect")
-    
-    if pwd_data.new_password != pwd_data.confirm_password:
-        raise HTTPException(status_code=400, detail="Passwords do not match")
-    
-    if len(pwd_data.new_password) < 6:
-        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
-    
-    current_user_any = cast(Any, current_user)
-    current_user_any.hashed_password = get_password_hash(pwd_data.new_password)
-    db.commit()
-    return {"message": "Password changed successfully"}
 
 # --- DASHBOARD AND SESSION ENDPOINTS ---
 
@@ -979,9 +801,13 @@ def chat_endpoint(
     Main chat endpoint with Persona System, RAG, and Study Tools
     Handles: Saurav/Jiya/April19 triggers, Study Tools, Response Modes
     """
-    user_message_raw = request.message or ""
+    # Simple safety: cap message length to avoid prompt-abuse and huge payloads
+    user_message_raw = (request.message or "")[:4000]
     user_message = _fuzzy_normalize_message(user_message_raw)
     user_lower = user_message.lower()
+    # Rate limit per user on chat
+    _check_rate_limit("chat", getattr(current_user, "id", None), settings.chat_requests_per_minute)
+
     user_display = str(getattr(current_user, "display_name", None) or getattr(current_user, "username", None) or "User").strip()
     user_gender = _infer_user_gender(user_display, getattr(current_user, "gender", None))
     salutation = _get_salutation(user_display, user_gender)
@@ -1522,11 +1348,7 @@ def chat_endpoint(
                 messages.append({"role": role, "content": str(text_val)})
 
         messages.append({"role": "user", "content": user_message_for_llm})
-        
-        # Simulate thinking delay for "thinking" mode
-        if request.response_mode == "thinking":
-            time.sleep(3)
-        
+
         completion = get_ai_response(
             messages=messages,
             temperature=0.8,  # PHASE 2: Increased from 0.7 for more creativity and human-like variation
@@ -1623,6 +1445,7 @@ def chat_endpoint(
 @app.post("/upload")
 async def upload_pdf(file: UploadFile = File(...), current_user: User = Depends(get_current_user)):
     """Upload PDF for RAG processing"""
+    _check_rate_limit("ocr", getattr(current_user, "id", None), settings.ocr_requests_per_minute)
     # Validate file size (max 50 MB)
     MAX_FILE_SIZE = 50 * 1024 * 1024
     file_content = await file.read()
@@ -1648,6 +1471,7 @@ async def upload_pdf(file: UploadFile = File(...), current_user: User = Depends(
 @app.post("/upload-notes-ocr")
 async def upload_notes_ocr(file: UploadFile = File(...), current_user: User = Depends(get_current_user)):
     """Upload handwritten notes (image) and return a 5-point summary."""
+    _check_rate_limit("ocr", getattr(current_user, "id", None), settings.ocr_requests_per_minute)
     if not file:
         raise HTTPException(status_code=400, detail="file is required")
 
@@ -1696,6 +1520,9 @@ def generate_quiz(
     current_user: User = Depends(get_current_user)
 ):
     """Generate MCQ quiz for selected subject and semester"""
+    # Rate limit quiz generation
+    _check_rate_limit("quiz", getattr(current_user, "id", None), settings.quiz_requests_per_minute)
+
     count = int(getattr(request, "count", 15) or 15)
     count = max(1, min(count, 50))
     prompt = f"""Generate {count} IGNOU BCA exam-level MCQs for semester {request.semester}, subject: {request.subject}.
@@ -1737,6 +1564,9 @@ def generate_mixed_exam(
     current_user: User = Depends(get_current_user)
 ):
     """Generate a mixed exam (MCQ + subjective) for Exam Simulator."""
+    # Rate limit exam generation
+    _check_rate_limit("exam", getattr(current_user, "id", None), settings.exam_requests_per_minute)
+
     import logging
     logger = logging.getLogger("bcabuddy.generate_exam")
     mcq_count = max(0, min(int(request.mcq_count or 0), 60))
@@ -1805,6 +1635,9 @@ def grade_subjective(
     current_user: User = Depends(get_current_user)
 ):
     """AI examiner grades a subjective answer. Returns score and feedback only (no chain-of-thought)."""
+    # Rate limit grading
+    _check_rate_limit("grading", getattr(current_user, "id", None), settings.grading_requests_per_minute)
+
     question = (request.question or "").strip()
     answer = (request.answer or "").strip()
     max_marks = max(1, min(int(request.max_marks or 10), 20))
@@ -1970,6 +1803,7 @@ def solve_assignment(
     current_user: User = Depends(get_current_user)
 ):
     """Solve assignment questions from uploaded image using OCR"""
+    _check_rate_limit("ocr", getattr(current_user, "id", None), settings.ocr_requests_per_minute)
     try:
         # Validate file size (max 10 MB for images)
         MAX_IMAGE_SIZE = 10 * 1024 * 1024
@@ -2027,6 +1861,72 @@ Provide:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing assignment: {str(e)}")
+
+
+# --- MCQ EXPLANATION ENDPOINT ---
+@app.post("/explain-mcq")
+def explain_mcq(
+    request: MCQExplainRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """Explain why the correct MCQ option is right (short Hinglish explanation)."""
+    # Reuse grading rate limit bucket – same class of LLM workload
+    _check_rate_limit(
+        "grading",
+        getattr(current_user, "id", None),
+        settings.grading_requests_per_minute,
+    )
+
+    question = (request.question or "").strip()
+    options = list(request.options or [])
+    correct = (request.correct_answer or "").strip()
+
+    if not question or not options or not correct:
+        raise HTTPException(
+            status_code=400,
+            detail="question, options and correct_answer are required",
+        )
+
+    # Truncate to keep prompt efficient
+    question_prompt = question[:600]
+    options_prompt = "\n".join(f"{idx+1}. {opt}" for idx, opt in enumerate(options))[:800]
+
+    subject = (request.subject or "").strip()
+    semester = request.semester
+
+    meta_line = ""
+    if subject or semester:
+        meta_line = f"Semester: {semester or '-'}, Subject: {subject or '-'}\n\n"
+
+    prompt = (
+        "You are an IGNOU BCA exam mentor.\n\n"
+        f"{meta_line}Question:\n{question_prompt}\n\n"
+        f"Options:\n{options_prompt}\n\n"
+        f"Correct answer: {correct}\n\n"
+        "Explain in Hinglish (Hindi + English mix) WHY this correct option is right "
+        "and briefly why the other options are wrong.\n"
+        "Rules:\n"
+        "- Keep it exam-focused, 4–6 lines only.\n"
+        "- Do NOT repeat the full question text.\n"
+        "- No markdown, just plain text explanation.\n"
+    )
+
+    try:
+        completion = get_ai_response(
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.6,
+            max_tokens=220,
+        )
+        explanation_raw = completion.choices[0].message.content or ""
+        explanation = explanation_raw.strip()
+        if not explanation:
+            explanation = "Explanation not available."
+        return {"explanation": explanation}
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate explanation: {str(e)}",
+        )
 
 # --- HEALTH CHECK ENDPOINTS ---
 @app.get("/")

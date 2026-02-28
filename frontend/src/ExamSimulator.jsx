@@ -80,6 +80,8 @@ function ExamSimulator({
   const [showBackTooltip, setShowBackTooltip] = useState(false);
   const timerIntervalRef = useRef(null);
   const examRunIdRef = useRef(null);
+  const [mcqExplanations, setMcqExplanations] = useState({}); // idx -> explanation text
+  const [explainingIndex, setExplainingIndex] = useState(null);
 
   const getDurationByCount = (count) => {
     if (count === 15) return 45;
@@ -534,6 +536,55 @@ function ExamSimulator({
 
   const handleSubjectiveChange = (text) => {
     setResponseForIndex(currentQuestionIndex, text);
+  };
+
+  const fetchMcqExplanation = async (idx, question) => {
+    if (!question) return;
+    if (mcqExplanations[idx]) return; // already loaded
+
+    const token = localStorage.getItem('token');
+    if (!token) {
+      alert('Please login again to view explanations.');
+      return;
+    }
+
+    setExplainingIndex(idx);
+    try {
+      const semesterInt = semester ? parseInt(String(semester).replace(/[^0-9]/g, ''), 10) : null;
+      const res = await fetch(`${API_BASE}/explain-mcq`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          question: String(question.question || ''),
+          options: question.options || [],
+          correct_answer: resolveCorrectAnswerText(question),
+          subject,
+          semester: Number.isFinite(semesterInt) ? semesterInt : null
+        })
+      });
+
+      if (!res.ok) {
+        throw new Error(await res.text());
+      }
+
+      const data = await res.json();
+      const text = typeof data === 'string'
+        ? data
+        : String(data.explanation || data.answer || 'Explanation not available.');
+
+      setMcqExplanations(prev => ({ ...prev, [idx]: text }));
+    } catch (error) {
+      console.error('Explain MCQ error:', error);
+      setMcqExplanations(prev => ({
+        ...prev,
+        [idx]: 'Failed to fetch explanation. Please try again later.'
+      }));
+    } finally {
+      setExplainingIndex(null);
+    }
   };
 
   const handleMarkQuestion = () => {
@@ -1105,6 +1156,29 @@ function ExamSimulator({
                     </Typography>
                   </>
                 )}
+                <Box sx={{ mt: 1.5 }}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => fetchMcqExplanation(idx, question)}
+                    disabled={explainingIndex === idx}
+                    sx={{
+                      borderColor: NEON_CYAN,
+                      color: NEON_CYAN,
+                      textTransform: 'none',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      mt: 0.5
+                    }}
+                  >
+                    {explainingIndex === idx ? 'Explaining...' : 'Explain this question'}
+                  </Button>
+                  {mcqExplanations[idx] && (
+                    <Typography sx={{ mt: 1, color: '#E6EAF0', fontSize: '13px' }}>
+                      {mcqExplanations[idx]}
+                    </Typography>
+                  )}
+                </Box>
               </Card>
             );
           })}
