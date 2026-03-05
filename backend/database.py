@@ -1,13 +1,21 @@
 from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, ForeignKey, Float
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship
+try:
+    # SQLAlchemy 2.x preferred import
+    from sqlalchemy.orm import DeclarativeBase, sessionmaker, relationship
+    class Base(DeclarativeBase):
+        pass
+except ImportError:
+    # Fallback for SQLAlchemy 1.x
+    from sqlalchemy.ext.declarative import declarative_base  # type: ignore
+    from sqlalchemy.orm import sessionmaker, relationship
+    Base = declarative_base()
+
 from datetime import datetime
 
 DATABASE_URL = "sqlite:///./bcabuddy.db"
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
 
 class User(Base):
     __tablename__ = "users"
@@ -51,6 +59,17 @@ class ChatHistory(Base):
     confidence_score = Column(Float, nullable=True)  # 0-1 confidence in response quality
     
     session = relationship("ChatSession", back_populates="messages")
+
+class StudyRoadmap(Base):
+    __tablename__ = "study_roadmaps"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)
+    subject = Column(String, nullable=True)
+    title = Column(String, nullable=True)
+    roadmap_json = Column(Text, nullable=False)
+    raw_text = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 Base.metadata.create_all(bind=engine)
 

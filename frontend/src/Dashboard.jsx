@@ -25,18 +25,19 @@ import {
 import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import CountUp from 'react-countup';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { dracula } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { jsPDF } from 'jspdf';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   BarChart as RechartsBarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar
 } from 'recharts';
-import mermaid from 'mermaid';
 import ExamSimulator from './ExamSimulator';
 import QuizSection from './QuizSection';
+import AdvancedTools from './pages/AdvancedTools';
+import StudyRoadmapCard from './StudyRoadmapCard';
 import { getToken, setToken, clearToken, isTokenExpiringSoon, shouldForceLogout, getTokenRemainingMinutes, shouldWarnTokenExpiry } from './utils/tokenManager';
 import { useAuth } from './AuthContext';
 
@@ -54,6 +55,16 @@ const EXAM_ATTEMPTS_KEY = 'bcabuddy_exam_attempts';
 const QUIZ_ATTEMPTS_KEY = 'bcabuddy_quiz_attempts';
 const REVIEW_STORAGE_KEY = 'bcabuddy_review_items';
 const WEAK_TOPICS_KEY = 'bcabuddy_weak_topics';
+const STUDY_ROADMAP_KEY = 'bcabuddy_study_roadmap_v1';
+const APC_PERFORMANCE_SUMMARY_KEY = 'bcabuddy_apc_performance_summary_v1';
+
+let mermaidModulePromise = null;
+const loadMermaidModule = async () => {
+  if (!mermaidModulePromise) {
+    mermaidModulePromise = import('mermaid').then((mod) => mod.default || mod);
+  }
+  return mermaidModulePromise;
+};
 
 const safeJsonParse = (value, fallback) => {
   try {
@@ -62,6 +73,60 @@ const safeJsonParse = (value, fallback) => {
   } catch {
     return fallback;
   }
+};
+
+const normalizeToolKey = (value) => {
+  const raw = String(value || '').trim().toLowerCase().replace(/_/g, ' ');
+  const normalized = raw.replace(/\s+/g, ' ');
+  if (['exam predictor', 'exam-predictor'].includes(normalized)) return 'exam predictor';
+  if (['viva mentor', 'ai viva mentor', 'ai-viva-mentor'].includes(normalized)) return 'viva mentor';
+  if (['study roadmap', 'study plan', 'roadmap'].includes(normalized)) return 'study roadmap';
+  if (['cheat mode', 'cheat', 'pyq cheat'].includes(normalized)) return 'cheat mode';
+  if (['performance analytics', 'performance analyzer', 'performance'].includes(normalized)) return 'performance analytics';
+  if (['quiz master', 'ocr quiz', 'handwriting ocr to quiz'].includes(normalized)) return 'quiz master';
+  return normalized;
+};
+
+const normalizeSemesterNumber = (value) => {
+  const raw = String(value || '').trim();
+  const match = raw.match(/[1-6]/);
+  return match ? match[0] : '';
+};
+
+const semesterKeyFromNumber = (numberValue) => {
+  const num = normalizeSemesterNumber(numberValue);
+  return num ? `Sem ${num}` : '';
+};
+
+const parseRoadmapDays = (text) => {
+  const lines = String(text || '').split('\n').map(line => String(line || '').trim()).filter(Boolean);
+  const days = [];
+  const seen = new Set();
+  for (const line of lines) {
+    const match = line.match(/^[-*•\s]*day\s*(\d{1,2})\s*[:\-\)]\s*(.+)$/i);
+    if (!match) continue;
+    const day = Number(match[1]);
+    if (!Number.isFinite(day) || day < 1 || day > 15 || seen.has(day)) continue;
+    const task = String(match[2] || '').trim();
+    if (!task) continue;
+    seen.add(day);
+    days.push({ day, label: `Day ${day}`, task, completed: false });
+  }
+  return days.sort((a, b) => a.day - b.day).slice(0, 15);
+};
+
+const parsePredictedQuestions = (text) => {
+  const lines = String(text || '').split('\n').map((line) => String(line || '').trim()).filter(Boolean);
+  const items = [];
+  for (const line of lines) {
+    const match = line.match(/^\s*(\d{1,2})[\).:-]\s+(.+)$/);
+    if (!match) continue;
+    const num = Number(match[1]);
+    const question = String(match[2] || '').trim();
+    if (!Number.isFinite(num) || !question) continue;
+    items.push({ number: num, question });
+  }
+  return items.slice(0, 20);
 };
 
 const isoDay = (d) => {
@@ -218,16 +283,210 @@ const ChartRenderer = ({ dataString }) => {
   return null;
 };
 
-// Enhanced Markdown renderer
+// ─────────────────────────────────────────────────────────────────
+// SafeMermaidViewer — mermaid v10.x compatible
+//
+// v10 breaking changes vs v9:
+//   • mermaid.render(id, code) creates a hidden <div id="..."> in body
+//     temporarily — if that ID already exists, it throws immediately.
+//   • startOnLoad:true + manual render() = double-processing = crash.
+//   • re-initializing mermaid mid-session resets internal state badly.
+//
+// This component handles all of that cleanly.
+// ─────────────────────────────────────────────────────────────────
+
+const SafeMermaidViewer = ({ chartCode }) => {
+  const containerRef = useRef(null);
+  const [renderState, setRenderState] = useState('loading');
+  const [errorMsg, setErrorMsg]       = useState('');
+  const [copied, setCopied]           = useState(false);
+
+  useEffect(() => {
+    if (!chartCode || !containerRef.current) return;
+
+    setRenderState('loading');
+    setErrorMsg('');
+
+    // ── Comprehensive auto-fix for AI-generated mermaid syntax errors ────────
+
+    // 1. Remove stray backtick fences that leaked from markdown
+    let clean = chartCode
+      .trim()
+      .replace(/^```[a-zA-Z]*\n?/, '')
+      .replace(/\n?```$/, '')
+      .trim();
+
+    // 2. Windows line endings
+    clean = clean.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+    // 3. Fix arrow labels — process each line individually for precision
+    clean = clean.split('\n').map(line => {
+      // Only touch lines that have arrows with labels  -->|...|
+      if (!line.includes('-->|') && !line.includes('->|')) return line;
+
+      // 3a. Fix single-dash arrow: ->| → -->|
+      line = line.replace(/(?<!-)->\|/g, '-->|');
+
+      // 3b. Fix -->|label|> node  →  -->|label| node
+      //     Catches: |> followed by space, newline, letter, or end of string
+      line = line.replace(/\|>/g, '|');
+
+      // 3c. Remove parentheses INSIDE pipe labels -->|...(...)...|
+      //     Parentheses inside labels are parsed as circle-node syntax → crash
+      //     Strategy: find each -->|...|  and strip ( ) inside the label only
+      line = line.replace(/-->\|([^|]*)\|/g, (match, label) => {
+        const cleanLabel = label.replace(/[()]/g, '');  // strip ( and )
+        return `-->|${cleanLabel}|`;
+      });
+
+      return line;
+    }).join('\n');
+
+    // 4. Fix node labels: strip characters mermaid can't handle inside [ ] { } ( )
+    //    e.g. A[TCP (Layer 4)] is fine, but special chars like < > can break it
+    //    We only strip inside the bracket content, not the brackets themselves
+    clean = clean.replace(/\[([^\]]*)\]/g, (match, inner) => {
+      // Allow letters, numbers, spaces, hyphens, slashes, colons, commas, dots
+      const safe = inner.replace(/[<>]/g, '');
+      return `[${safe}]`;
+    });
+
+    // ──────────────────────────────────────────────────────────────────────
+
+    // Unique ID per render attempt — prevents "element already exists" in v10
+    const uid = `mmd${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
+    let cancelled = false;
+
+    const runRender = async () => {
+      try {
+        const mermaid = await loadMermaidModule();
+        if (cancelled) return;
+
+        const { svg } = await mermaid.render(uid, clean);
+        const ghost = document.getElementById(uid);
+        if (ghost) ghost.remove();
+
+        if (!cancelled && containerRef.current) {
+          containerRef.current.innerHTML = svg;
+          const svgEl = containerRef.current.querySelector('svg');
+          if (svgEl) {
+            svgEl.style.maxWidth = '100%';
+            svgEl.style.height = 'auto';
+            svgEl.removeAttribute('height');
+          }
+          setRenderState('done');
+        }
+      } catch (err) {
+        const ghost = document.getElementById(uid);
+        if (ghost) ghost.remove();
+        if (!cancelled) {
+          const msg = err?.message || err?.str || String(err) || 'Unknown render error';
+          setErrorMsg(msg);
+          setRenderState('error');
+        }
+      }
+    };
+
+    runRender();
+
+    return () => {
+      cancelled = true;
+      const ghost = document.getElementById(uid);
+      if (ghost) ghost.remove();
+    };
+  }, [chartCode]);
+
+  const handleCopyCode = () => {
+    const clean = chartCode.trim().replace(/^```[a-zA-Z]*\n?/, '').replace(/\n?```$/, '').trim();
+    navigator.clipboard.writeText(clean).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    });
+  };
+
+  return (
+    <div
+      style={{
+        width: '100%',
+        backgroundColor: '#0d1117',
+        padding: '16px',
+        borderRadius: '12px',
+        overflowX: 'auto',
+        marginTop: '12px',
+        border: '1px solid rgba(3, 218, 198, 0.25)',
+      }}
+    >
+      {/* Loading */}
+      {renderState === 'loading' && (
+        <div style={{ color: '#03dac6', fontSize: '13px', textAlign: 'center', padding: '20px 0' }}>
+          Building diagram... 🏗️
+        </div>
+      )}
+
+      {/* SVG lands here on success */}
+      <div ref={containerRef} style={{ width: '100%' }} />
+
+      {/* Error: show message + raw code so user isn't stuck */}
+      {renderState === 'error' && (
+        <div style={{ marginTop: '8px' }}>
+          <div style={{
+            color: '#ff6b6b', fontSize: '12px', padding: '8px 12px',
+            background: 'rgba(255,107,107,0.08)', borderRadius: '8px',
+            border: '1px solid rgba(255,107,107,0.25)', marginBottom: '10px'
+          }}>
+            ⚠️ Diagram render failed.
+            {errorMsg && <><br /><span style={{ opacity: 0.6, fontSize: '11px' }}>{errorMsg}</span></>}
+          </div>
+          <div style={{ position: 'relative' }}>
+            <pre style={{
+              background: '#161b22', color: '#c9d1d9', fontSize: '12px',
+              borderRadius: '8px', padding: '10px 42px 10px 12px',
+              overflowX: 'auto', border: '1px solid #30363d',
+              margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word'
+            }}>
+              {chartCode.trim().replace(/^```[a-zA-Z]*\n?/, '').replace(/\n?```$/, '').trim()}
+            </pre>
+            <button onClick={handleCopyCode} style={{
+              position: 'absolute', top: 7, right: 7,
+              background: '#03dac6', color: '#111', border: 'none',
+              borderRadius: 5, padding: '2px 9px', fontWeight: 700,
+              cursor: 'pointer', fontSize: 11
+            }}>{copied ? 'Copied!' : 'Copy'}</button>
+          </div>
+          <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: '11px', marginTop: '6px' }}>
+            💡 Paste at{' '}
+            <a href="https://mermaid.live" target="_blank" rel="noopener noreferrer"
+               style={{ color: '#03dac6' }}>mermaid.live</a>{' '}
+            to debug the syntax.
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// 2. Tumhara Original Enhanced Markdown Renderer (Safe version ke sath)
 const enhancedCodeComponents = ({ inline, className, children, ...props }) => {
   const match = /language-(\w+)/.exec(className || '');
   const codeString = String(children).replace(/\n$/, '');
   
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    navigator.clipboard.writeText(codeString);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1200);
+  };
+
   if (match && match[1] === 'mermaid') {
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-        <Box sx={{ my: 2, bgcolor: GLASS_BG, border: GLASS_BORDER, p: 2, borderRadius: '16px', overflow: 'auto', backdropFilter: 'blur(12px)' }}>
-          <div className="mermaid">{codeString}</div>
+        <Box sx={{ my: 2, bgcolor: GLASS_BG, border: GLASS_BORDER, p: 2, borderRadius: '16px', overflow: 'auto', backdropFilter: 'blur(12px)', position: 'relative' }}>
+          <SafeMermaidViewer chartCode={codeString} />
+          <button
+            onClick={handleCopy}
+            style={{ position: 'absolute', top: 12, right: 16, background: NEON_CYAN, color: '#222', border: 'none', borderRadius: 6, padding: '4px 10px', fontWeight: 600, cursor: 'pointer', fontSize: 13, zIndex: 2 }}
+            title="Copy diagram code"
+          >{copied ? 'Copied!' : 'Copy'}</button>
         </Box>
       </motion.div>
     );
@@ -236,8 +495,13 @@ const enhancedCodeComponents = ({ inline, className, children, ...props }) => {
   if (!inline && match) {
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-        <Box sx={{ borderRadius: '12px', overflow: 'hidden', my: 2 }}>
+        <Box sx={{ borderRadius: '12px', overflow: 'hidden', my: 2, position: 'relative' }}>
           <SyntaxHighlighter children={codeString} style={dracula} language={match[1]} PreTag="div" wrapLongLines />
+          <button
+            onClick={handleCopy}
+            style={{ position: 'absolute', top: 12, right: 16, background: NEON_CYAN, color: '#222', border: 'none', borderRadius: 6, padding: '4px 10px', fontWeight: 600, cursor: 'pointer', fontSize: 13, zIndex: 2 }}
+            title="Copy code"
+          >{copied ? 'Copied!' : 'Copy'}</button>
         </Box>
       </motion.div>
     );
@@ -273,33 +537,44 @@ const markdownComponents = {
   th: ({ children }) => <th style={{ border: `1px solid ${NEON_CYAN}40`, padding: '8px', textAlign: 'left', backgroundColor: `${NEON_PURPLE}20`, fontWeight: 600 }}>{children}</th>,
 };
 
-// Typewriter text for AI responses
-const TypewriterText = ({ text, speed = 25, onProgress, onComplete }) => {
+// ROCK-SOLID TYPEWRITER - WILL NEVER ERASE TEXT
+const TypewriterText = ({ text, speed = 25, onProgress, onComplete, isInterrupted }) => {
   const [displayedText, setDisplayedText] = useState('');
+  const indexRef = useRef(0);
   const timerRef = useRef(null);
 
   useEffect(() => {
-    let i = 0;
-    setDisplayedText('');
-
-    const typeNext = () => {
-      setDisplayedText((prev) => prev + text.charAt(i));
-      i += 1;
-      if (onProgress) onProgress();
-      if (i >= text.length) {
-        if (onComplete) onComplete();
-        return;
-      }
-      const jitter = Math.random() * 0.8 + 0.6; // 0.6x to 1.4x
-      const nextDelay = Math.max(12, Math.round(speed * jitter));
-      timerRef.current = setTimeout(typeNext, nextDelay);
-    };
-
-    timerRef.current = setTimeout(typeNext, Math.max(12, Math.round(speed)));
-    return () => {
+    // Agar stop button press hua, turant type karna band karo
+    if (isInterrupted) {
       if (timerRef.current) clearTimeout(timerRef.current);
+      return;
+    }
+
+    // Sirf aage ka text type karo, pichla erase mat karo
+    const typeNext = () => {
+      if (isInterrupted) return;
+      
+      if (indexRef.current < text.length) {
+        setDisplayedText(text.substring(0, indexRef.current + 1));
+        indexRef.current += 1;
+        
+        if (onProgress) onProgress();
+        
+        const jitter = Math.random() * 0.8 + 0.6;
+        timerRef.current = setTimeout(typeNext, speed * jitter);
+      } else {
+        if (onComplete) onComplete();
+      }
     };
-  }, [text, speed, onProgress, onComplete]);
+
+    if (indexRef.current < text.length) {
+      timerRef.current = setTimeout(typeNext, speed);
+    } else if (indexRef.current >= text.length && text.length > 0) {
+      if (onComplete) onComplete();
+    }
+
+    return () => clearTimeout(timerRef.current);
+  }, [text, speed, isInterrupted, onProgress, onComplete]);
 
   return (
     <ReactMarkdown children={displayedText} remarkPlugins={[remarkGfm]} components={markdownComponents} />
@@ -352,7 +627,6 @@ const Dashboard = ({ onThemeOverride }) => {
   const [speakingId, setSpeakingId] = useState(null);
   const [dashboardStats, setDashboardStats] = useState({ total_sessions: 0, last_subject: 'N/A', study_hours: 0, avg_quiz_score: 85 });
   const [syllabusProgress, setSyllabusProgress] = useState({ subject: null, total_topics: 0, covered_topics: [], covered_count: 0, completion_pct: 0 });
-  const [responseMode, setResponseMode] = useState('fast');
   const [exportMenuAnchor, setExportMenuAnchor] = useState(null);
   const [userMenuAnchor, setUserMenuAnchor] = useState(null);
   const [adminMenuAnchor, setAdminMenuAnchor] = useState(null);
@@ -373,8 +647,26 @@ const Dashboard = ({ onThemeOverride }) => {
   const [toolLoadingState, setToolLoadingState] = useState(null); // Track which tool is "loading"
   const [showExamSimulator, setShowExamSimulator] = useState(false); // Phase 4: Exam Simulator
   const [showQuizSection, setShowQuizSection] = useState(false); // PHASE 3: Quiz Section
+  const [showAdvancedTools, setShowAdvancedTools] = useState(false);
   const [tokenWarning, setTokenWarning] = useState(null); // Token expiry warning
   const [showTokenWarning, setShowTokenWarning] = useState(false); // Show warning snackbar
+  const [studyRoadmap, setStudyRoadmap] = useState({ has_roadmap: false, days: [], completion_pct: 0 });
+  const [apcSubjectInput, setApcSubjectInput] = useState('');
+  const [apcSemesterInput, setApcSemesterInput] = useState('');
+  const [apcDurationInput, setApcDurationInput] = useState('15');
+  const [vivaSubjectInput, setVivaSubjectInput] = useState('');
+  const [quizRemarks, setQuizRemarks] = useState('');
+  const [showExamAskInput, setShowExamAskInput] = useState(false);
+  const [showRoadmapAskInput, setShowRoadmapAskInput] = useState(false);
+  const [examPredictions, setExamPredictions] = useState([]);
+  const [roadmapDraftText, setRoadmapDraftText] = useState('');
+  const [roadmapHistory, setRoadmapHistory] = useState({});
+  const [isRoadmapHistoryLoading, setIsRoadmapHistoryLoading] = useState(false);
+  const [performanceSummary, setPerformanceSummary] = useState({ highlights: [], report_markdown: '', generated_at: null, eta_minutes: 1 });
+  const [showPerformanceReportModal, setShowPerformanceReportModal] = useState(false);
+  const [isGeneratingPerformanceReport, setIsGeneratingPerformanceReport] = useState(false);
+  const [performanceWaitMinutes, setPerformanceWaitMinutes] = useState(1);
+  const [dashboardSlideIndex, setDashboardSlideIndex] = useState(0);
 
   const [dailyGoals, setDailyGoals] = useState(() => {
     const saved = safeJsonParse(localStorage.getItem(DAILY_GOALS_KEY), null);
@@ -399,6 +691,7 @@ const Dashboard = ({ onThemeOverride }) => {
   const lastGreetedSubjectRef = useRef(null);
   const sessionsRetryRef = useRef(0);
   const tokenCheckIntervalRef = useRef(null); // Token validation interval
+  const isHistoryLoadingRef = useRef(false); // Skip background polling during manual history load
   const abortControllerRef = useRef(null); // Stop Response
   const messageIdRef = useRef(0);
   const streamBufferRef = useRef({});
@@ -480,7 +773,7 @@ const Dashboard = ({ onThemeOverride }) => {
   }, [dailyGoals]);
 
   useEffect(() => {
-    const shouldTrackChat = activeView === 'chat' && !showExamSimulator && !showQuizSection;
+    const shouldTrackChat = activeView === 'chat' && !showExamSimulator && !showQuizSection && !showAdvancedTools;
 
     const stopIfRunning = () => {
       if (!chatStudyStartRef.current) return;
@@ -510,7 +803,7 @@ const Dashboard = ({ onThemeOverride }) => {
       document.removeEventListener('visibilitychange', onVisibility);
       stopIfRunning();
     };
-  }, [activeView, showExamSimulator, showQuizSection]);
+  }, [activeView, showExamSimulator, showQuizSection, showAdvancedTools]);
 
   useEffect(() => {
     const ensureSessionStart = () => {
@@ -552,27 +845,22 @@ const Dashboard = ({ onThemeOverride }) => {
     setIsGenerating(false);
   }, []);
 
-  // PHASE 1: Stop Response Handler
   const handleStopResponse = () => {
     if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
+      abortControllerRef.current.abort(); // Kills network request
       abortControllerRef.current = null;
-      setIsAiThinking(false);
-      setIsGenerating(false);
-      setCurrentAnswer('');
-      
-      // Remove temporary thinking message
-      setMessages(prev => prev.filter(m => !m.isTemporary));
-      
-      // Add interrupted message
-      setMessages(prev => [...prev, {
-        id: makeMessageId(),
-        text: '⚠️ Response stopped by user',
-        sender: 'ai',
-        isTypingComplete: true,
-        isInterrupted: true
-      }]);
     }
+    
+    setIsAiThinking(false);
+    setIsGenerating(false); // Stop button ko turant Play button banayega
+
+    // Jo message abhi type ho raha tha, usko force stop karke UI update karo
+    setMessages(prev => prev.map(m => {
+      if (m.sender === 'ai' && !m.isTypingComplete) {
+        return { ...m, isTypingComplete: true, isInterrupted: true };
+      }
+      return m;
+    }).filter(m => !m.isTemporary));
   };
 
   const closeQuickQuiz = () => {
@@ -595,6 +883,9 @@ const Dashboard = ({ onThemeOverride }) => {
   const markTypingComplete = (id) => {
     setMessages(prev => prev.map(m => (m.id === id ? { ...m, isTypingComplete: true } : m)));
     setTimeout(() => scrollToBottom(), 0);
+    // v10 FIX: When typing completes, ReactMarkdown renders the full text and
+    // SafeMermaidViewer mounts. The component's own useEffect calls mermaid.render()
+    // automatically — no manual trigger needed here.
   };
 
   const sanitizeForSpeech = (text) => {
@@ -710,8 +1001,253 @@ const Dashboard = ({ onThemeOverride }) => {
       console.error('Failed to load syllabus progress:', e);
     }
   };
+
+  const loadStudyRoadmap = async () => {
+    const localFallback = () => {
+      const localData = safeJsonParse(localStorage.getItem(STUDY_ROADMAP_KEY), null);
+      if (localData && typeof localData === 'object' && localData.has_roadmap) {
+        setStudyRoadmap({
+          has_roadmap: true,
+          title: String(localData.title || 'My Study Roadmap'),
+          subject: localData.subject || null,
+          semester: localData.semester || null,
+          duration_days: Number(localData.duration_days || localData.total_days || 0),
+          days: Array.isArray(localData.days) ? localData.days : [],
+          total_days: Number(localData.total_days || 0),
+          completion_pct: Number(localData.completion_pct || 0),
+          created_at: localData.created_at || null,
+        });
+      }
+    };
+
+    try {
+      const res = await fetch(`${API_BASE}/study-roadmap/latest`, { headers: getHeaders() });
+      if (!res.ok) {
+        localFallback();
+        return;
+      }
+      const data = await res.json();
+      if (!data?.has_roadmap) {
+        localFallback();
+        return;
+      }
+      const mapped = {
+        has_roadmap: Boolean(data?.has_roadmap),
+        title: data?.title || 'My Study Roadmap',
+        subject: data?.subject || null,
+        semester: data?.semester || null,
+        duration_days: Number(data?.duration_days || data?.total_days || 0),
+        days: Array.isArray(data?.days) ? data.days : [],
+        total_days: Number(data?.total_days || 0),
+        completion_pct: Number(data?.completion_pct || 0),
+        created_at: data?.created_at || null,
+      };
+      setStudyRoadmap(mapped);
+      try {
+        localStorage.setItem(STUDY_ROADMAP_KEY, JSON.stringify(mapped));
+      } catch {
+        // ignore quota/storage errors
+      }
+    } catch (e) {
+      console.error('Failed to load study roadmap:', e);
+      localFallback();
+    }
+  };
+
+  const loadRoadmapHistory = async () => {
+    setIsRoadmapHistoryLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/study-roadmap/history`, { headers: getHeaders() });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const groups = data && typeof data === 'object' && data.groups && typeof data.groups === 'object'
+        ? data.groups
+        : {};
+      setRoadmapHistory(groups);
+    } catch (e) {
+      console.error('Failed to load roadmap history:', e);
+      setRoadmapHistory({});
+    } finally {
+      setIsRoadmapHistoryLoading(false);
+    }
+  };
+
+  const acceptCurrentRoadmap = async () => {
+    if (!roadmapDraftText.trim()) {
+      alert('Please generate a roadmap first.');
+      return;
+    }
+    const semNum = normalizeSemesterNumber(apcSemesterInput || semester);
+    const subjCode = String(apcSubjectInput || subject || '').trim();
+    const durationDays = Number(apcDurationInput || 15);
+    try {
+      const res = await fetch(`${API_BASE}/study-roadmap/accept`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          subject: subjCode,
+          semester: semNum ? `Sem ${semNum}` : '',
+          duration_days: durationDays,
+          roadmap_text: roadmapDraftText,
+        }),
+      });
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        throw new Error(txt || `HTTP ${res.status}`);
+      }
+      await loadStudyRoadmap();
+      await loadRoadmapHistory();
+      setMessages(prev => [...prev, { id: makeMessageId(), text: 'Roadmap accepted and synced to Dashboard ✅', sender: 'ai', isTypingComplete: true }]);
+    } catch (e) {
+      console.error('Failed to accept roadmap:', e);
+      setMessages(prev => [...prev, { id: makeMessageId(), text: `Roadmap sync failed: ${e.message}`, sender: 'ai', isTypingComplete: true }]);
+    }
+  };
+
+  const loadPerformanceSummary = async () => {
+    const localFallback = () => {
+      const localData = safeJsonParse(localStorage.getItem(APC_PERFORMANCE_SUMMARY_KEY), null);
+      if (localData && typeof localData === 'object') {
+        setPerformanceSummary({
+          highlights: Array.isArray(localData.highlights) ? localData.highlights : [],
+          report_markdown: String(localData.report_markdown || ''),
+          generated_at: localData.generated_at || null,
+          eta_minutes: Number(localData.eta_minutes || 1),
+        });
+      }
+    };
+
+    try {
+      const res = await fetch(`${API_BASE}/apc/performance-summary/latest`, { headers: getHeaders() });
+      if (!res.ok) {
+        localFallback();
+        return;
+      }
+      const data = await res.json();
+      const mapped = {
+        highlights: Array.isArray(data?.highlights) ? data.highlights : [],
+        report_markdown: String(data?.report_markdown || ''),
+        generated_at: data?.generated_at || null,
+        eta_minutes: Number(data?.eta_minutes || 1),
+      };
+      setPerformanceSummary(mapped);
+      try {
+        localStorage.setItem(APC_PERFORMANCE_SUMMARY_KEY, JSON.stringify(mapped));
+      } catch {
+        // ignore storage issues
+      }
+    } catch (e) {
+      console.error('Failed to load performance summary:', e);
+      localFallback();
+    }
+  };
+
+  const runPerformanceAnalyzerReport = async () => {
+    setIsGeneratingPerformanceReport(true);
+    setShowPerformanceReportModal(false);
+    const estimated = Math.max(1, Math.min(2, Math.ceil((messages.length || 20) / 120)));
+    setPerformanceWaitMinutes(estimated);
+
+    try {
+      const res = await fetch(`${API_BASE}/apc/performance-report`, { method: 'POST', headers: getHeaders() });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const mapped = {
+        highlights: Array.isArray(data?.highlights) ? data.highlights : [],
+        report_markdown: String(data?.report_markdown || ''),
+        generated_at: data?.generated_at || null,
+        eta_minutes: Number(data?.eta_minutes || estimated),
+      };
+      setPerformanceSummary(mapped);
+      try {
+        localStorage.setItem(APC_PERFORMANCE_SUMMARY_KEY, JSON.stringify(mapped));
+      } catch {
+        // ignore storage issues
+      }
+    } catch (e) {
+      console.error('Failed to generate performance report:', e);
+      setMessages(prev => [...prev, { id: makeMessageId(), text: 'Performance report generate nahi ho paaya. Thoda der baad retry karo.', sender: 'ai', isTypingComplete: true }]);
+    } finally {
+      setIsGeneratingPerformanceReport(false);
+    }
+  };
+
+  const runApcOcrQuiz = async (file, remarks = '') => {
+    if (!file) return;
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('remarks', String(remarks || '').trim());
+      const res = await fetch(`${API_BASE}/apc/ocr-quiz`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${getToken()}` },
+        body: formData,
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(text || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      const quizMd = String(data?.quiz_markdown || '').trim();
+      if (quizMd) {
+        setMessages(prev => [...prev, { id: makeMessageId(), text: quizMd, sender: 'ai', isTypingComplete: true }]);
+      }
+    } catch (e) {
+      console.error('APC OCR quiz failed:', e);
+      setMessages(prev => [...prev, { id: makeMessageId(), text: `OCR quiz generate nahi ho paaya: ${e.message}`, sender: 'ai', isTypingComplete: true }]);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const triggerApcToolAction = async () => {
+    const toolKey = normalizeToolKey(activeTool);
+    const semNum = normalizeSemesterNumber(apcSemesterInput || semester);
+    const subjCode = String(apcSubjectInput || subject || '').trim();
+    const duration = Number(apcDurationInput || 15);
+
+    if (toolKey === 'study roadmap') {
+      if (!semNum || !subjCode) {
+        alert('Please select semester and subject first.');
+        return;
+      }
+      await handleSend(`Create a ${duration}-day study roadmap for Semester ${semNum} and Subject ${subjCode}. Return day-wise plan from Day 1 to Day ${duration}.`);
+      return;
+    }
+    if (toolKey === 'exam predictor') {
+      if (!semNum || !subjCode) {
+        alert('Please select semester and subject first.');
+        return;
+      }
+      await handleSend(`Analyze the last 4 years of PYQs for Semester ${semNum} and Subject ${subjCode}. Return only a numbered list of predicted questions.`);
+      return;
+    }
+    if (toolKey === 'cheat mode') {
+      if (!subjCode) {
+        alert('Please select subject first.');
+        return;
+      }
+      await handleSend(`Use Cheat Mode for ${subjCode}. Give concise flashcard-style answers based on PYQ trends.`);
+      return;
+    }
+    if (toolKey === 'viva mentor') {
+      const vSub = String(vivaSubjectInput || apcSubjectInput || subject || '').trim();
+      if (!vSub) {
+        alert('Subject daalo, phir Viva start hoga.');
+        return;
+      }
+      await handleSend(`My subject is ${vSub}. Start mock viva now and ask questions one-by-one.`);
+      return;
+    }
+    if (toolKey === 'ai code architect') {
+      await handleSend('Welcome! Do you want to fix an existing code or write a new one?');
+    }
+  };
+
   const loadHistory = async (id, retryCount = 0) => {
     const prevSessionId = sessionId;
+    isHistoryLoadingRef.current = true;
     try {
       setSessionId(id);
       const res = await fetch(`${API_BASE}/history?session_id=${id}`, { headers: getHeaders() });
@@ -734,6 +1270,8 @@ const Dashboard = ({ onThemeOverride }) => {
       }
       setSessionId(prevSessionId);
       alert('Error loading chat history: ' + e.message);
+    } finally {
+      isHistoryLoadingRef.current = false;
     }
   };
   const loadUserProfile = async () => {
@@ -746,7 +1284,7 @@ const Dashboard = ({ onThemeOverride }) => {
       const data = await res.json();
       setUserProfile(data);
 
-      const raw = data?.profile_picture_url;
+      const raw = data?.profile_pic_url || data?.profile_picture_url;
       if (raw) {
         const normalized = String(raw).startsWith('http') ? String(raw) : `${API_BASE}${String(raw)}`;
         updateProfilePic(normalized);
@@ -850,6 +1388,7 @@ const Dashboard = ({ onThemeOverride }) => {
 
   const QuickSuggestionsChips = () => {
     if (hideSuggestions) return null;
+    if (activeTool) return null;
     const suggestions = getContextualSuggestions();
 
     return (
@@ -907,25 +1446,41 @@ const Dashboard = ({ onThemeOverride }) => {
   };
 
   useEffect(() => {
-    loadSessions();
-    loadDashboardStats();
-    loadUserProfile();
-    loadSyllabusProgress(subject);
+    const refreshDashboardData = () => {
+      if (isHistoryLoadingRef.current) return;
+      loadSessions();
+      loadDashboardStats();
+      loadUserProfile();
+      loadStudyRoadmap();
+      loadRoadmapHistory();
+      loadPerformanceSummary();
+    };
+
+    refreshDashboardData();
     
-    // Initialize Mermaid
-    mermaid.initialize({
-      startOnLoad: true,
-      theme: 'dark',
-      securityLevel: 'loose',
-      themeVariables: {
-        primaryColor: '#bb86fc',
-        primaryTextColor: '#fff',
-        primaryBorderColor: '#03dac6',
-        lineColor: '#03dac6',
-        secondaryColor: '#03dac6',
-        tertiaryColor: '#1e293b'
-      }
-    });
+    // Initialize Mermaid — v10 compatible settings
+    // NOTE: 'startOnLoad: false' is important in v10 when using mermaid.render() manually.
+    // If startOnLoad is true AND we call render() manually, v10 can double-process and throw.
+    loadMermaidModule()
+      .then((mermaid) => {
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: 'dark',
+          securityLevel: 'loose',
+          fontFamily: 'monospace',
+          themeVariables: {
+            primaryColor: '#bb86fc',
+            primaryTextColor: '#fff',
+            primaryBorderColor: '#03dac6',
+            lineColor: '#03dac6',
+            secondaryColor: '#03dac6',
+            tertiaryColor: '#1e293b'
+          }
+        });
+      })
+      .catch((err) => {
+        console.error('Mermaid failed to initialize:', err);
+      });
 
     // Token Validation: Check every 30 seconds
     const validateToken = () => {
@@ -951,9 +1506,11 @@ const Dashboard = ({ onThemeOverride }) => {
 
     validateToken(); // Check immediately on load
     tokenCheckIntervalRef.current = setInterval(validateToken, 30000); // Check every 30 seconds
+    const dashboardPollRef = setInterval(refreshDashboardData, 180000); // silent background refresh every 3 minutes
 
     return () => {
       if (tokenCheckIntervalRef.current) clearInterval(tokenCheckIntervalRef.current);
+      clearInterval(dashboardPollRef);
     };
   }, []);
 
@@ -984,10 +1541,9 @@ const Dashboard = ({ onThemeOverride }) => {
   }, [subject, semester]);
   
   useEffect(() => {
-    // Re-render Mermaid diagrams when messages change
-    if (messages.length > 0) {
-      mermaid.contentLoaded();
-    }
+    // v10 FIX: mermaid.contentLoaded() is a no-op in v10 when startOnLoad:false.
+    // SafeMermaidViewer handles its own rendering via mermaid.render() internally.
+    // Nothing needed here.
   }, [messages]);
 
   useEffect(() => {
@@ -1008,49 +1564,57 @@ const Dashboard = ({ onThemeOverride }) => {
   };
 
   const sendMessage = async (text, currentMode) => {
+    const selectedTool = activeTool;
     setCurrentAnswer('');
     setMessages(prev => [...prev, { id: makeMessageId(), text, sender: 'user', isTypingComplete: true }]);
     setIsAiThinking(true);
     setIsGenerating(true);
 
-    const modeToSend = currentMode === 'auto' ? 'casual' : currentMode;
+    const modeToSend = selectedTool ? 'study' : (currentMode === 'auto' ? 'casual' : currentMode);
+    const selectedSubjectForRequest = selectedTool
+      ? (String(apcSubjectInput || vivaSubjectInput || subject || '').trim())
+      : subject;
+    const selectedSemesterForRequest = selectedTool
+      ? normalizeSemesterNumber(apcSemesterInput || semester)
+      : normalizeSemesterNumber(semester);
 
     // Create new abort controller (only stop when user clicks Stop)
     abortControllerRef.current = new AbortController();
 
-    // Show thinking indicator based on response mode
     let thinkingMessage = null;
-    if (responseMode === 'thinking') {
-      thinkingMessage = {
-        id: makeMessageId(),
-        text: '🧠 **Thinking deeply...** (This may take 3 seconds)',
-        sender: 'ai',
-        isTypingComplete: true,
-        isTemporary: true
-      };
-      setMessages(prev => [...prev, thinkingMessage]);
-    } else if (responseMode === 'pro') {
-      thinkingMessage = {
-        id: makeMessageId(),
-        text: '🏆 **Preparing detailed academic response...**',
-        sender: 'ai',
-        isTypingComplete: true,
-        isTemporary: true
-      };
-      setMessages(prev => [...prev, thinkingMessage]);
-    }
 
     try {
+      // Trim context while preserving latest diagram/code block
+      let trimmedMessages = messages;
+      const maxContext = 10;
+      if (Array.isArray(messages) && messages.length > maxContext) {
+        // Find the latest diagram/code block message
+        let diagramIdx = -1;
+        for (let i = messages.length - 1; i >= 0; i--) {
+          const msg = messages[i];
+          if (typeof msg.text === 'string' && (msg.text.includes('```mermaid') || msg.text.match(/```[a-zA-Z]+/))) {
+            diagramIdx = i;
+            break;
+          }
+        }
+        // Slice last maxContext messages
+        trimmedMessages = messages.slice(-maxContext);
+        // If diagram/code block is not in trimmed, add it
+        if (diagramIdx !== -1 && diagramIdx < messages.length - maxContext) {
+          trimmedMessages = [messages[diagramIdx], ...trimmedMessages];
+        }
+      }
       const res = await fetch(`${API_BASE}/chat`, { 
         method: 'POST', 
         headers: getHeaders(), 
         body: JSON.stringify({ 
           message: text, 
           mode: modeToSend, 
-          selected_subject: subject, 
+          selected_subject: selectedSubjectForRequest, 
+          selected_semester: selectedSemesterForRequest,
           session_id: sessionId,
-          response_mode: responseMode,
-          active_tool: activeTool
+          active_tool: selectedTool,
+          messages: trimmedMessages
         }),
         signal: abortControllerRef.current.signal
       });
@@ -1097,44 +1661,61 @@ const Dashboard = ({ onThemeOverride }) => {
       let parsedSuggestions = [];
 
       try {
+        // ── Path 1: Backend already parsed JSON cleanly (ideal case) ──────
         if (data?.response?.answer) {
-          parsedAnswer = data.response.answer;
-          parsedSuggestions = data.response.next_suggestions || [];
-        } else if (data?.answer && data?.next_suggestions) {
-          parsedAnswer = data.answer;
-          parsedSuggestions = data.next_suggestions;
-        } else if (typeof data?.reply === 'string') {
-          const rawData = data.reply.trim();
-          const tailJsonMatch = rawData.match(/\{\s*"next_suggestions"[\s\S]*\}\s*$/);
+          parsedAnswer     = data.response.answer;
+          parsedSuggestions = Array.isArray(data.response.next_suggestions)
+            ? data.response.next_suggestions : [];
 
-          if (tailJsonMatch) {
-            const parts = rawData.split(/\{\s*"next_suggestions"/);
-            parsedAnswer = parts[0].trim();
-            const jsonBlock = tailJsonMatch[0];
-            try {
-              const parsed = JSON.parse(jsonBlock);
-              parsedSuggestions = Array.isArray(parsed?.next_suggestions)
-                ? parsed.next_suggestions
-                : [];
-            } catch {
-              parsedSuggestions = [];
+        // ── Path 2: Root-level answer field ───────────────────────────────
+        } else if (data?.answer) {
+          parsedAnswer     = data.answer;
+          parsedSuggestions = Array.isArray(data.next_suggestions)
+            ? data.next_suggestions : [];
+
+        // ── Path 3: Raw reply string — AI may have returned mixed text ─────
+        } else if (typeof data?.reply === 'string') {
+          let raw = data.reply.trim();
+
+          // 3a. Try to parse the whole thing as JSON first
+          try {
+            const j = JSON.parse(raw);
+            if (j?.answer) {
+              parsedAnswer      = j.answer;
+              parsedSuggestions = Array.isArray(j.next_suggestions) ? j.next_suggestions : [];
+              raw = ''; // mark as handled
             }
-          } else {
-            parsedAnswer = rawData;
+          } catch { /* not clean JSON, fall through */ }
+
+          if (raw) {
+            // 3b. Strip trailing {"next_suggestions":[...]} blob
+            const tailMatch = raw.match(/\n?\*?\*?next_suggestions\*?\*?:?[\s\S]*$/i)
+                           || raw.match(/\{[\s\n]*"next_suggestions"[\s\S]*\}[\s]*$/);
+            if (tailMatch) {
+              raw = raw.slice(0, tailMatch.index).trim();
+            }
+
+            // 3c. Strip any "next_suggestions:" label lines that leaked as plain text
+            raw = raw.replace(/\n?\*?\*?next_suggestions\*?\*?\s*:?[\s\S]*$/i, '').trim();
+
+            parsedAnswer = raw;
           }
         }
-        
-        // Final cleanup: remove any remaining JSON patterns from answer
+
+        // ── Final cleanup on parsedAnswer ─────────────────────────────────
+        // Remove trailing next_suggestions text (visible when JSON parse fails)
         parsedAnswer = parsedAnswer
-          .replace(/\{[\s\S]*?"answer"[\s\S]*?\}/g, '')
-          .replace(/\{\s*"next_suggestions"[\s\S]*\}$/g, '')
+          .replace(/\nnext_suggestions\s*:[\s\S]*$/i, '')
+          .replace(/\n\*\*next_suggestions\*\*[\s\S]*$/i, '')
+          .replace(/\{\s*"next_suggestions"\s*:[\s\S]*?\}\s*$/g, '')
           .trim();
+
         if (!parsedAnswer) {
           parsedAnswer = data?.reply || 'Sorry, response parsing failed.';
         }
-        
+
       } catch (parseError) {
-        parsedAnswer = data?.reply || 'Sorry, response parsing failed.';
+        parsedAnswer      = data?.reply || 'Sorry, response parsing failed.';
         parsedSuggestions = DEFAULT_SUBJECT_CHIPS;
       }
 
@@ -1157,7 +1738,7 @@ const Dashboard = ({ onThemeOverride }) => {
           text: streamBufferRef.current[aiMessageId],
           sender: 'ai',
           isTypingComplete: false,
-          nextSuggestions: inlineSuggestions
+          nextSuggestions: inlineSuggestions,
         });
       });
 
@@ -1167,13 +1748,39 @@ const Dashboard = ({ onThemeOverride }) => {
       } else if (!inlineSuggestions.length) {
         setChatSuggestions(DEFAULT_SUBJECT_CHIPS);
       }
-      setActiveTool(null);
+      if (normalizeToolKey(selectedTool) === 'study roadmap') {
+        setRoadmapDraftText(parsedAnswer);
+        const roadmapDays = parseRoadmapDays(parsedAnswer);
+        if (roadmapDays.length > 0) {
+          const duration = Number(apcDurationInput || 15);
+          const trimmed = roadmapDays.slice(0, Math.max(1, duration));
+          const localRoadmap = {
+            has_roadmap: true,
+            title: `${Math.max(1, duration)}-Day Study Roadmap`,
+            subject: String(apcSubjectInput || subject || '') || null,
+            semester: normalizeSemesterNumber(apcSemesterInput || semester) ? `Sem ${normalizeSemesterNumber(apcSemesterInput || semester)}` : null,
+            duration_days: Math.max(1, duration),
+            days: trimmed,
+            total_days: trimmed.length,
+            completion_pct: 0,
+            created_at: new Date().toISOString(),
+          };
+          try {
+            localStorage.setItem(STUDY_ROADMAP_KEY, JSON.stringify(localRoadmap));
+          } catch {
+            // ignore quota/storage errors
+          }
+          setStudyRoadmap(localRoadmap);
+        }
+      }
+      if (normalizeToolKey(selectedTool) === 'exam predictor') {
+        const predictions = parsePredictedQuestions(parsedAnswer);
+        setExamPredictions(predictions);
+      }
       setTimeout(() => inputRef.current?.focus(), 0);
 
-      // Trigger Mermaid rendering for new diagrams
-      setTimeout(() => {
-        mermaid.contentLoaded();
-      }, 100);
+      // v10 FIX: No need to call mermaid.contentLoaded() here.
+      // SafeMermaidViewer mounts and calls mermaid.render() on its own.
 
     } catch (error) {
       if (error.name === 'AbortError') {
@@ -1331,6 +1938,7 @@ const Dashboard = ({ onThemeOverride }) => {
       return;
     }
     // Launch the full-screen Exam Simulator (Phase 4)
+    setShowAdvancedTools(false);
     setShowExamSimulator(true);
   };
 
@@ -1364,7 +1972,8 @@ const Dashboard = ({ onThemeOverride }) => {
     URL.revokeObjectURL(url);
   };
 
-  const exportAsPDF = () => {
+  const exportAsPDF = async () => {
+    const { jsPDF } = await import('jspdf');
     const doc = new jsPDF();
     doc.setFontSize(12);
     let yPos = 20;
@@ -1545,6 +2154,7 @@ const Dashboard = ({ onThemeOverride }) => {
                           display: 'flex',
                           alignItems: 'center',
                           gap: 1,
+                          overflow: 'hidden',
                           py: 1,
                           px: 1.5,
                           cursor: 'pointer',
@@ -1554,8 +2164,8 @@ const Dashboard = ({ onThemeOverride }) => {
                         <Timer sx={{ fontSize: 16, color: NEON_CYAN }} />
                         <ListItemText
                           primary={s.title}
-                          primaryTypographyProps={{ noWrap: true, sx: { fontSize: '13px', fontWeight: sessionId === s.id ? 600 : 400 } }}
-                          sx={{ minWidth: 0 }}
+                          primaryTypographyProps={{ noWrap: true, className: 'truncate max-w-[150px] inline-block', sx: { fontSize: '13px', fontWeight: sessionId === s.id ? 600 : 400 } }}
+                          sx={{ minWidth: 0, overflow: 'hidden' }}
                         />
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                           <IconButton
@@ -1659,12 +2269,46 @@ const Dashboard = ({ onThemeOverride }) => {
             <Book sx={{ mr: 1.5, fontSize: '20px' }} /> Study Tools
           </AccordionSummary>
           <AccordionDetails sx={{ display: 'flex', flexDirection: 'column', gap: 1, p: 1 }}>
+            <Tooltip title="Advanced Preparation Center">
+              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                <ListItem
+                  component="div"
+                  role="button"
+                  onClick={() => {
+                    setShowAdvancedTools(true);
+                    setShowQuizSection(false);
+                    setShowExamSimulator(false);
+                    setActiveView('chat');
+                    if (mobileOpen) setMobileOpen(false);
+                  }}
+                  sx={{
+                    bgcolor: GLASS_BG,
+                    border: GLASS_BORDER,
+                    borderRadius: '12px',
+                    cursor: 'pointer',
+                    '&:hover': { backgroundColor: `${NEON_PURPLE}20`, borderColor: `${NEON_PURPLE}40` },
+                    backdropFilter: 'blur(12px)',
+                    py: 1.2
+                  }}
+                >
+                  <ListItemIcon sx={{ color: NEON_CYAN, minWidth: '36px' }}>
+                    <WorkspacePremium sx={{ fontSize: '18px' }} />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary="🚀 Advanced Preparation Center"
+                    sx={{ '& .MuiListItemText-primary': { fontSize: '14px', fontWeight: 500 } }}
+                  />
+                </ListItem>
+              </motion.div>
+            </Tooltip>
+
             <Tooltip title="Quick 10-question practice with instant feedback">
               <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                 <ListItem
                   component="div"
                   role="button"
                   onClick={() => {
+                    setShowAdvancedTools(false);
                     setShowQuizSection(true);
                     if (mobileOpen) setMobileOpen(false);
                   }}
@@ -1700,6 +2344,7 @@ const Dashboard = ({ onThemeOverride }) => {
                         alert("Please select a subject and semester first.");
                         return;
                       }
+                      setShowAdvancedTools(false);
                       setShowExamSimulator(true);
                       if (mobileOpen) setMobileOpen(false);
                     }}
@@ -1741,6 +2386,7 @@ const Dashboard = ({ onThemeOverride }) => {
                         alert("Please select a subject and semester first.");
                         return;
                       }
+                      setShowAdvancedTools(false);
                       setShowExamSimulator(true);
                       if (mobileOpen) setMobileOpen(false);
                     }}
@@ -1790,6 +2436,7 @@ const Dashboard = ({ onThemeOverride }) => {
                       alert("Please select a subject and semester first.");
                       return;
                     }
+                    setShowAdvancedTools(false);
                     setShowExamSimulator(true);
                     setActiveView('chat');
                     if (mobileOpen) setMobileOpen(false);
@@ -1938,18 +2585,20 @@ const Dashboard = ({ onThemeOverride }) => {
     const weakTopics = readWeakTopics();
     const nowIso = new Date().toISOString();
     const dueWeakTopics = weakTopics.filter((t) => String(t?.due_at || '') <= nowIso);
+    const roadmapDays = Array.isArray(studyRoadmap?.days) ? studyRoadmap.days.slice(0, 15) : [];
+    const roadmapPct = Math.max(0, Math.min(100, Number(studyRoadmap?.completion_pct || 0)));
 
     const containerVariants = {
-      hidden: { opacity: 0, y: 10 },
-      show: { opacity: 1, y: 0, transition: { staggerChildren: 0.08, delayChildren: 0.05 } },
+      hidden: { opacity: 0 },
+      visible: { opacity: 1, transition: { staggerChildren: 0.15 } },
     };
 
     const itemVariants = {
-      hidden: { opacity: 0, y: 16 },
-      show: { opacity: 1, y: 0 },
+      hidden: { opacity: 0, y: 30 },
+      visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
     };
 
-    const StatCard = ({ label, value, icon: IconComp, color }) => (
+    const StatCard = ({ label, value, icon: IconComp, color, countTo = null, suffix = '', showActiveDot = false }) => (
       <motion.div variants={itemVariants}>
         <Card
           sx={{
@@ -1968,7 +2617,28 @@ const Dashboard = ({ onThemeOverride }) => {
             </Box>
             <Box sx={{ minWidth: 0 }}>
               <Typography sx={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: 700, letterSpacing: '0.06em' }}>{label}</Typography>
-              <Typography sx={{ color: '#E6EAF0', fontSize: 22, fontWeight: 900, mt: 0.4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</Typography>
+              <Typography sx={{ color: '#E6EAF0', fontSize: 22, fontWeight: 900, mt: 0.4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {typeof countTo === 'number' ? (
+                  <>
+                    <CountUp start={0} end={countTo} duration={2.5} />{suffix}
+                  </>
+                ) : value}
+                {showActiveDot && (
+                  <span
+                    className="animate-pulse bg-green-500 rounded-full h-2 w-2 inline-block"
+                    style={{
+                      display: 'inline-block',
+                      width: 8,
+                      height: 8,
+                      borderRadius: '999px',
+                      marginLeft: 8,
+                      background: '#22c55e',
+                      boxShadow: '0 0 10px rgba(34,197,94,0.65)',
+                      animation: 'pulseDot 1.4s ease-in-out infinite',
+                    }}
+                  />
+                )}
+              </Typography>
             </Box>
           </Box>
         </Card>
@@ -1977,7 +2647,7 @@ const Dashboard = ({ onThemeOverride }) => {
 
     return (
       <Box sx={{ p: 3, overflowY: 'auto', height: '100%' }}>
-        <motion.div variants={containerVariants} initial="hidden" animate="show">
+        <motion.div variants={containerVariants} initial="hidden" animate="visible">
           <motion.div variants={itemVariants}>
             <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '22px', p: 2.8, backdropFilter: 'blur(12px)' }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -1995,7 +2665,7 @@ const Dashboard = ({ onThemeOverride }) => {
 
                 <Box sx={{ display: 'flex', gap: 1.2, flexWrap: 'wrap' }}>
                   <Button
-                    onClick={() => setShowQuizSection(true)}
+                    onClick={() => { setShowAdvancedTools(false); setShowQuizSection(true); }}
                     startIcon={<Quiz sx={{ fontSize: 18 }} />}
                     sx={{
                       bgcolor: `${NEON_PURPLE}18`,
@@ -2010,7 +2680,7 @@ const Dashboard = ({ onThemeOverride }) => {
                     Practice Quiz
                   </Button>
                   <Button
-                    onClick={() => setShowExamSimulator(true)}
+                    onClick={() => { setShowAdvancedTools(false); setShowExamSimulator(true); }}
                     startIcon={<Timer sx={{ fontSize: 18 }} />}
                     sx={{
                       bgcolor: `${NEON_CYAN}18`,
@@ -2052,26 +2722,37 @@ const Dashboard = ({ onThemeOverride }) => {
           </motion.div>
 
           <Box
+            component={motion.div}
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-max"
             sx={{
               mt: 3,
+              alignItems: 'start',
               display: 'grid',
-              gridTemplateColumns: { xs: '1fr', lg: '1.2fr 1fr 0.9fr' },
+              gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(3, minmax(0, 1fr))' },
               gap: 3,
-              alignItems: 'start'
+              minWidth: 0,
             }}
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
           >
             {/* LEFT COLUMN */}
-            <Box sx={{ display: 'grid', gap: 3 }}>
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
-                <StatCard label="Study Hours" value={`${sessionHours}h`} icon={Timer} color={NEON_CYAN} />
-                <StatCard label="Study (7d)" value={`${weeklyHours}h`} icon={School} color={'#10B981'} />
-                <StatCard label="Avg Quiz Score" value={`${Number(dashboardStats.avg_quiz_score || 0).toFixed(0)}%`} icon={Quiz} color={NEON_PURPLE} />
-                <StatCard label="Total Sessions" value={Number(dashboardStats.total_sessions || 0)} icon={BarChart} color={'#F59E0B'} />
-                <StatCard label="Recent Activity" value={String(dashboardStats.recent_activity || '—')} icon={Bolt} color={'#06B6D4'} />
-              </Box>
+            <motion.div variants={itemVariants} style={{ display: 'grid', gap: 24, minWidth: 0 }}>
+              <motion.div variants={itemVariants} className="h-[400px] flex flex-col" style={{ height: 400, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: 'blur(12px)', height: '100%', overflowY: 'auto' }}>
+                  <Typography sx={{ color: NEON_CYAN, fontWeight: 900, letterSpacing: '0.06em', mb: 1.2 }}>Stats</Typography>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
+                    <StatCard label="Study Hours" value={`${sessionHours}h`} icon={Timer} color={NEON_CYAN} countTo={Number(sessionHours || 0)} suffix="h" />
+                    <StatCard label="Study (7d)" value={`${weeklyHours}h`} icon={School} color={'#10B981'} countTo={Number(weeklyHours || 0)} suffix="h" />
+                    <StatCard label="Avg Quiz Score" value={`${Number(dashboardStats.avg_quiz_score || 0).toFixed(0)}%`} icon={Quiz} color={NEON_PURPLE} countTo={Number(dashboardStats.avg_quiz_score || 0)} suffix="%" />
+                    <StatCard label="Total Sessions" value={Number(dashboardStats.total_sessions || 0)} icon={BarChart} color={'#F59E0B'} countTo={Number(dashboardStats.total_sessions || 0)} />
+                    <StatCard label="Last active" value={String(dashboardStats.recent_activity || '—')} icon={Bolt} color={'#06B6D4'} showActiveDot />
+                  </Box>
+                </Card>
+              </motion.div>
 
-              <motion.div variants={itemVariants}>
-                <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: 'blur(12px)' }}>
+              <motion.div variants={itemVariants} className="h-[400px] flex flex-col" style={{ height: 400, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: 'blur(12px)', height: '100%', overflow: 'hidden' }}>
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
                     <Box>
                       <Typography sx={{ color: NEON_CYAN, fontWeight: 900, letterSpacing: '0.06em' }}>Weekly Study Activity</Typography>
@@ -2101,14 +2782,14 @@ const Dashboard = ({ onThemeOverride }) => {
                       </Button>
                     </Tooltip>
                   </Box>
-                  <Box sx={{ mt: 2, height: 240, minHeight: 240 }}>
+                  <Box sx={{ mt: 2, height: 240, minHeight: 240, flex: 1 }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <RechartsBarChart data={weeklyActivity}>
                         <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
                         <XAxis dataKey="day" stroke="rgba(255,255,255,0.55)" />
                         <YAxis stroke="rgba(255,255,255,0.45)" />
                         <RechartsTooltip contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: `1px solid ${NEON_CYAN}25`, borderRadius: '12px', color: '#E6EAF0' }} />
-                        <Bar dataKey="minutes" fill={NEON_CYAN} radius={[10, 10, 0, 0]} />
+                        <Bar dataKey="minutes" fill={NEON_CYAN} radius={[10, 10, 0, 0]} animationDuration={1500} />
                       </RechartsBarChart>
                     </ResponsiveContainer>
                   </Box>
@@ -2128,61 +2809,136 @@ const Dashboard = ({ onThemeOverride }) => {
                         <XAxis dataKey="name" stroke="rgba(255,255,255,0.55)" />
                         <YAxis domain={[0, 100]} stroke="rgba(255,255,255,0.45)" />
                         <RechartsTooltip contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: `1px solid ${NEON_PURPLE}25`, borderRadius: '12px', color: '#E6EAF0' }} />
-                        <Line type="monotone" dataKey="score" stroke={NEON_PURPLE} strokeWidth={3} dot={{ r: 5, stroke: NEON_PURPLE, strokeWidth: 2, fill: 'rgba(15,23,42,1)' }} activeDot={{ r: 7 }} />
+                        <Line type="monotone" dataKey="score" stroke={NEON_PURPLE} strokeWidth={3} dot={{ r: 5, stroke: NEON_PURPLE, strokeWidth: 2, fill: 'rgba(15,23,42,1)' }} activeDot={{ r: 7 }} animationDuration={1500} />
                       </LineChart>
                     </ResponsiveContainer>
                   </Box>
                 </Card>
               </motion.div>
-            </Box>
+            </motion.div>
 
             {/* MIDDLE COLUMN */}
-            <Box sx={{ display: 'grid', gap: 3 }}>
+            <motion.div variants={itemVariants} style={{ display: 'grid', gap: 24, minWidth: 0 }}>
               <motion.div variants={itemVariants}>
-                <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: 'blur(12px)' }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-                    <Typography sx={{ color: NEON_CYAN, fontWeight: 900, letterSpacing: '0.06em' }}>Syllabus Completion</Typography>
-                    <Typography sx={{ color: 'rgba(255,255,255,0.55)', fontSize: 12 }}>
-                      {syllabusProgress?.subject ? `Subject: ${syllabusProgress.subject}` : 'Select a subject'}
-                    </Typography>
+                <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: 'blur(12px)', overflow: 'hidden' }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.4 }}>
+                    <Typography sx={{ color: NEON_CYAN, fontWeight: 900, letterSpacing: '0.06em' }}>Study Widgets</Typography>
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Button
+                        size="small"
+                        onClick={() => setDashboardSlideIndex((prev) => (prev <= 0 ? 1 : prev - 1))}
+                        sx={{ minWidth: 34, color: '#E6EAF0', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '12px', fontWeight: 900 }}
+                      >
+                        ‹
+                      </Button>
+                      <Button
+                        size="small"
+                        onClick={() => setDashboardSlideIndex((prev) => (prev >= 1 ? 0 : prev + 1))}
+                        sx={{ minWidth: 34, color: '#E6EAF0', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '12px', fontWeight: 900 }}
+                      >
+                        ›
+                      </Button>
+                    </Box>
                   </Box>
 
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-                    <Box sx={{ position: 'relative', width: 96, height: 96 }}>
-                      <CircularProgress variant="determinate" value={syllabusPct} size={96} thickness={5} sx={{ color: '#10B981' }} />
-                      <Box sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <Typography sx={{ color: '#E6EAF0', fontWeight: 900 }}>
-                          {Math.round(syllabusPct)}%
+                  <Box sx={{ overflow: 'hidden' }}>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        width: { xs: '100%', md: '200%' },
+                        transform: { xs: 'translateX(0%)', md: `translateX(-${dashboardSlideIndex * 50}%)` },
+                        transition: 'transform 420ms ease',
+                      }}
+                    >
+                      <Box sx={{ width: { xs: '100%', md: '50%' }, pr: { xs: 0, md: 1 } }}>
+                        <Typography sx={{ color: '#E6EAF0', fontWeight: 800, fontSize: 14, mb: 1 }}>Syllabus Completion</Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                          <Box sx={{ position: 'relative', width: 90, height: 90 }}>
+                            <CircularProgress variant="determinate" value={syllabusPct} size={90} thickness={5} sx={{ color: '#10B981' }} />
+                            <Box sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <Typography sx={{ color: '#E6EAF0', fontWeight: 900 }}>{Math.round(syllabusPct)}%</Typography>
+                            </Box>
+                          </Box>
+                          <Box sx={{ minWidth: 220, flex: 1 }}>
+                            <Typography sx={{ color: 'rgba(255,255,255,0.72)', fontSize: 12 }}>
+                              {syllabusProgress?.subject ? `Subject: ${syllabusProgress.subject}` : 'Select a subject'}
+                            </Typography>
+                            <Typography sx={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, mt: 0.6 }}>
+                              {Number(syllabusProgress?.covered_count || 0)} / {Number(syllabusProgress?.total_topics || 0)} topics
+                            </Typography>
+                            {Array.isArray(syllabusProgress?.covered_topics) && syllabusProgress.covered_topics.length > 0 && (
+                              <Box sx={{ mt: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                {syllabusProgress.covered_topics.slice(0, 4).map((t) => (
+                                  <Chip
+                                    key={t}
+                                    label={t}
+                                    size="small"
+                                    sx={{ bgcolor: `${NEON_CYAN}14`, color: '#E6EAF0', border: `1px solid ${NEON_CYAN}30`, fontWeight: 700 }}
+                                  />
+                                ))}
+                              </Box>
+                            )}
+                          </Box>
+                        </Box>
+                      </Box>
+
+                      <Box sx={{ width: { xs: '100%', md: '50%' }, pl: { xs: 0, md: 1 }, display: { xs: 'none', md: 'block' } }}>
+                        <Typography sx={{ color: '#E6EAF0', fontWeight: 800, fontSize: 14, mb: 1 }}>Roadmap</Typography>
+                        <Typography sx={{ color: 'rgba(255,255,255,0.68)', fontSize: 12, lineHeight: 1.6 }}>
+                          Dedicated Roadmap widget is available as a separate fixed card in this grid.
                         </Typography>
                       </Box>
                     </Box>
+                  </Box>
+                </Card>
+              </motion.div>
 
-                    <Box sx={{ minWidth: 240, flex: 1 }}>
-                      <Typography sx={{ color: 'rgba(255,255,255,0.75)', fontSize: 13 }}>
-                        Based on topics detected in your chat history.
-                      </Typography>
-                      <Typography sx={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, mt: 0.5 }}>
-                        {Number(syllabusProgress?.covered_count || 0)} / {Number(syllabusProgress?.total_topics || 0)} topics
-                      </Typography>
+              <motion.div variants={itemVariants} className="h-[400px] flex flex-col" style={{ height: 400, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                <StudyRoadmapCard
+                  hasRoadmap={Boolean(studyRoadmap?.has_roadmap)}
+                  title={String(studyRoadmap?.title || 'My Study Roadmap')}
+                  roadmapPct={roadmapPct}
+                  roadmapDays={roadmapDays}
+                />
+              </motion.div>
 
-                      {Array.isArray(syllabusProgress?.covered_topics) && syllabusProgress.covered_topics.length > 0 && (
-                        <Box sx={{ mt: 1.2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                          {syllabusProgress.covered_topics.slice(0, 6).map((t) => (
-                            <Chip
-                              key={t}
-                              label={t}
-                              size="small"
-                              sx={{
-                                bgcolor: `${NEON_CYAN}14`,
-                                color: '#E6EAF0',
-                                border: `1px solid ${NEON_CYAN}30`,
-                                fontWeight: 700,
-                              }}
-                            />
+              <motion.div variants={itemVariants}>
+                <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: 'blur(12px)' }}>
+                  <Typography sx={{ color: NEON_CYAN, fontWeight: 900, letterSpacing: '0.06em' }}>Roadmap History</Typography>
+                  <Typography sx={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, mt: 0.5 }}>
+                    Grouped by Semester → Subject with generated date/time
+                  </Typography>
+                  <Box sx={{ mt: 1.3 }}>
+                    {isRoadmapHistoryLoading && <Typography sx={{ color: 'rgba(255,255,255,0.65)', fontSize: 12 }}>Loading roadmap history...</Typography>}
+                    {!isRoadmapHistoryLoading && Object.keys(roadmapHistory || {}).length === 0 && (
+                      <Typography sx={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>No saved roadmaps yet. Generate and Accept from APC Study Roadmap.</Typography>
+                    )}
+                    {Object.entries(roadmapHistory || {}).map(([semKey, subjects]) => (
+                      <Accordion key={`sem-${semKey}`} disableGutters sx={{ bgcolor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px !important', mb: 1 }}>
+                        <AccordionSummary expandIcon={<ExpandMore sx={{ color: '#E6EAF0' }} />}>
+                          <Typography sx={{ color: '#E6EAF0', fontWeight: 800, fontSize: 13 }}>{semKey}</Typography>
+                        </AccordionSummary>
+                        <AccordionDetails sx={{ pt: 0.5 }}>
+                          {Object.entries(subjects || {}).map(([subjectKey, entries]) => (
+                            <Accordion key={`sub-${semKey}-${subjectKey}`} disableGutters sx={{ bgcolor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px !important', mb: 0.8 }}>
+                              <AccordionSummary expandIcon={<ExpandMore sx={{ color: '#E6EAF0' }} />}>
+                                <Typography sx={{ color: 'rgba(230,234,240,0.95)', fontWeight: 700, fontSize: 12 }}>{subjectKey}</Typography>
+                              </AccordionSummary>
+                              <AccordionDetails sx={{ pt: 0 }}>
+                                {(Array.isArray(entries) ? entries : []).map((item) => (
+                                  <Box key={`r-${item.id}`} sx={{ p: 1, borderRadius: '10px', bgcolor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', mb: 0.8 }}>
+                                    <Typography sx={{ color: '#E6EAF0', fontSize: 12, fontWeight: 700 }}>{String(item?.title || 'Study Roadmap')}</Typography>
+                                    <Typography sx={{ color: 'rgba(255,255,255,0.62)', fontSize: 11 }}>
+                                      {`Duration: ${Number(item?.duration_days || 0)} days • Generated: ${item?.created_at ? new Date(item.created_at).toLocaleString() : 'Unknown time'}`}
+                                    </Typography>
+                                  </Box>
+                                ))}
+                              </AccordionDetails>
+                            </Accordion>
                           ))}
-                        </Box>
-                      )}
-                    </Box>
+                        </AccordionDetails>
+                      </Accordion>
+                    ))}
                   </Box>
                 </Card>
               </motion.div>
@@ -2193,16 +2949,16 @@ const Dashboard = ({ onThemeOverride }) => {
                   <Typography sx={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, mt: 0.5 }}>
                     Resume where you left off
                   </Typography>
-                  <Box sx={{ mt: 1.6, display: 'grid', gap: 1.2 }}>
+                  <Box sx={{ mt: 1.5, display: 'grid', gap: 1.5 }}>
                     {(recentChats || []).slice(0, 4).map((c) => (
                       <Box
                         key={c.id}
                         sx={{
                           display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1.5,
-                          p: 1.2, borderRadius: '14px', bgcolor: 'rgba(255,255,255,0.04)', border: `1px solid ${NEON_PURPLE}18`
+                          p: 1.5, borderRadius: '14px', bgcolor: 'rgba(255,255,255,0.04)', border: `1px solid ${NEON_PURPLE}18`, overflow: 'hidden'
                         }}
                       >
-                        <Typography sx={{ color: '#E6EAF0', fontWeight: 700, fontSize: 13, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <Typography className="truncate max-w-[150px] inline-block" sx={{ color: '#E6EAF0', fontWeight: 700, fontSize: 13, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {String(c.title || 'Untitled chat')}
                         </Typography>
                         <Button
@@ -2232,7 +2988,7 @@ const Dashboard = ({ onThemeOverride }) => {
               <motion.div variants={itemVariants}>
                 <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: 'blur(12px)' }}>
                   <Typography sx={{ color: NEON_CYAN, fontWeight: 900, letterSpacing: '0.06em' }}>Results Snapshot</Typography>
-                  <Box sx={{ mt: 1.2, display: 'grid', gap: 1.2 }}>
+                  <Box sx={{ mt: 1.5, display: 'grid', gap: 1.5 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 2 }}>
                       <Typography sx={{ color: 'rgba(255,255,255,0.65)', fontSize: 12, fontWeight: 800, letterSpacing: '0.12em' }}>LAST EXAM</Typography>
                       <Typography sx={{ color: lastExamScore === null ? 'rgba(255,255,255,0.5)' : '#10B981', fontSize: 18, fontWeight: 900 }}>
@@ -2249,10 +3005,10 @@ const Dashboard = ({ onThemeOverride }) => {
                   <JiyaRemark score={lastExamScore ?? dashboardStats.avg_quiz_score} candidateName={candidateName} />
                 </Card>
               </motion.div>
-            </Box>
+            </motion.div>
 
             {/* RIGHT COLUMN */}
-            <Box sx={{ display: 'grid', gap: 3 }}>
+            <motion.div variants={itemVariants} style={{ display: 'grid', gap: 24, minWidth: 0 }}>
               <motion.div variants={itemVariants}>
                 <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: 'blur(12px)' }}>
                   <Typography sx={{ color: NEON_CYAN, fontWeight: 900, letterSpacing: '0.06em' }}>Daily Goals</Typography>
@@ -2260,9 +3016,9 @@ const Dashboard = ({ onThemeOverride }) => {
                     Small wins, daily.
                   </Typography>
 
-                  <Box sx={{ mt: 1.6, display: 'grid', gap: 0.6 }}>
+                  <Box sx={{ mt: 1.5, display: 'grid', gap: 1 }}>
                     {dailyGoals.slice(0, 6).map((g) => (
-                      <Box key={g.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 0.6, borderRadius: '12px' }}>
+                      <Box key={g.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1, borderRadius: '12px' }}>
                         <Checkbox
                           checked={Boolean(g.done)}
                           onChange={() => setDailyGoals(prev => prev.map(x => x.id === g.id ? { ...x, done: !x.done } : x))}
@@ -2278,7 +3034,7 @@ const Dashboard = ({ onThemeOverride }) => {
                     ))}
                   </Box>
 
-                  <Box sx={{ mt: 1.6, display: 'flex', gap: 1 }}>
+                  <Box sx={{ mt: 1.5, display: 'flex', gap: 1 }}>
                     <TextField
                       value={newGoalText}
                       onChange={(e) => setNewGoalText(e.target.value)}
@@ -2288,7 +3044,7 @@ const Dashboard = ({ onThemeOverride }) => {
                         flex: 1,
                         '& .MuiOutlinedInput-root': {
                           bgcolor: 'rgba(255,255,255,0.04)',
-                          borderRadius: '14px',
+                          borderRadius: '12px',
                           color: '#E6EAF0',
                           '& fieldset': { borderColor: 'rgba(255,255,255,0.12)' },
                           '&:hover fieldset': { borderColor: `${NEON_CYAN}35` },
@@ -2306,7 +3062,7 @@ const Dashboard = ({ onThemeOverride }) => {
                       }}
                       sx={{
                         minWidth: 46,
-                        borderRadius: '14px',
+                        borderRadius: '12px',
                         bgcolor: `${NEON_CYAN}18`,
                         border: `1px solid ${NEON_CYAN}35`,
                         color: '#E6EAF0',
@@ -2322,22 +3078,55 @@ const Dashboard = ({ onThemeOverride }) => {
 
               <motion.div variants={itemVariants}>
                 <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: 'blur(12px)' }}>
+                  <Typography sx={{ color: NEON_CYAN, fontWeight: 900, letterSpacing: '0.06em' }}>Performance Summary</Typography>
+                  <Typography sx={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, mt: 0.5 }}>
+                    Latest analyzer highlights from APC
+                  </Typography>
+
+                  <Box sx={{ mt: 1.5, display: 'grid', gap: 1 }}>
+                    {(performanceSummary?.highlights || []).slice(0, 4).map((item, idx) => (
+                      <Typography key={`perf-${idx}`} sx={{ color: 'rgba(255,255,255,0.78)', fontSize: 12, whiteSpace: 'pre-wrap' }}>
+                        • {String(item)}
+                      </Typography>
+                    ))}
+                    {(!performanceSummary?.highlights || performanceSummary.highlights.length === 0) && (
+                      <Typography sx={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>
+                        APC se Performance Analyzer run karo, summary yahan show ho jayegi.
+                      </Typography>
+                    )}
+                  </Box>
+
+                  <Box sx={{ mt: 1.5, display: 'flex', gap: 1 }}>
+                    <Button
+                      size="small"
+                      onClick={() => setShowPerformanceReportModal(true)}
+                      disabled={!performanceSummary?.report_markdown}
+                      sx={{ color: NEON_CYAN, border: `1px solid ${NEON_CYAN}35`, borderRadius: '12px', fontWeight: 800 }}
+                    >
+                      View Report
+                    </Button>
+                  </Box>
+                </Card>
+              </motion.div>
+
+              <motion.div variants={itemVariants}>
+                <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: 'blur(12px)' }}>
                   <Typography sx={{ color: NEON_CYAN, fontWeight: 900, letterSpacing: '0.06em' }}>Exam Feed</Typography>
                   <Typography sx={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, mt: 0.5 }}>
                     Latest attempt snapshot
                   </Typography>
 
-                  <Box sx={{ mt: 1.6, p: 1.4, borderRadius: '16px', bgcolor: 'rgba(255,255,255,0.04)', border: `1px solid ${NEON_CYAN}18` }}>
+                  <Box sx={{ mt: 1.5, p: 1.5, borderRadius: '14px', bgcolor: 'rgba(255,255,255,0.04)', border: `1px solid ${NEON_CYAN}18` }}>
                     <Typography sx={{ color: '#E6EAF0', fontWeight: 900, fontSize: 14 }}>
                       {lastExam ? `${String(lastExam.subject || '—')} • ${String(lastExam.semester || '—')}` : 'No exam attempts yet'}
                     </Typography>
-                    <Typography sx={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, mt: 0.6 }}>
+                    <Typography sx={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, mt: 1 }}>
                       {lastExam ? `Score: ${Math.round(Number(lastExam.percentTotal || 0))}% • ${new Date(lastExam.at || Date.now()).toLocaleString()}` : 'Take your first exam to see trend here.'}
                     </Typography>
-                    <Box sx={{ mt: 1.2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                    <Box sx={{ mt: 1.5, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                       <Button
                         size="small"
-                        onClick={() => setShowExamSimulator(true)}
+                        onClick={() => { setShowAdvancedTools(false); setShowExamSimulator(true); }}
                         sx={{
                           color: NEON_CYAN,
                           border: `1px solid ${NEON_CYAN}35`,
@@ -2350,7 +3139,7 @@ const Dashboard = ({ onThemeOverride }) => {
                       </Button>
                       <Button
                         size="small"
-                        onClick={() => setShowExamSimulator(true)}
+                        onClick={() => { setShowAdvancedTools(false); setShowExamSimulator(true); }}
                         sx={{
                           color: '#E6EAF0',
                           bgcolor: `${NEON_PURPLE}18`,
@@ -2374,24 +3163,24 @@ const Dashboard = ({ onThemeOverride }) => {
                     Past mistakes with Supreme Answers
                   </Typography>
 
-                  <Box sx={{ mt: 1.6, display: 'grid', gap: 1.2 }}>
+                  <Box sx={{ mt: 1.5, display: 'grid', gap: 1.5 }}>
                     {reviewItems.slice(0, 4).map((item, idx) => (
                       <Box
                         key={`${item.id}_${idx}`}
                         sx={{
-                          p: 1.2,
+                          p: 1.5,
                           borderRadius: '14px',
                           bgcolor: 'rgba(255,255,255,0.04)',
                           border: `1px solid ${NEON_PURPLE}18`,
                           display: 'grid',
-                          gap: 0.4
+                          gap: 1
                         }}
                       >
                         <Typography sx={{ color: NEON_PURPLE, fontWeight: 800, fontSize: 11, letterSpacing: '0.1em' }}>
                           {(item.type || 'review').toUpperCase()}
                         </Typography>
-                        <Typography sx={{ color: '#E6EAF0', fontSize: 13, fontWeight: 700 }}>
-                          {String(item.question || '').slice(0, 80)}
+                        <Typography sx={{ color: '#E6EAF0', fontWeight: 800, mt: 1 }}>
+                          {String(item.question || '')}
                         </Typography>
                         <Typography sx={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>
                           Your Answer: {String(item.user_answer || '—').slice(0, 90)}
@@ -2403,13 +3192,13 @@ const Dashboard = ({ onThemeOverride }) => {
                     ))}
 
                     {reviewItems.length === 0 && (
-                      <Typography sx={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>
+                      <Typography sx={{ color: 'rgba(255,255,255,0.6)' }}>
                         No review items yet. Attempt a quiz or exam.
                       </Typography>
                     )}
                   </Box>
 
-                  <Box sx={{ mt: 1.6, display: 'flex', justifyContent: 'flex-end' }}>
+                  <Box sx={{ mt: 1.5, display: 'flex', justifyContent: 'flex-end' }}>
                     <Button
                       size="small"
                       onClick={() => setReviewOpen(true)}
@@ -2434,12 +3223,12 @@ const Dashboard = ({ onThemeOverride }) => {
                     Spaced repetition bucket (auto-resurface)
                   </Typography>
 
-                  <Box sx={{ mt: 1.6, display: 'grid', gap: 1.2 }}>
+                  <Box sx={{ mt: 1.5, display: 'grid', gap: 1.5 }}>
                     {(dueWeakTopics.length > 0 ? dueWeakTopics : weakTopics).slice(0, 5).map((t) => (
                       <Box
                         key={t.key}
                         sx={{
-                          p: 1.2,
+                          p: 1.5,
                           borderRadius: '14px',
                           bgcolor: 'rgba(255,255,255,0.04)',
                           border: `1px solid ${NEON_CYAN}18`,
@@ -2465,8 +3254,8 @@ const Dashboard = ({ onThemeOverride }) => {
                   </Box>
                 </Card>
               </motion.div>
+            </motion.div>
             </Box>
-          </Box>
         </motion.div>
 
         <Modal open={reviewOpen} onClose={() => setReviewOpen(false)}>
@@ -2483,7 +3272,7 @@ const Dashboard = ({ onThemeOverride }) => {
 
               <Box sx={{ display: 'grid', gap: 2 }}>
                 {reviewItems.map((item, idx) => (
-                  <Card key={`${item.id}_${idx}`} sx={{ bgcolor: 'rgba(255,255,255,0.04)', border: GLASS_BORDER, borderRadius: '16px', p: 2 }}>
+                  <Card key={`${item.id}_${idx}`} sx={{ bgcolor: 'rgba(255,255,255,0.04)', border: GLASS_BORDER, borderRadius: '14px', p: 2 }}>
                     <Typography sx={{ color: NEON_PURPLE, fontWeight: 800, fontSize: 11, letterSpacing: '0.1em' }}>
                       {(item.type || 'review').toUpperCase()} • {String(item.subject || '')}
                     </Typography>
@@ -2492,16 +3281,16 @@ const Dashboard = ({ onThemeOverride }) => {
                     </Typography>
                     <Box sx={{ mt: 1.2 }}>
                       <Typography sx={{ color: 'rgba(255,255,255,0.65)', fontSize: 12 }}>Your Answer</Typography>
-                      <Typography sx={{ color: '#E6EAF0' }}>{String(item.user_answer || '—')}</Typography>
+                      <Typography sx={{ color: '#E6EAF0', whiteSpace: 'pre-wrap' }}>{String(item.user_answer || '—')}</Typography>
                     </Box>
                     <Box sx={{ mt: 1.2 }}>
                       <Typography sx={{ color: NEON_CYAN, fontSize: 12 }}>Supreme Answer</Typography>
-                      <Typography sx={{ color: '#E6EAF0' }}>{String(item.supreme_answer || '—')}</Typography>
+                      <Typography sx={{ color: '#E6EAF0', whiteSpace: 'pre-wrap' }}>{String(item.supreme_answer || '—')}</Typography>
                     </Box>
                     {(item.feedback || item.tip) && (
                       <Box sx={{ mt: 1.2 }}>
                         <Typography sx={{ color: 'rgba(255,255,255,0.65)', fontSize: 12 }}>Improvement Tip</Typography>
-                        <Typography sx={{ color: '#E6EAF0' }}>{String(item.feedback || item.tip || '—')}</Typography>
+                        <Typography sx={{ color: '#E6EAF0', whiteSpace: 'pre-wrap' }}>{String(item.feedback || item.tip || '—')}</Typography>
                       </Box>
                     )}
                   </Card>
@@ -2565,9 +3354,9 @@ const Dashboard = ({ onThemeOverride }) => {
             <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
               <Tooltip title={userProfile.display_name || userProfile.username}>
                 <Box onClick={(e) => setUserMenuAnchor(e.currentTarget)} sx={{ width: 40, height: 40, borderRadius: '50%', bgcolor: `${NEON_PURPLE}40`, border: `2px solid ${NEON_CYAN}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: NEON_CYAN, fontWeight: 700, fontSize: '14px', cursor: 'pointer', transition: 'all 200ms ease', '&:hover': { bgcolor: `${NEON_PURPLE}60`, boxShadow: `0 0 15px ${NEON_PURPLE}50` }, position: 'relative', overflow: 'hidden' }}>
-                  {resolveAvatarUrl(profilePic) ? (
+                  {resolveAvatarUrl(userProfile?.profile_pic_url || userProfile?.profile_picture_url || profilePic) ? (
                     <img
-                      src={resolveAvatarUrl(profilePic)}
+                      src={resolveAvatarUrl(userProfile?.profile_pic_url || userProfile?.profile_picture_url || profilePic)}
                       alt="avatar"
                       style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%', display: 'block' }}
                     />
@@ -2590,7 +3379,7 @@ const Dashboard = ({ onThemeOverride }) => {
       {/* Export Menu */}
       <MuiMenu open={Boolean(exportMenuAnchor)} anchorEl={exportMenuAnchor} onClose={() => setExportMenuAnchor(null)} sx={{ '& .MuiPaper-root': { bgcolor: GLASS_BG, border: GLASS_BORDER, backdropFilter: 'blur(12px)' } }}>
         <MenuItem onClick={() => { exportAsTXT(); setExportMenuAnchor(null); }}>📄 Export as TXT</MenuItem>
-        <MenuItem onClick={() => { exportAsPDF(); setExportMenuAnchor(null); }}>📕 Export as PDF</MenuItem>
+        <MenuItem onClick={async () => { await exportAsPDF(); setExportMenuAnchor(null); }}>📕 Export as PDF</MenuItem>
       </MuiMenu>
 
       {/* Admin Settings Menu */}
@@ -2620,9 +3409,9 @@ const Dashboard = ({ onThemeOverride }) => {
       <MuiMenu open={Boolean(userMenuAnchor)} anchorEl={userMenuAnchor} onClose={() => setUserMenuAnchor(null)} sx={{ '& .MuiPaper-root': { bgcolor: GLASS_BG, border: GLASS_BORDER, backdropFilter: 'blur(12px)', minWidth: '240px' }, '& .MuiMenuItem-root': { color: '#E6EAF0', '&:hover': { bgcolor: `${NEON_PURPLE}20` } } }}>
         <Box sx={{ px: 2, py: 2, display: 'flex', alignItems: 'center', gap: 2, borderBottom: `1px solid ${NEON_CYAN}20` }}>
           <Box sx={{ width: 50, height: 50, borderRadius: '50%', bgcolor: `${NEON_PURPLE}40`, border: `2px solid ${NEON_CYAN}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: NEON_CYAN, fontWeight: 700, fontSize: '18px', position: 'relative', overflow: 'hidden' }}>
-            {resolveAvatarUrl(profilePic) ? (
+            {resolveAvatarUrl(userProfile?.profile_pic_url || userProfile?.profile_picture_url || profilePic) ? (
               <img
-                src={resolveAvatarUrl(profilePic)}
+                src={resolveAvatarUrl(userProfile?.profile_pic_url || userProfile?.profile_picture_url || profilePic)}
                 alt="avatar"
                 style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%', display: 'block' }}
               />
@@ -2710,7 +3499,38 @@ const Dashboard = ({ onThemeOverride }) => {
         boxSizing: 'border-box'
       }}>
         {/* PHASE 3: Conditional rendering for Quiz/Exam/Dashboard/Chat */}
-        {showQuizSection ? (
+        {showAdvancedTools ? (
+          <AdvancedTools
+            onBack={() => setShowAdvancedTools(false)}
+            avatarUrl={resolveAvatarUrl(profilePic || userProfile?.profile_pic_url || userProfile?.profile_picture_url)}
+            displayName={String(userProfile?.display_name || userProfile?.username || 'Student')}
+            onSelectTool={(tool) => {
+              setShowAdvancedTools(false);
+              setShowQuizSection(false);
+              setShowExamSimulator(false);
+              const toolLabel = typeof tool === 'string' ? tool : (tool?.toolKey || tool?.title || 'Study Tool');
+              const normalizedTool = normalizeToolKey(toolLabel);
+              setActiveTool(toolLabel);
+              setShowExamAskInput(false);
+              setShowRoadmapAskInput(false);
+              setExamPredictions([]);
+              setRoadmapDraftText('');
+              if (normalizedTool === 'performance analytics') {
+                setInput('');
+              } else if (normalizedTool === 'ai code architect') {
+                setInput('Welcome! Do you want to fix an existing code or write a new one?');
+              } else if (normalizedTool === 'study roadmap' || normalizedTool === 'exam predictor') {
+                setApcSemesterInput(prev => prev || normalizeSemesterNumber(semester) || '1');
+                setApcSubjectInput(prev => prev || String(subject || '').trim());
+                setInput('');
+              } else {
+                const subjectLabel = subject || apcSubjectInput || 'current subject';
+                setInput(`${toolLabel} for ${subjectLabel}`);
+              }
+              setActiveView('chat');
+            }}
+          />
+        ) : showQuizSection ? (
           // PHASE 3: Quiz Section
           <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
             <QuizSection 
@@ -2745,17 +3565,70 @@ const Dashboard = ({ onThemeOverride }) => {
               <DashboardView />
             </Box>
           ) : (
+            normalizeToolKey(activeTool) === 'performance analytics' ? (
+              <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', pb: 3 }}>
+                <Card sx={{ width: '100%', maxWidth: 760, bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '22px', p: 3, backdropFilter: 'blur(12px)' }}>
+                  <Typography sx={{ color: NEON_CYAN, fontWeight: 900, fontSize: '24px', mb: 1 }}>Performance Analyzer</Typography>
+                  <Typography sx={{ color: 'rgba(255,255,255,0.72)', mb: 2 }}>
+                    Chat interface yahan disabled hai. Direct report generation mode active.
+                  </Typography>
+                  <Button
+                    onClick={runPerformanceAnalyzerReport}
+                    disabled={isGeneratingPerformanceReport}
+                    sx={{
+                      bgcolor: `${NEON_CYAN}20`,
+                      border: `1px solid ${NEON_CYAN}45`,
+                      color: '#E6EAF0',
+                      fontWeight: 900,
+                      px: 3,
+                      '&:hover': { bgcolor: `${NEON_CYAN}28` },
+                    }}
+                  >
+                    Generate Report
+                  </Button>
+                  {isGeneratingPerformanceReport && (
+                    <Box sx={{ mt: 1.5, display: 'flex', alignItems: 'center', gap: 1.2 }}>
+                      <CircularProgress size={20} sx={{ color: NEON_CYAN }} />
+                      <Typography sx={{ color: 'rgba(255,255,255,0.75)' }}>
+                        Please wait for {performanceWaitMinutes} minutes. Scanning your data and progress...
+                      </Typography>
+                    </Box>
+                  )}
+                  {!isGeneratingPerformanceReport && performanceSummary?.report_markdown && (
+                    <Button
+                      onClick={() => setShowPerformanceReportModal(true)}
+                      sx={{
+                        mt: 2,
+                        bgcolor: `${NEON_PURPLE}20`,
+                        border: `1px solid ${NEON_PURPLE}45`,
+                        color: '#E6EAF0',
+                        fontWeight: 900,
+                        px: 3,
+                        '&:hover': { bgcolor: `${NEON_PURPLE}28` },
+                      }}
+                    >
+                      View Report
+                    </Button>
+                  )}
+                </Card>
+              </Box>
+            ) : (
             <>
               {/* Messages Area */}
-              <motion.div 
-                initial={{ opacity: 0 }} 
-                animate={{ opacity: 1 }} 
-                transition={{ duration: 0.5 }} 
+              {( (normalizeToolKey(activeTool) !== 'exam predictor' || showExamAskInput)
+                && (normalizeToolKey(activeTool) !== 'study roadmap' || showRoadmapAskInput)
+              ) && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.5 }}
                 style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}
               >
                 <Paper sx={{ 
                   flex: 1,
-                  bgcolor: 'transparent', 
+                  bgcolor: normalizeToolKey(activeTool) === 'viva mentor' ? 'rgba(2, 10, 2, 0.92)' : 'transparent', 
+                  border: normalizeToolKey(activeTool) === 'viva mentor' ? '1px solid rgba(57,255,20,0.35)' : 'none',
+                  boxShadow: normalizeToolKey(activeTool) === 'viva mentor' ? '0 0 24px rgba(57,255,20,0.12)' : 'none',
                   borderRadius: 0, 
                   p: 2, 
                   overflowY: 'auto', 
@@ -2763,6 +3636,7 @@ const Dashboard = ({ onThemeOverride }) => {
                   display: 'flex',
                   flexDirection: 'column',
                   mb: 2,
+                  fontFamily: normalizeToolKey(activeTool) === 'viva mentor' ? 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' : 'inherit',
                   '&::-webkit-scrollbar': {
                     width: '8px',
                   },
@@ -2803,7 +3677,7 @@ const Dashboard = ({ onThemeOverride }) => {
                           {msg.sender === 'ai' && <Avatar sx={{ width: 36, height: 36, bgcolor: `${NEON_CYAN}20`, color: NEON_CYAN, border: `1px solid ${NEON_CYAN}40`, flexShrink: 0 }}><SmartToy sx={{ fontSize: '18px' }} /></Avatar>}
                           <Box sx={{ maxWidth: msg.sender === 'user' ? '70%' : '75%', minWidth: 0 }}>
                             <motion.div whileHover={{ scale: 1.01 }}>
-                              <Box sx={{ bgcolor: msg.sender === 'user' ? 'rgba(139, 134, 200, 0.15)' : 'rgba(10, 13, 23, 0.9)', border: msg.sender === 'user' ? `1px solid ${NEON_PURPLE}60` : `1px solid rgba(255, 255, 255, 0.1)`, color: '#FFFFFF', p: 2, borderRadius: '16px', wordBreak: 'break-word', overflowWrap: 'break-word', overflowX: 'hidden', lineHeight: 1.6, fontSize: '15px', backdropFilter: 'blur(12px)', boxShadow: msg.sender === 'user' ? `0 0 15px ${NEON_PURPLE}15` : 'none' }}>
+                              <Box sx={{ bgcolor: msg.sender === 'user' ? 'rgba(139, 134, 200, 0.15)' : (normalizeToolKey(activeTool) === 'viva mentor' ? 'rgba(1, 20, 1, 0.95)' : 'rgba(10, 13, 23, 0.9)'), border: msg.sender === 'user' ? `1px solid ${NEON_PURPLE}60` : (normalizeToolKey(activeTool) === 'viva mentor' ? '1px solid rgba(57,255,20,0.35)' : `1px solid rgba(255, 255, 255, 0.1)`), color: normalizeToolKey(activeTool) === 'viva mentor' && msg.sender === 'ai' ? '#9dff8a' : '#FFFFFF', p: 2, borderRadius: '16px', wordBreak: 'break-word', overflowWrap: 'break-word', overflowX: 'hidden', lineHeight: 1.6, fontSize: '15px', whiteSpace: 'pre-wrap', backdropFilter: 'blur(12px)', boxShadow: msg.sender === 'user' ? `0 0 15px ${NEON_PURPLE}15` : 'none', fontFamily: normalizeToolKey(activeTool) === 'viva mentor' ? 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' : 'inherit' }}>
                                 {msg.sender === 'ai' && !msg.isTypingComplete ? (
                                   <TypewriterText
                                     text={msg.text}
@@ -2878,6 +3752,7 @@ const Dashboard = ({ onThemeOverride }) => {
                   <div ref={messagesEndRef} />
                 </Paper>
               </motion.div>
+              )}
 
               {/* Input Area */}
               <Box sx={{ 
@@ -2886,68 +3761,198 @@ const Dashboard = ({ onThemeOverride }) => {
                 gap: 1.5,
                 pb: 3
               }}>
-                <QuickSuggestionsChips />
-
-                {/* Response Mode Toggle */}
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
-                  <Box sx={{ 
-                    display: 'flex', 
-                    gap: 1, 
-                    justifyContent: 'center',
-                    p: 1,
-                    bgcolor: 'rgba(187, 134, 252, 0.05)',
-                    borderRadius: '12px',
-                    border: `1px solid ${GLASS_BORDER}`,
-                    backdropFilter: 'blur(12px)'
-                  }}>
-                    {[
-                      { mode: 'fast', label: '⚡ Fast', description: 'Quick answers' },
-                      { mode: 'thinking', label: '🧠 Thinking', description: 'Deep analysis (3s)' },
-                      { mode: 'pro', label: '🏆 Pro', description: 'Detailed academic' }
-                    ].map(option => (
-                      <motion.div key={option.mode} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                        <Tooltip title={option.description} placement="top">
-                          <Button
-                            size="small"
-                            onClick={() => setResponseMode(option.mode)}
-                            sx={{
-                              borderRadius: '8px',
-                              px: 2,
-                              py: 0.75,
-                              fontSize: '13px',
-                              fontWeight: responseMode === option.mode ? 600 : 500,
-                              bgcolor: responseMode === option.mode ? `${NEON_CYAN}30` : 'transparent',
-                              border: responseMode === option.mode ? `1.5px solid ${NEON_CYAN}` : `1px solid rgba(255, 255, 255, 0.1)`,
-                              color: responseMode === option.mode ? NEON_CYAN : '#E6EAF0',
-                              backdropFilter: 'blur(8px)',
-                              transition: 'all 200ms',
-                              '&:hover': {
-                                bgcolor: `${NEON_PURPLE}15`,
-                                borderColor: `${NEON_PURPLE}60`
-                              }
-                            }}
+                {(normalizeToolKey(activeTool) === 'study roadmap' || normalizeToolKey(activeTool) === 'exam predictor') && (
+                  <Card sx={{ p: 1.5, bgcolor: 'rgba(255,255,255,0.04)', border: GLASS_BORDER, borderRadius: '14px' }}>
+                    <Typography sx={{ color: NEON_CYAN, fontWeight: 800, fontSize: 13, mb: 1 }}>APC Inputs</Typography>
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                      <FormControl size="small" sx={{ minWidth: 190 }}>
+                        <InputLabel>Select Semester (1-6)</InputLabel>
+                        <Select
+                          value={normalizeSemesterNumber(apcSemesterInput) || '1'}
+                          label="Select Semester (1-6)"
+                          onChange={(e) => {
+                            const semNum = String(e.target.value || '');
+                            setApcSemesterInput(semNum);
+                            setApcSubjectInput('');
+                          }}
+                        >
+                          {[1, 2, 3, 4, 5, 6].map((n) => (
+                            <MenuItem key={`apc-sem-${n}`} value={String(n)}>{String(n)}</MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                      <FormControl size="small" sx={{ minWidth: 220 }}>
+                        <InputLabel>Select Subject</InputLabel>
+                        <Select
+                          value={apcSubjectInput}
+                          label="Select Subject"
+                          onChange={(e) => setApcSubjectInput(String(e.target.value || ''))}
+                        >
+                          {Object.keys(IGNOU_SYLLABUS[semesterKeyFromNumber(apcSemesterInput || semester) || `Sem ${normalizeSemesterNumber(apcSemesterInput || semester) || 1}`] || {}).map((code) => (
+                            <MenuItem key={`apc-sub-${code}`} value={code}>{`${code} - ${getSubjectLabel(code)}`}</MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                      {normalizeToolKey(activeTool) === 'study roadmap' && (
+                        <FormControl size="small" sx={{ minWidth: 170 }}>
+                          <InputLabel>Duration</InputLabel>
+                          <Select
+                            value={String(apcDurationInput || '15')}
+                            label="Duration"
+                            onChange={(e) => setApcDurationInput(String(e.target.value || '15'))}
                           >
-                            {option.label}
+                            <MenuItem value="15">15 days</MenuItem>
+                            <MenuItem value="30">30 days</MenuItem>
+                          </Select>
+                        </FormControl>
+                      )}
+                      <Button onClick={triggerApcToolAction} sx={{ color: NEON_CYAN, border: `1px solid ${NEON_CYAN}35`, borderRadius: '12px', fontWeight: 800 }}>
+                        Generate
+                      </Button>
+                      {normalizeToolKey(activeTool) === 'exam predictor' && (
+                        <Button
+                          onClick={() => setShowExamAskInput((prev) => !prev)}
+                          sx={{ color: NEON_PURPLE, border: `1px solid ${NEON_PURPLE}35`, borderRadius: '12px', fontWeight: 800 }}
+                        >
+                          Ask
+                        </Button>
+                      )}
+                      {normalizeToolKey(activeTool) === 'study roadmap' && (
+                        <>
+                          <Button
+                            onClick={acceptCurrentRoadmap}
+                            disabled={!roadmapDraftText.trim()}
+                            sx={{ color: '#10B981', border: '1px solid rgba(16,185,129,0.35)', borderRadius: '12px', fontWeight: 800 }}
+                          >
+                            Accept
                           </Button>
-                        </Tooltip>
-                      </motion.div>
-                    ))}
-                  </Box>
-                </motion.div>
+                          <Button
+                            onClick={() => setShowRoadmapAskInput((prev) => !prev)}
+                            sx={{ color: NEON_PURPLE, border: `1px solid ${NEON_PURPLE}35`, borderRadius: '12px', fontWeight: 800 }}
+                          >
+                            Ask
+                          </Button>
+                        </>
+                      )}
+                    </Box>
+                    {normalizeToolKey(activeTool) === 'exam predictor' && examPredictions.length > 0 && (
+                      <Box sx={{ mt: 1.4, display: 'grid', gap: 1 }}>
+                        {examPredictions.map((item) => (
+                          <Box key={`pred-${item.number}-${item.question.slice(0, 16)}`} sx={{ p: 1.2, borderRadius: '12px', bgcolor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                            <Typography sx={{ color: '#E6EAF0', fontSize: 13, fontWeight: 700 }}>
+                              {item.number}. {item.question}
+                            </Typography>
+                            <Button
+                              size="small"
+                              onClick={async () => {
+                                setShowExamAskInput(true);
+                                await handleSend(`Solve this in complete detail without cutting any part: ${item.question}`);
+                              }}
+                              sx={{ mt: 0.8, color: NEON_CYAN, border: `1px solid ${NEON_CYAN}35`, borderRadius: '10px', fontWeight: 800 }}
+                            >
+                              Solve This
+                            </Button>
+                          </Box>
+                        ))}
+                      </Box>
+                    )}
+                    {normalizeToolKey(activeTool) === 'study roadmap' && roadmapDraftText.trim() && (
+                      <Box sx={{ mt: 1.4, p: 1.2, borderRadius: '12px', bgcolor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', maxHeight: 220, overflowY: 'auto' }}>
+                        <ReactMarkdown children={roadmapDraftText} remarkPlugins={[remarkGfm]} components={markdownComponents} />
+                      </Box>
+                    )}
+                  </Card>
+                )}
 
+                {normalizeToolKey(activeTool) === 'cheat mode' && (
+                  <Card sx={{ p: 1.5, bgcolor: 'rgba(255,255,255,0.04)', border: GLASS_BORDER, borderRadius: '14px' }}>
+                    <Typography sx={{ color: NEON_CYAN, fontWeight: 800, fontSize: 13, mb: 1 }}>Cheat Mode Setup</Typography>
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                      <FormControl size="small" sx={{ minWidth: 240 }}>
+                        <InputLabel>Select Subject</InputLabel>
+                        <Select value={apcSubjectInput} label="Select Subject" onChange={(e) => setApcSubjectInput(String(e.target.value || ''))}>
+                          {Object.keys(IGNOU_SYLLABUS[semesterKeyFromNumber(apcSemesterInput || semester) || `Sem ${normalizeSemesterNumber(apcSemesterInput || semester) || 1}`] || {}).map((code) => (
+                            <MenuItem key={`cheat-sub-${code}`} value={code}>{`${code} - ${getSubjectLabel(code)}`}</MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                      <Button onClick={triggerApcToolAction} sx={{ color: NEON_CYAN, border: `1px solid ${NEON_CYAN}35`, borderRadius: '12px', fontWeight: 800 }}>
+                        Generate Flashcards
+                      </Button>
+                    </Box>
+                  </Card>
+                )}
+
+                {normalizeToolKey(activeTool) === 'viva mentor' && (
+                  <Card sx={{ p: 1.5, bgcolor: 'rgba(255,255,255,0.04)', border: GLASS_BORDER, borderRadius: '14px' }}>
+                    <Typography sx={{ color: NEON_CYAN, fontWeight: 800, fontSize: 13, mb: 1 }}>Viva Setup</Typography>
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                      <TextField size="small" label="Subject" value={vivaSubjectInput} onChange={(e) => setVivaSubjectInput(e.target.value)} sx={{ minWidth: 220 }} />
+                      <Button onClick={triggerApcToolAction} sx={{ color: NEON_CYAN, border: `1px solid ${NEON_CYAN}35`, borderRadius: '12px', fontWeight: 800 }}>
+                        Start Viva
+                      </Button>
+                    </Box>
+                  </Card>
+                )}
+
+                {normalizeToolKey(activeTool) === 'ai code architect' && (
+                  <Card sx={{ p: 1.5, bgcolor: 'rgba(255,255,255,0.04)', border: GLASS_BORDER, borderRadius: '14px' }}>
+                    <Typography sx={{ color: NEON_CYAN, fontWeight: 800, fontSize: 13, mb: 1 }}>Code Architect Start</Typography>
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                      <Button onClick={() => handleSend('I have existing code. Please debug and fix it.')} sx={{ color: NEON_CYAN, border: `1px solid ${NEON_CYAN}35`, borderRadius: '12px', fontWeight: 800 }}>
+                        Fix Existing Code
+                      </Button>
+                      <Button onClick={() => handleSend('I want new code from scratch.')} sx={{ color: NEON_PURPLE, border: `1px solid ${NEON_PURPLE}35`, borderRadius: '12px', fontWeight: 800 }}>
+                        Write New Code
+                      </Button>
+                    </Box>
+                  </Card>
+                )}
+
+                {normalizeToolKey(activeTool) === 'quiz master' && (
+                  <Card sx={{ p: 1.5, bgcolor: 'rgba(255,255,255,0.04)', border: GLASS_BORDER, borderRadius: '14px' }}>
+                    <Typography sx={{ color: NEON_CYAN, fontWeight: 800, fontSize: 13, mb: 1 }}>Handwriting OCR to Quiz</Typography>
+                    <Typography sx={{ color: 'rgba(255,255,255,0.65)', fontSize: 12, mb: 1.2 }}>Image ya PDF upload karo. Quiz strictly isi document se banega.</Typography>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Remarks / Instructions"
+                      value={quizRemarks}
+                      onChange={(e) => setQuizRemarks(e.target.value)}
+                      placeholder="e.g., Create a practice quiz, Help me memorize this"
+                    />
+                  </Card>
+                )}
+
+                {( (normalizeToolKey(activeTool) !== 'exam predictor' || showExamAskInput)
+                  && (normalizeToolKey(activeTool) !== 'study roadmap' || showRoadmapAskInput)
+                ) && <QuickSuggestionsChips />}
+
+                {( (normalizeToolKey(activeTool) !== 'exam predictor' || showExamAskInput)
+                  && (normalizeToolKey(activeTool) !== 'study roadmap' || showRoadmapAskInput)
+                ) && (
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} whileHover={{ scale: isAiThinking ? 1 : 1.01 }}>
-                  <Paper sx={{ bgcolor: GLASS_BG, border: isAiThinking ? `2px solid ${NEON_CYAN}` : GLASS_BORDER, borderRadius: '28px', p: 1.5, mx: 0, backdropFilter: 'blur(12px)', boxShadow: isAiThinking ? `0 0 20px ${NEON_CYAN}50` : 'none', transition: 'all 200ms' }}>
+                  <Paper sx={{ bgcolor: normalizeToolKey(activeTool) === 'viva mentor' ? 'rgba(0, 15, 0, 0.88)' : GLASS_BG, border: normalizeToolKey(activeTool) === 'viva mentor' ? '1.5px solid rgba(57,255,20,0.45)' : (isAiThinking ? `2px solid ${NEON_CYAN}` : GLASS_BORDER), borderRadius: '28px', p: 1.5, mx: 0, backdropFilter: 'blur(12px)', boxShadow: normalizeToolKey(activeTool) === 'viva mentor' ? '0 0 20px rgba(57,255,20,0.2)' : (isAiThinking ? `0 0 20px ${NEON_CYAN}50` : 'none'), transition: 'all 200ms' }}>
                     <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
                       <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={async (e) => {
                         const file = e.target.files[0];
                         if (file) {
+                          if (normalizeToolKey(activeTool) === 'quiz master') {
+                            await runApcOcrQuiz(file, quizRemarks);
+                            return;
+                          }
                           setIsUploading(true);
                           try {
                             const formData = new FormData();
                             formData.append('file', file);
-                            const res = await fetch(`${API_BASE}/upload`, { method: 'POST', headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }, body: formData });
+                            // NOTE: /upload-notes-ocr is the correct backend endpoint
+                            const res = await fetch(`${API_BASE}/upload-notes-ocr`, { method: 'POST', headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }, body: formData });
                             if (!res.ok) throw new Error('Upload failed');
-                            setMessages(prev => [...prev, { id: Date.now(), text: `📂 ${file.name} uploaded!`, sender: 'ai', isTypingComplete: true }]);
+                            const data = await res.json();
+                            const summary = data.points && data.points.length > 0
+                              ? `📂 **${file.name}** uploaded!\n\n**Key Points:**\n${data.points.map((p, i) => `${i + 1}. ${p}`).join('\n')}`
+                              : `📂 ${file.name} uploaded successfully!`;
+                            setMessages(prev => [...prev, { id: Date.now(), text: summary, sender: 'ai', isTypingComplete: true }]);
                           } catch (error) {
                             console.error('Upload failed', error);
                             setMessages(prev => [...prev, { id: Date.now(), text: `Error uploading file: ${error.message}`, sender: 'ai', isTypingComplete: true }]);
@@ -2993,12 +3998,74 @@ const Dashboard = ({ onThemeOverride }) => {
                     </Box>
                   </Paper>
                 </motion.div>
+                )}
               </Box>
             </>  
+            )
           )}
         </Box>
         )}
       </Box>
+
+      <Modal
+        open={showPerformanceReportModal}
+        onClose={() => setShowPerformanceReportModal(false)}
+        sx={{ display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end' }}
+      >
+        <AnimatePresence>
+          {showPerformanceReportModal && (
+            <Box
+              component={motion.div}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              sx={{
+                width: '100%',
+                height: '100%',
+                bgcolor: 'rgba(0,0,0,0.45)',
+                display: 'flex',
+                justifyContent: 'flex-end',
+              }}
+            >
+              <Box
+                component={motion.div}
+                initial={{ x: 480 }}
+                animate={{ x: 0 }}
+                exit={{ x: 480 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+                sx={{
+                  width: { xs: '100%', md: '78%', lg: '64%' },
+                  maxWidth: 980,
+                  height: '100%',
+                  bgcolor: 'rgba(15, 23, 42, 0.98)',
+                  borderLeft: `1px solid ${NEON_CYAN}35`,
+                  backdropFilter: 'blur(12px)',
+                  p: 3,
+                  overflowY: 'auto',
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Typography sx={{ color: NEON_CYAN, fontWeight: 900, fontSize: 22 }}>Detailed Performance Report</Typography>
+                  <Button
+                    onClick={() => setShowPerformanceReportModal(false)}
+                    sx={{ color: '#E6EAF0', border: '1px solid rgba(255,255,255,0.24)', borderRadius: '12px', fontWeight: 800 }}
+                  >
+                    Close
+                  </Button>
+                </Box>
+                <Box sx={{ pr: 0.5, whiteSpace: 'pre-wrap' }}>
+                  <ReactMarkdown
+                    children={String(performanceSummary?.report_markdown || 'No report available.')}
+                    remarkPlugins={[remarkGfm]}
+                    components={markdownComponents}
+                  />
+                </Box>
+              </Box>
+            </Box>
+          )}
+        </AnimatePresence>
+      </Modal>
 
       {ENABLE_LEGACY_QUICK_QUIZ && (
         <Modal open={quizModalOpen} onClose={closeQuickQuiz} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

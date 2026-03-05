@@ -1,8 +1,17 @@
 ﻿{
-    "started_at":  "2026-02-28T16:48:51.7952865+05:30",
+    "started_at":  "2026-03-05T22:52:21.1719316+05:30",
+    "status":  "running",
     "bind_host":  "127.0.0.1",
     "backend_port":  8000,
     "frontend_port":  5173,
-    "backend_pid":  null,
-    "frontend_pid":  17332
+    "backend_pid":  8848,
+    "frontend_pid":  14840,
+    "killed_backend_pids":  null,
+    "killed_frontend_pids":  null,
+    "logs":  {
+                 "backend_out":  "E:\\ignou\\ai project backup\\BCABuddy\\logs\\backend.out.log",
+                 "backend_err":  "E:\\ignou\\ai project backup\\BCABuddy\\logs\\backend.err.log",
+                 "frontend_out":  "E:\\ignou\\ai project backup\\BCABuddy\\logs\\frontend.out.log",
+                 "frontend_err":  "E:\\ignou\\ai project backup\\BCABuddy\\logs\\frontend.err.log"
+             }
 }

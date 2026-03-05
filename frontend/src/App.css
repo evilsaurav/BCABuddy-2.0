@@ -1,10 +1,53 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+/* --- Mermaid Diagram Styling (Bade Size ke liye) --- */
+.mermaid-container {
+  width: 100% !important;
+  min-height: 450px; /* Forcefully height badha di */
+  overflow-x: auto; 
+  background: #0d0d0d; /* Deep dark background */
+  border-radius: 12px;
+  padding: 20px;
+  margin: 20px 0;
+  border: 1px solid #33ff00; /* Neon border for BCABuddy vibe */
+  display: flex;
+  justify-content: center;
+}
+
+.mermaid-graph svg {
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto !important;
+  min-height: 400px;
+  display: block;
+}
+
+.mermaid-container {
+  width: 100% !important;
+  min-height: 450px;
+  overflow-x: auto;
+  background: #0d0d0d;
+  border-radius: 12px;
+  padding: 20px;
+  margin: 20px 0;
+  border: 1px solid #33ff00;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Loading animation jab tak AI code likh raha ho */
+.building-diagram {
+  color: #33ff00;
+  font-family: 'Courier New', Courier, monospace;
+  text-align: center;
+  padding: 20px;
+}
 /* 
  * BCABuddy Frontend - Neural Glass Aesthetic Styles
  * License: MIT
  * Author: Saurav Kumar
  */
-
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 * {
   font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', system-ui, sans-serif;

@@ -1,5 +1,3 @@
-import html2pdf from 'html2pdf.js';
-
 export const downloadResultPDF = async (elementId, fileName) => {
   const target = document.getElementById(elementId);
   if (!target) return;
@@ -67,6 +65,7 @@ export const downloadResultPDF = async (elementId, fileName) => {
   document.body.appendChild(exportRoot);
 
   try {
+    const { default: html2pdf } = await import('html2pdf.js');
     await waitForNextPaint();
     if (document.fonts?.ready) {
       await document.fonts.ready.catch(() => {});

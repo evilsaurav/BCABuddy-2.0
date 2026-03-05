@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Box, TextField, Button, Typography, Paper, Alert, CircularProgress } from '@mui/material';
 import { motion } from 'framer-motion';
+import Particles, { initParticlesEngine } from '@tsparticles/react';
+import { loadSlim } from '@tsparticles/slim';
 import { useNavigate, Link } from 'react-router-dom';
 import ArrowBack from '@mui/icons-material/ArrowBack';
 import { setToken } from './utils/tokenManager';
+import { BCA_MOTIVATIONAL_QUOTES } from './utils/motivationalQuotes';
 
 const NEON_CYAN = '#03dac6';
 const MIDNIGHT_BLUE = '#0a0a12';
@@ -15,6 +18,9 @@ const Login = ({ setIsAuthenticated }) => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [particlesReady, setParticlesReady] = useState(false);
+  const [quote, setQuote] = useState('');
+  const [typedQuote, setTypedQuote] = useState('');
   const navigate = useNavigate();
 
   const handleBack = () => {
@@ -22,7 +28,70 @@ const Login = ({ setIsAuthenticated }) => {
     else navigate('/signup');
   };
 
-  useEffect(() => {}, []);
+  const particlesOptions = {
+    background: { color: { value: 'transparent' } },
+    fpsLimit: 60,
+    interactivity: {
+      events: {
+        onHover: { enable: true, mode: 'grab' },
+        resize: true,
+      },
+      modes: {
+        grab: {
+          distance: 170,
+          links: { opacity: 0.35 },
+        },
+      },
+    },
+    particles: {
+      color: { value: ['#03dac6', '#bb86fc'] },
+      links: {
+        color: { value: ['#00FFFF', '#8A2BE2'] },
+        distance: 145,
+        enable: true,
+        opacity: 0.24,
+        width: 1,
+      },
+      move: {
+        enable: true,
+        speed: 0.35,
+        outModes: { default: 'bounce' },
+      },
+      number: { value: 46, density: { enable: true, area: 900 } },
+      opacity: { value: 0.35 },
+      size: { value: { min: 1, max: 3 } },
+    },
+    detectRetina: true,
+  };
+
+  useEffect(() => {
+    initParticlesEngine(async (engine) => {
+      await loadSlim(engine);
+    }).then(() => {
+      setParticlesReady(true);
+    });
+  }, []);
+
+  useEffect(() => {
+    const selected = BCA_MOTIVATIONAL_QUOTES[Math.floor(Math.random() * BCA_MOTIVATIONAL_QUOTES.length)] || '';
+    setQuote(selected);
+  }, []);
+
+  useEffect(() => {
+    if (!quote) {
+      setTypedQuote('');
+      return;
+    }
+    let idx = 0;
+    const intervalId = window.setInterval(() => {
+      idx += 1;
+      setTypedQuote(quote.slice(0, idx));
+      if (idx >= quote.length) {
+        window.clearInterval(intervalId);
+      }
+    }, 36);
+    return () => window.clearInterval(intervalId);
+  }, [quote]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -48,18 +117,9 @@ const Login = ({ setIsAuthenticated }) => {
     } catch (err) { setError(err.message); } finally { setLoading(false); }
   };
 
-  const cardMotion = {
-    hidden: { opacity: 0, y: 36, filter: 'blur(8px)' },
-    show: {
-      opacity: 1,
-      y: 0,
-      filter: 'blur(0px)',
-      transition: { duration: 0.75, ease: [0.22, 1, 0.36, 1] },
-    },
-  };
-
   return (
     <Box
+      className="relative min-h-screen w-full flex items-center justify-center overflow-hidden bg-gray-900"
       sx={{
         minHeight: '100vh',
         width: '100%',
@@ -109,10 +169,20 @@ const Login = ({ setIsAuthenticated }) => {
         },
       }}
     >
+      {particlesReady && (
+        <Particles
+          id="neural-gateway-particles"
+          options={particlesOptions}
+          style={{ position: 'absolute', inset: 0, zIndex: 0 }}
+        />
+      )}
+
       <motion.div
-        variants={cardMotion}
-        initial="hidden"
-        animate="show"
+        className="relative z-10"
+        initial={{ opacity: 0, y: 50 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.7, ease: 'easeOut' }}
+        whileHover={{ scale: 1.02 }}
         style={{ width: '100%', maxWidth: 460, position: 'relative', zIndex: 2 }}
       >
         <Paper
@@ -228,9 +298,18 @@ const Login = ({ setIsAuthenticated }) => {
                 mt: 1,
                 color: 'rgba(255,255,255,0.72)',
                 fontSize: { xs: 13, sm: 14 },
+                minHeight: 24,
+                borderRight: '2px solid rgba(3,218,198,0.65)',
+                pr: 0.6,
+                display: 'inline-block',
+                animation: 'caretBlinkQuote 760ms step-end infinite',
+                '@keyframes caretBlinkQuote': {
+                  '0%, 100%': { borderRightColor: 'transparent' },
+                  '50%': { borderRightColor: 'rgba(3,218,198,0.65)' },
+                },
               }}
             >
-              Enter the Neural Glass gateway
+              {typedQuote || 'Loading motivation...'}
             </Typography>
           </Box>
 
@@ -250,7 +329,17 @@ const Login = ({ setIsAuthenticated }) => {
             </Alert>
           )}
 
-          <Box component="form" onSubmit={handleLogin} sx={{ position: 'relative', zIndex: 1 }}>
+          <Box
+            component="form"
+            onSubmit={handleLogin}
+            sx={{
+              position: 'relative',
+              zIndex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2.5,
+            }}
+          >
             <TextField
               fullWidth
               label="Username"
@@ -262,8 +351,8 @@ const Login = ({ setIsAuthenticated }) => {
                 disableUnderline: true,
                 sx: {
                   color: '#fff',
-                  px: 1.5,
-                  py: 1.2,
+                  px: 2,
+                  py: 1.5,
                   borderRadius: 2,
                   bgcolor: 'rgba(255,255,255,0.03)',
                   border: '1px solid rgba(255,255,255,0.10)',
@@ -272,11 +361,10 @@ const Login = ({ setIsAuthenticated }) => {
                   '&:focus-within': {
                     borderColor: 'rgba(3,218,198,0.55)',
                     boxShadow:
-                      'inset 0 -2px 0 rgba(3,218,198,0.95), 0 0 18px rgba(3,218,198,0.18)',
+                      'inset 0 -2px 0 rgba(3,218,198,0.95), 0 0 24px rgba(3,218,198,0.34), 0 0 0 2px rgba(6,182,212,0.35)',
                   },
                 },
               }}
-              sx={{ mb: 2 }}
             />
 
             <TextField
@@ -291,8 +379,8 @@ const Login = ({ setIsAuthenticated }) => {
                 disableUnderline: true,
                 sx: {
                   color: '#fff',
-                  px: 1.5,
-                  py: 1.2,
+                  px: 2,
+                  py: 1.5,
                   borderRadius: 2,
                   bgcolor: 'rgba(255,255,255,0.03)',
                   border: '1px solid rgba(255,255,255,0.10)',
@@ -301,11 +389,10 @@ const Login = ({ setIsAuthenticated }) => {
                   '&:focus-within': {
                     borderColor: 'rgba(187,134,252,0.55)',
                     boxShadow:
-                      'inset 0 -2px 0 rgba(187,134,252,0.95), 0 0 18px rgba(187,134,252,0.18)',
+                      'inset 0 -2px 0 rgba(187,134,252,0.95), 0 0 24px rgba(187,134,252,0.34), 0 0 0 2px rgba(34,211,238,0.24)',
                   },
                 },
               }}
-              sx={{ mb: 2.5 }}
             />
 
             <motion.div whileHover={{ scale: loading ? 1 : 1.02 }} whileTap={{ scale: loading ? 1 : 0.99 }}>
@@ -351,7 +438,6 @@ const Login = ({ setIsAuthenticated }) => {
 
             <Box
               sx={{
-                mt: 2.2,
                 display: 'flex',
                 justifyContent: 'center',
                 gap: 1,
@@ -378,71 +464,13 @@ const Login = ({ setIsAuthenticated }) => {
         </Paper>
       </motion.div>
 
-      <Box
-        sx={{
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          bottom: 14,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: 0.6,
-          px: 2,
-          zIndex: 2,
-          pointerEvents: 'none',
-        }}
-      >
-        <Typography
-          sx={{
-            fontSize: 12,
-            color: 'rgba(3,218,198,0.85)',
-            fontFamily:
-              '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-            textShadow: '0 0 12px rgba(3,218,198,0.18)',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            borderRight: '2px solid rgba(3,218,198,0.65)',
-            width: 'max-content',
-            animation: 'typing1 5s steps(42, end) 0.2s 1 both, caretBlink 700ms step-end infinite',
-            '@keyframes typing1': {
-              from: { maxWidth: 0 },
-              to: { maxWidth: 420 },
-            },
-            '@keyframes caretBlink': {
-              '0%, 100%': { borderRightColor: 'transparent' },
-              '50%': { borderRightColor: 'rgba(3,218,198,0.65)' },
-            },
-          }}
-        >
-          Supreme Architect: Saurav Kumar
-        </Typography>
-
-        <Typography
-          sx={{
-            fontSize: 11,
-            color: 'rgba(255,255,255,0.55)',
-            fontFamily:
-              '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-            textShadow: '0 0 10px rgba(187,134,252,0.12)',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            width: 'max-content',
-            borderRight: '2px solid rgba(187,134,252,0.55)',
-            animation: 'typing2 6s steps(52, end) 0.7s 1 both, caretBlink2 760ms step-end infinite',
-            '@keyframes typing2': {
-              from: { maxWidth: 0 },
-              to: { maxWidth: 520 },
-            },
-            '@keyframes caretBlink2': {
-              '0%, 100%': { borderRightColor: 'transparent' },
-              '50%': { borderRightColor: 'rgba(187,134,252,0.55)' },
-            },
-          }}
-        >
-          Designed with ❤️ for Frenzy
-        </Typography>
-      </Box>
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex justify-center z-20 pointer-events-none">
+        <div className="flex items-center gap-1.5 text-gray-400 text-sm font-medium tracking-wider">
+          <span>Designed with</span>
+          <span className="text-red-500 text-lg drop-shadow-[0_0_8px_rgba(239,68,68,0.8)] mx-1 animate-pulse">❤️</span>
+          <span className="text-gray-300 font-semibold tracking-widest">by insomniac for Frenzy</span>
+        </div>
+      </div>
     </Box>
   );
 };

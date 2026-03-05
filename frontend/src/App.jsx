@@ -1,12 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import Login from './Login';
-import Signup from './Signup';
-import Dashboard from './Dashboard';
-import EditProfile from './EditProfile';
 import './App.css';
 import { AuthProvider } from './AuthContext';
+
+const Signup = lazy(() => import('./Signup'));
+const Dashboard = lazy(() => import('./Dashboard'));
+const EditProfile = lazy(() => import('./EditProfile'));
 
 const FRENZY_STORAGE_KEY = 'bcabuddy_frenzy_override_v1';
 
@@ -157,24 +158,39 @@ function App() {
       <AuthProvider>
         <MotionConfig transition={{ duration: frenzyOverride?.active ? 2.5 : 0.3 }}>
           <Router>
-            <Routes>
-              <Route 
-                path="/" 
-                element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login setIsAuthenticated={setIsAuthenticated} />} 
-              />
-              <Route 
-                path="/signup" 
-                element={<Signup />} 
-              />
-              <Route 
-                path="/dashboard" 
-                element={isAuthenticated ? <Dashboard onThemeOverride={applyFrenzyOverride} /> : <Navigate to="/" replace />} 
-              />
-              <Route 
-                path="/edit-profile" 
-                element={isAuthenticated ? <EditProfile /> : <Navigate to="/" replace />} 
-              />
-            </Routes>
+            <Suspense fallback={
+              <div style={{
+                minHeight: '100vh',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: '#0a0d17',
+                color: '#03dac6',
+                fontSize: '14px',
+                letterSpacing: '0.3px'
+              }}>
+                Loading BCABuddy...
+              </div>
+            }>
+              <Routes>
+                <Route 
+                  path="/" 
+                  element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login setIsAuthenticated={setIsAuthenticated} />} 
+                />
+                <Route 
+                  path="/signup" 
+                  element={<Signup />} 
+                />
+                <Route 
+                  path="/dashboard" 
+                  element={isAuthenticated ? <Dashboard onThemeOverride={applyFrenzyOverride} /> : <Navigate to="/" replace />} 
+                />
+                <Route 
+                  path="/edit-profile" 
+                  element={isAuthenticated ? <EditProfile /> : <Navigate to="/" replace />} 
+                />
+              </Routes>
+            </Suspense>
           </Router>
           <AnimatePresence>
             {frenzyOverride?.active && (

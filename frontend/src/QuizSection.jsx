@@ -10,6 +10,8 @@ import {
 } from '@mui/material';
 import { CheckCircle, Cancel, Home, Refresh, Assignment, BarChart } from '@mui/icons-material';
 import { motion } from 'framer-motion';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { downloadResultPDF } from './utils/pdfExport';
 import { normalizeChoice, resolveCorrectAnswerText, isAnswerCorrect } from './utils/answerNormalization';
 import BackButton from './components/BackButton';
@@ -45,7 +47,9 @@ const QuizSection = ({ onClose, API_BASE }) => {
   const [reviewMode, setReviewMode] = useState(false); // Toggle between results and review
   const [userAnswers, setUserAnswers] = useState({}); // Track all user answers
   const [explanations, setExplanations] = useState({}); // idx -> explanation text
-  const [explainingIndex, setExplainingIndex] = useState(null);
+  const [explainingMap, setExplainingMap] = useState({});
+  const [explanationErrors, setExplanationErrors] = useState({});
+  const [instantHint, setInstantHint] = useState('');
 
   const safeParse = (raw, fallback) => {
     try {
@@ -164,6 +168,13 @@ const QuizSection = ({ onClose, API_BASE }) => {
     
     if (isCorrect) {
       setScore(score + 1);
+      setInstantHint('');
+    } else {
+      const hintText = String(currentQuestion?.hint || '').trim();
+      setInstantHint(
+        hintText ||
+        'Hint: Pehle concept keywords identify karo.\nHint: Elimination method se close options remove karke final answer choose karo.'
+      );
     }
     
     setShowFeedback(true);
@@ -229,6 +240,10 @@ const QuizSection = ({ onClose, API_BASE }) => {
     setShowFeedback(false);
     setReviewMode(false);
     setUserAnswers({});
+    setInstantHint('');
+    setExplanations({});
+    setExplainingMap({});
+    setExplanationErrors({});
   };
 
   const getRemarks = () => {
@@ -242,6 +257,7 @@ const QuizSection = ({ onClose, API_BASE }) => {
   const fetchExplanation = async (idx, question) => {
     if (!question) return;
     if (explanations[idx]) return; // already loaded
+    if (explainingMap[idx]) return;
 
     const token = localStorage.getItem('token');
     if (!token) {
@@ -249,22 +265,30 @@ const QuizSection = ({ onClose, API_BASE }) => {
       return;
     }
 
-    setExplainingIndex(idx);
+    setExplainingMap((prev) => ({ ...prev, [idx]: true }));
+    setExplanationErrors((prev) => {
+      const next = { ...prev };
+      delete next[idx];
+      return next;
+    });
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 25000);
+
     try {
-      const semesterInt = semester ? parseInt(String(semester).replace(/\D/g, ''), 10) : null;
-      const res = await fetch(`${API_BASE}/explain-mcq`, {
+      const res = await fetch(`${API_BASE}/explain-question`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          question: String(question.question || ''),
-          options: question.options || [],
+          action: 'explain_question',
+          question_text: String(question.question || ''),
           correct_answer: resolveCorrectAnswerText(question),
-          subject,
-          semester: Number.isFinite(semesterInt) ? semesterInt : null
-        })
+          user_answer: String(userAnswers[idx] || 'Not Attempted')
+        }),
+        signal: controller.signal
       });
 
       if (!res.ok) {
@@ -279,12 +303,16 @@ const QuizSection = ({ onClose, API_BASE }) => {
       setExplanations(prev => ({ ...prev, [idx]: text }));
     } catch (error) {
       console.error('Explain MCQ error:', error);
-      setExplanations(prev => ({
+      const isTimeout = error?.name === 'AbortError';
+      setExplanationErrors(prev => ({
         ...prev,
-        [idx]: 'Failed to fetch explanation. Please try again later.'
+        [idx]: isTimeout
+          ? 'Request timed out. Please try again.'
+          : 'Failed to fetch explanation. Please try again later.'
       }));
     } finally {
-      setExplainingIndex(null);
+      clearTimeout(timeoutId);
+      setExplainingMap((prev) => ({ ...prev, [idx]: false }));
     }
   };
 
@@ -415,7 +443,7 @@ const QuizSection = ({ onClose, API_BASE }) => {
                           variant="outlined"
                           size="small"
                           onClick={() => fetchExplanation(idx, question)}
-                          disabled={explainingIndex === idx}
+                          disabled={!!explainingMap[idx]}
                           sx={{
                             borderColor: NEON_CYAN,
                             color: NEON_CYAN,
@@ -424,12 +452,21 @@ const QuizSection = ({ onClose, API_BASE }) => {
                             fontWeight: 600
                           }}
                         >
-                          {explainingIndex === idx ? 'Explaining...' : 'Explain this question'}
+                          {explainingMap[idx] ? 'Explaining...' : 'Explain this question'}
                         </Button>
+                        {explanationErrors[idx] && (
+                          <Alert severity="error" sx={{ mt: 1 }}>
+                            {explanationErrors[idx]}
+                          </Alert>
+                        )}
                         {explanations[idx] && (
-                          <Typography sx={{ mt: 1, color: '#E6EAF0', fontSize: '13px' }}>
-                            {explanations[idx]}
-                          </Typography>
+                          <Box sx={{ mt: 1, p: 1.5, borderRadius: '10px', bgcolor: 'rgba(3, 218, 198, 0.08)', border: '1px solid rgba(3, 218, 198, 0.28)' }}>
+                            <Box sx={{ color: '#E6EAF0', fontSize: '13px', lineHeight: 1.6 }}>
+                              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                {explanations[idx]}
+                              </ReactMarkdown>
+                            </Box>
+                          </Box>
                         )}
                       </Box>
                     </Card>
@@ -603,6 +640,12 @@ const QuizSection = ({ onClose, API_BASE }) => {
             >
               {isCorrect ? 'Correct! Well done!' : `Incorrect. Correct answer: ${resolvedCorrect}`}
             </Alert>
+            {!isCorrect && (
+              <Alert severity="info" sx={{ mt: 1.5 }}>
+                <Typography sx={{ fontWeight: 700, mb: 0.4 }}>Hint (Instant Feedback)</Typography>
+                <Typography sx={{ whiteSpace: 'pre-line' }}>{instantHint}</Typography>
+              </Alert>
+            )}
           </motion.div>
         )}
 

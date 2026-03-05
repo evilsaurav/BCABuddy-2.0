@@ -666,6 +666,23 @@ function ExamSimulator({
       : 'Jiya: Falling standards. Fix your focus. 😤';
   };
 
+  const getAIExaminerReview = (stats, subjectiveSummary) => {
+    const pct = Number(stats?.percentTotal || 0);
+    const subjectiveScored = Number(subjectiveSummary?.scored || 0);
+    const subjectiveMax = Number(subjectiveSummary?.max || 0);
+    const subjectiveLine = subjectiveMax > 0
+      ? ` Subjective quality: ${subjectiveScored}/${subjectiveMax}.`
+      : '';
+
+    if (pct >= 85) {
+      return `AI Examiner Review: Strong exam temperament under timed pressure, clear conceptual command, and good marking-scheme alignment.${subjectiveLine}`;
+    }
+    if (pct >= 60) {
+      return `AI Examiner Review: Moderate control under pressure. Improve precision, answer structure, and keyword coverage for higher band.${subjectiveLine}`;
+    }
+    return `AI Examiner Review: Performance below expected exam threshold. Immediate focus needed on fundamentals, timed practice, and formal answer framing.${subjectiveLine}`;
+  };
+
   const resetExam = () => {
     setQuizData([]);
     setCurrentQuestionIndex(0);
@@ -994,7 +1011,7 @@ function ExamSimulator({
                       AI Evaluation
                     </Typography>
                     <Paper sx={{ bgcolor: 'rgba(255, 255, 255, 0.04)', border: GLASS_BORDER, p: 2, borderRadius: '12px' }}>
-                      <Typography sx={{ color: '#E6EAF0' }}>
+                      <Typography sx={{ color: '#E6EAF0', whiteSpace: 'pre-wrap' }}>
                         {grade?.feedback ? String(grade.feedback) : (attempted ? 'Evaluating...' : 'No answer submitted.')}
                       </Typography>
                     </Paper>
@@ -1376,8 +1393,21 @@ function ExamSimulator({
                     <Typography sx={{ color: NEON_CYAN, fontWeight: 600, mb: 1 }}>
                       Jiya Maurya
                     </Typography>
-                    <Typography sx={{ color: '#E6EAF0' }}>
+                    <Typography sx={{ color: '#E6EAF0', whiteSpace: 'pre-wrap' }}>
                       {jiyaRemark}
+                    </Typography>
+                  </Card>
+                </motion.div>
+              </Grid>
+
+              <Grid size={{ xs: 12 }}>
+                <motion.div variants={item}>
+                  <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, p: 3, backdropFilter: 'blur(12px)' }}>
+                    <Typography sx={{ color: NEON_CYAN, fontWeight: 700, mb: 1 }}>
+                      AI Examiner Review
+                    </Typography>
+                    <Typography sx={{ color: '#E6EAF0', whiteSpace: 'pre-wrap' }}>
+                      {getAIExaminerReview(stats, subjectiveMarkSummary)}
                     </Typography>
                   </Card>
                 </motion.div>

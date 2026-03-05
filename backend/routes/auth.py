@@ -91,7 +91,10 @@ def get_profile(current_user: User = Depends(get_current_user)):
     display_name_val = getattr(current_user_any, "display_name", None)
     gender_val = getattr(current_user_any, "gender", None)
     mobile_val = getattr(current_user_any, "mobile_number", None)
-    profile_pic_val = getattr(current_user_any, "profile_picture_url", None)
+    profile_pic_val = (
+        getattr(current_user_any, "profile_picture_url", None)
+        or getattr(current_user_any, "profile_pic_url", None)
+    )
     is_creator_val = bool(getattr(current_user_any, "is_creator", 0))
     return UserProfile(
         username=str(username_val) if username_val is not None else "",
@@ -106,7 +109,7 @@ def get_profile(current_user: User = Depends(get_current_user)):
         college=getattr(current_user, "college", None),
         enrollment_id=getattr(current_user, "enrollment_id", None),
         bio=getattr(current_user, "bio", None),
-        profile_picture_url=str(profile_pic_val)
+        profile_pic_url=str(profile_pic_val)
         if profile_pic_val is not None
         else None,
         is_creator=is_creator_val,

@@ -12,7 +12,6 @@ import {
   GetApp as GetAppIcon, History as HistoryIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import jsPDF from 'jspdf';
 import { useAuth } from './AuthContext';
 import BackButton from './components/BackButton';
 
@@ -327,8 +326,9 @@ const EditProfile = () => {
   };
 
   // Export chat history as PDF
-  const exportChatHistoryPDF = () => {
+  const exportChatHistoryPDF = async () => {
     try {
+      const { default: jsPDF } = await import('jspdf');
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();

@@ -20,7 +20,7 @@ if sys.stdout and hasattr(sys.stdout, "buffer"):
 if sys.stderr and hasattr(sys.stderr, "buffer"):
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
-from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.staticfiles import StaticFiles
@@ -30,10 +30,11 @@ from typing import Optional, Any, cast
 import os, shutil
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
-from database import ChatHistory, User, ChatSession, get_db
-from rag_service import RAGService 
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_community.vectorstores import FAISS
+from database import ChatHistory, User, ChatSession, StudyRoadmap, get_db
+from rag_service import RAGService
 from PIL import Image
-import io
 import json
 import time
 import re
@@ -49,7 +50,7 @@ from models import (
     UserCreate, Token, ChatRequest, QuizRequest, QuizQuestion,
     MixedExamRequest, SubjectiveGradeRequest, SubjectiveGradeResponse,
     DashboardStats, UserProfile, UserProfileUpdate, PasswordChange, ChatResponse,
-    MCQExplainRequest,
+    MCQExplainRequest, ExplainQuestionRequest,
 )
 from persona import (
     get_saurav_prompt, get_jiya_prompt, get_april_19_prompt,
@@ -57,7 +58,8 @@ from persona import (
     detect_persona_trigger, detect_jiya_question_type, get_study_tool_prompt, get_response_mode_instruction,
     classify_intent, extract_subject_context, build_conversation_context,
     validate_subject_mapping, get_intent_specific_protocol,
-    detect_response_style, get_persona_style_instruction, get_jiya_variant_response
+    detect_response_style, get_persona_style_instruction, get_jiya_variant_response,
+    COMPLETION_DIRECTIVE, CRITICAL_OUTPUT_RULE,
 )
 
 # --- CONFIG ---
@@ -80,6 +82,239 @@ SUPABASE_AVATAR_BUCKET = os.getenv("SUPABASE_AVATAR_BUCKET", "avatars")
 # --- SERVICES ---
 rag_system = RAGService(groq_api_key=GROQ_API_KEY)
 client = Groq(api_key=GROQ_API_KEY)
+MAX_TOKENS = 8192
+AUTO_CONTINUE_PROMPT = (
+    "Continue exactly from where you stopped. "
+    "Do not repeat previous lines. Complete any unfinished sentence, list item, or code block."
+)
+SINGLE_CHAT_MODEL = os.getenv("BCABUDDY_CHAT_MODEL", "llama-3.3-70b-versatile")
+USER_PERFORMANCE_REPORTS: dict[int, dict[str, Any]] = {}
+
+
+class StudyRoadmapAcceptRequest(BaseModel):
+    subject: str = ""
+    semester: str = ""
+    duration_days: int = 15
+    roadmap_text: str = ""
+
+# --- FAISS VECTOR STORE (LOAD ONCE AT STARTUP) ---
+BACKEND_DIR = os.path.dirname(__file__)
+
+def _resolve_vectorstore_path() -> str:
+    candidates = [
+        os.path.join(BACKEND_DIR, "vectorstore", "db_faiss"),
+        os.path.join(BACKEND_DIR, "..", "vectorstore", "db_faiss"),
+        "vectorstore/db_faiss",
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            return path
+    return "vectorstore/db_faiss"
+
+VECTOR_DB_PATH = _resolve_vectorstore_path()
+VECTOR_EMBEDDINGS = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+
+def _load_vector_db_once():
+    try:
+        return FAISS.load_local(
+            VECTOR_DB_PATH,
+            VECTOR_EMBEDDINGS,
+            allow_dangerous_deserialization=True,
+        )
+    except Exception as e:
+        print(f"FAISS load skipped: {e}")
+        return None
+
+VECTOR_DB = _load_vector_db_once()
+
+def _doc_category(doc: Any) -> str:
+    metadata = getattr(doc, "metadata", {}) or {}
+    return str(metadata.get("category", "")).strip().lower()
+
+def _normalize_tool_key(active_tool: Optional[str]) -> str:
+    raw = str(active_tool or "").strip().lower().replace("_", " ")
+    normalized = " ".join(raw.split())
+    if normalized in {"exam predictor", "exam-predictor"}:
+        return "exam predictor"
+    if normalized in {"viva mentor", "ai viva mentor", "ai-viva-mentor"}:
+        return "viva mentor"
+    if normalized in {"study roadmap", "study plan", "roadmap"}:
+        return "study roadmap"
+    if normalized in {"cheat mode", "cheat", "pyq cheat"}:
+        return "cheat mode"
+    if normalized in {"performance analytics", "performance analyzer", "performance"}:
+        return "performance analytics"
+    if normalized in {"quiz master", "ocr quiz", "handwriting ocr to quiz"}:
+        return "quiz master"
+    return normalized
+
+def _retrieve_study_material(user_query: str, active_tool: Optional[str], k: int = 5):
+    if not VECTOR_DB or not str(user_query or "").strip():
+        return "", [], []
+    try:
+        docs = VECTOR_DB.similarity_search(user_query, k=k)
+    except Exception:
+        return "", [], []
+
+    if not docs:
+        return "", [], []
+
+    pyq_docs = [d for d in docs if _doc_category(d) == "pyq"]
+    book_docs = [d for d in docs if _doc_category(d) != "pyq"]
+
+    tool_key = _normalize_tool_key(active_tool)
+    selected_docs = docs
+    if tool_key in {"exam predictor", "cheat mode"}:
+        selected_docs = pyq_docs or docs
+    elif tool_key == "viva mentor":
+        selected_docs = book_docs or docs
+
+    chunks = [
+        str(getattr(d, "page_content", "")).strip()
+        for d in selected_docs
+        if str(getattr(d, "page_content", "")).strip()
+    ]
+    retrieved_context = "\n\n---\n\n".join(chunks[:5]).strip()
+    return retrieved_context, pyq_docs, book_docs
+
+def _hard_chop_next_suggestions(text: str) -> str:
+    return str(text or "").split("Next suggestions:")[0].strip()
+
+def _normalize_semester_value(value: Any) -> str:
+    raw = str(value or "").strip().lower()
+    if not raw:
+        return ""
+    m = re.search(r"([1-6])", raw)
+    return m.group(1) if m else ""
+
+def _retrieve_exam_predictor_pyq_context(
+    selected_subject: str,
+    selected_semester: str,
+    k: int = 30,
+):
+    if not VECTOR_DB:
+        return "", []
+
+    subject_key = str(selected_subject or "").strip().lower()
+    if not subject_key:
+        return "", []
+
+    semester_key = _normalize_semester_value(selected_semester)
+
+    try:
+        docs = VECTOR_DB.similarity_search(
+            f"Previous year questions for {selected_subject}",
+            k=max(60, k * 3),
+        )
+    except Exception:
+        return "", []
+
+    filtered_docs = []
+    for doc in docs:
+        metadata = getattr(doc, "metadata", {}) or {}
+        if str(metadata.get("category", "")).strip().lower() != "pyq":
+            continue
+
+        doc_subject = str(metadata.get("subject", "")).strip().lower()
+        if doc_subject != subject_key:
+            continue
+
+        doc_semester = _normalize_semester_value(metadata.get("semester", ""))
+        if semester_key and doc_semester and semester_key != doc_semester:
+            continue
+
+        filtered_docs.append(doc)
+        if len(filtered_docs) >= k:
+            break
+
+    chunks = [
+        str(getattr(d, "page_content", "")).strip()
+        for d in filtered_docs
+        if str(getattr(d, "page_content", "")).strip()
+    ]
+    return "\n\n---\n\n".join(chunks).strip(), filtered_docs
+
+def _extract_roadmap_days(answer_text: str) -> list[dict[str, Any]]:
+    text = str(answer_text or "")
+    if not text.strip():
+        return []
+
+    days: list[dict[str, Any]] = []
+    seen_days: set[int] = set()
+
+    day_pattern = re.compile(r"(?im)^\s*(?:[-*•]\s*)?day\s*(\d{1,2})\s*[:\-\)]\s*(.+)$")
+    for m in day_pattern.finditer(text):
+        day_num = int(m.group(1))
+        if day_num < 1 or day_num > 90 or day_num in seen_days:
+            continue
+        task = str(m.group(2) or "").strip()
+        if not task:
+            continue
+        seen_days.add(day_num)
+        days.append({
+            "day": day_num,
+            "label": f"Day {day_num}",
+            "task": task,
+            "completed": False,
+        })
+
+    if len(days) >= 5:
+        return sorted(days, key=lambda x: int(x.get("day", 99)))
+
+    numbered_pattern = re.compile(r"(?im)^\s*(\d{1,2})\s*[\).:-]\s*(.+)$")
+    for m in numbered_pattern.finditer(text):
+        day_num = int(m.group(1))
+        if day_num < 1 or day_num > 90 or day_num in seen_days:
+            continue
+        task = str(m.group(2) or "").strip()
+        if not task:
+            continue
+        seen_days.add(day_num)
+        days.append({
+            "day": day_num,
+            "label": f"Day {day_num}",
+            "task": task,
+            "completed": False,
+        })
+
+    return sorted(days, key=lambda x: int(x.get("day", 99)))
+
+def _persist_study_roadmap(
+    db: Session,
+    user_id: int,
+    subject: Optional[str],
+    semester: Optional[str],
+    duration_days: int,
+    answer_text: str,
+) -> bool:
+    days = _extract_roadmap_days(answer_text)
+    duration = max(1, min(int(duration_days or 15), 90))
+    if len(days) < 3:
+        return False
+
+    title = f"{duration}-Day Study Roadmap{f' • {subject}' if subject else ''}"
+    trimmed_days = days[:duration]
+    payload = {
+        "title": title,
+        "subject": str(subject or "").strip() or None,
+        "semester": str(semester or "").strip() or None,
+        "duration_days": duration,
+        "days": trimmed_days,
+        "total_days": len(trimmed_days),
+        "created_at": datetime.utcnow().isoformat(),
+    }
+
+    db.add(
+        StudyRoadmap(
+            user_id=user_id,
+            subject=payload["subject"],
+            title=title,
+            roadmap_json=json.dumps(payload, ensure_ascii=False),
+            raw_text=str(answer_text or "")[:12000],
+        )
+    )
+    db.commit()
+    return True
 
 # --- SESSION STATE (in-memory, best-effort) ---
 SESSION_STATE: dict[str, dict] = {}
@@ -220,8 +455,6 @@ def _safe_json_loads(text: str):
     try:
         return json.loads(cleaned)
     except Exception as e:
-        # Best-effort extraction: models sometimes wrap JSON with prose.
-        # Try to parse the first JSON array/object substring.
         first_arr = cleaned.find("[")
         first_obj = cleaned.find("{")
         starts = [i for i in [first_arr, first_obj] if i != -1]
@@ -229,7 +462,6 @@ def _safe_json_loads(text: str):
             raise ValueError(f"Invalid JSON: {str(e)}")
 
         start = min(starts)
-        # Prefer an array if it starts first; otherwise parse as object.
         if start == first_arr:
             end = cleaned.rfind("]")
         else:
@@ -244,8 +476,50 @@ def _safe_json_loads(text: str):
         except Exception as e2:
             raise ValueError(f"Invalid JSON: {str(e2)}")
 
+def _extract_answer_text(raw: Any) -> str:
+    """Return clean markdown text even if model returns wrapped/stringified JSON."""
+    if raw is None:
+        return ""
+
+    if isinstance(raw, dict):
+        for key in ("answer", "text", "reply", "response", "content"):
+            val = raw.get(key)
+            if isinstance(val, str) and val.strip():
+                return val.strip()
+        return json.dumps(raw, ensure_ascii=False).strip()
+
+    text = str(raw).strip()
+    if not text:
+        return ""
+
+    # Strip ```json fences
+    if text.startswith("```json"):
+        text = re.sub(r"^```json\s*", "", text, flags=re.IGNORECASE).strip()
+        if text.endswith("```"):
+            text = text[:-3].strip()
+
+    # Try to parse as JSON object (handles leading whitespace too)
+    stripped = text.lstrip()
+    if stripped.startswith("{"):
+        try:
+            parsed = json.loads(stripped)
+            if isinstance(parsed, dict):
+                for key in ("answer", "text", "reply", "response", "content"):
+                    val = parsed.get(key)
+                    if isinstance(val, str) and val.strip():
+                        return val.strip()
+        except Exception:
+            # Partial JSON — try extracting value after "answer":
+            m = re.search(r'"answer"\s*:\s*"((?:[^"\\]|\\.)*)"\s*[},]?', stripped, re.DOTALL)
+            if m:
+                try:
+                    return json.loads(f'"{m.group(1)}"')
+                except Exception:
+                    return m.group(1).replace("\\n", "\n").replace('\\"', '"').strip()
+
+    return text
+
 def _coerce_exam_items(items: Any):
-    """Best-effort coercion of exam questions into a predictable list of dicts."""
     if not isinstance(items, list):
         raise ValueError("Exam payload is not a JSON array")
     coerced = []
@@ -264,19 +538,148 @@ def _coerce_exam_items(items: Any):
         if normalized["type"] == "mcq":
             normalized["options"] = [str(o) for o in (options or []) if str(o).strip()]
             normalized["correct_answer"] = str(item.get("correct_answer") or "").strip()
+            marking_scheme = item.get("marking_scheme")
+            if isinstance(marking_scheme, list):
+                normalized["marking_scheme"] = [str(x).strip() for x in marking_scheme if str(x).strip()][:5]
+            hint = str(item.get("hint") or "").strip()
+            if hint:
+                normalized["hint"] = hint
         else:
             normalized["max_marks"] = int(item.get("max_marks") or 10)
+            marking_scheme = item.get("marking_scheme")
+            if isinstance(marking_scheme, list):
+                normalized["marking_scheme"] = [str(x).strip() for x in marking_scheme if str(x).strip()][:6]
         if normalized["question"]:
             coerced.append(normalized)
     return coerced
 
+def _extract_code_blocks(text: str) -> list[dict[str, str]]:
+    if not text:
+        return []
+    blocks: list[dict[str, str]] = []
+    for m in re.finditer(r"```([a-zA-Z0-9_+-]*)\n([\s\S]*?)```", text):
+        blocks.append({
+            "language": str(m.group(1) or "").strip().lower(),
+            "code": str(m.group(2) or "").strip(),
+        })
+    return blocks
+
+def _sanitize_mermaid_blocks(text: str) -> str:
+    if not text:
+        return ""
+
+    def _fix_block(m: re.Match) -> str:
+        lang = str(m.group(1) or "").strip().lower()
+        body = str(m.group(2) or "")
+        if lang != "mermaid":
+            return m.group(0)
+
+        fixed_lines: list[str] = []
+        for line in body.splitlines():
+            ln = line
+            # STEP 1: Strip arrow labels first (e.g. -->|HTTP, FTP|> or -->|label|)
+            # This must happen BEFORE the bare |> replacement to avoid partial corruption.
+            ln = re.sub(r"-->\|[^|\n]*\|>?", "-->", ln)
+            # STEP 2: Replace any remaining bare |> shorthand
+            ln = ln.replace("|>", "-->")
+            # STEP 3: Remove note/annotation syntax that Mermaid often rejects
+            ln = re.sub(r"\bnote\s+(right|left|over)\s+of\b.*", "", ln, flags=re.IGNORECASE)
+            fixed_lines.append(ln)
+        fixed_body = "\n".join(fixed_lines).strip()
+        return f"```mermaid\n{fixed_body}\n```"
+
+    return re.sub(r"```([a-zA-Z0-9_+-]*)\n([\s\S]*?)```", _fix_block, text)
+
+def _ensure_code_fences(text: str) -> str:
+    if not text:
+        return text
+
+    def _add_lang_for_plain_fences(src: str) -> str:
+        if "```\n" not in src:
+            return src
+
+        def _infer_lang(code: str) -> str:
+            body = str(code or "")
+            if re.search(r"\b(public class|System\.out\.println|public static void main|private static)\b", body):
+                return "java"
+            if re.search(r"\b(def |class |import |from |if __name__ ==|print\()", body):
+                return "python"
+            return ""
+
+        def _replace_block(m: re.Match) -> str:
+            lang = str(m.group(1) or "").strip().lower()
+            body = str(m.group(2) or "")
+            if lang:
+                return m.group(0)
+            inferred = _infer_lang(body)
+            return f"```{inferred}\n{body}```" if inferred else m.group(0)
+
+        return re.sub(r"```([a-zA-Z0-9_+-]*)\n([\s\S]*?)```", _replace_block, src)
+
+    text = _add_lang_for_plain_fences(text)
+    if "```" in text:
+        if text.count("```") % 2 == 1:
+            return text.rstrip() + "\n```"
+        return text
+
+    looks_python = bool(re.search(r"\b(def |class |import |from |if __name__ ==)", text))
+    looks_java = bool(re.search(r"\b(public class|System\.out\.println|public static void main)\b", text))
+    if looks_python:
+        return f"```python\n{text.strip()}\n```"
+    if looks_java:
+        return f"```java\n{text.strip()}\n```"
+    return text
+
+def _has_unclosed_code_fence(text: str) -> bool:
+    return str(text or "").count("```") % 2 == 1
+
+def _ends_incomplete_sentence(text: str) -> bool:
+    src = str(text or "").strip()
+    if not src:
+        return False
+    if re.search(r"[.!?।]\s*$", src):
+        return False
+    # Explicit incomplete-ending characters
+    if src[-1] in (':', ',', ';', '-', '(', '[', '{', '/', '`', '"', "'", '\\'):
+        return True
+    # LLM sometimes ends with a bare backslash escape
+    if src.endswith("\\n") or src.endswith("\\"):
+        return True
+    return bool(re.search(r"\b(and|or|because|so|if|then|with|to|for|the|a|an|is|are|was|were)\s*$", src.lower()))
+
+def _has_valid_terminal_ending(text: str) -> bool:
+    cleaned = str(text or "").rstrip()
+    if not cleaned:
+        return False
+    if cleaned.endswith("```"):
+        return True
+    return cleaned[-1] in [".", "?", "!", "।", "]", ")", '"', "'"]
+
+def _needs_auto_continue(finish_reason: str, text: str) -> bool:
+    cleaned = str(text or "")
+    if len(cleaned.strip()) < 20:
+        return True
+    if not _has_valid_terminal_ending(cleaned):
+        return True
+    return (
+        str(finish_reason or "").strip().lower() == "length"
+        or _has_unclosed_code_fence(text)
+        or _ends_incomplete_sentence(text)
+    )
+
 def _build_response_payload(answer: str, suggestions=None):
-    suggestions = suggestions or []
-    while len(suggestions) < 3:
-        suggestions.append("Practice MCQ")
+    """next_suggestions permanently removed — always returns []."""
+    answer_clean = _hard_chop_next_suggestions(str(answer or ""))
+    answer_clean = _ensure_code_fences(_sanitize_mermaid_blocks(answer_clean.strip()))
+    code_blocks   = _extract_code_blocks(answer_clean)
+    has_mermaid   = any(b["language"] == "mermaid" for b in code_blocks)
+    has_code      = any(b["language"] not in ("", "mermaid") for b in code_blocks)
     return {
-        "answer": answer.strip(),
-        "next_suggestions": suggestions[:3]
+        "answer":          answer_clean,
+        "next_suggestions": [],   # always empty — UI chips are gone
+        "has_mermaid":     has_mermaid,
+        "has_code":        has_code,
+        "code_blocks":     code_blocks,
     }
 
 def _get_subject_title(subject_code: str) -> str:
@@ -331,9 +734,7 @@ def _finalize_reply_payload(session_id: Optional[int], payload: dict) -> dict:
     if not isinstance(payload, dict):
         return payload
     payload["answer"] = _strip_banned_openers(payload.get("answer", ""))
-    suggestions = payload.get("next_suggestions") or []
-    if isinstance(suggestions, list):
-        payload["next_suggestions"] = _format_suggestions(session_id, suggestions)
+    payload["next_suggestions"] = []
     return payload
 
 def _extract_score_percent(text: str) -> Optional[int]:
@@ -347,6 +748,40 @@ def _extract_score_percent(text: str) -> Optional[int]:
         return max(0, min(num, 100))
     except Exception:
         return None
+
+def _short_words(text: str, min_words: int = 2, max_words: int = 4) -> str:
+    tokens = [t for t in re.split(r"\s+", str(text or "").strip()) if t]
+    if not tokens:
+        return "New Chat"
+    clipped = tokens[:max_words]
+    if len(clipped) < min_words:
+        clipped = (tokens + ["Chat"])[:min_words]
+    return " ".join(clipped)
+
+def _generate_short_chat_title(first_message: str) -> str:
+    fallback = _short_words(first_message, 2, 4)
+    prompt = (
+        "Generate a VERY SHORT title for this conversation. MAXIMUM 2 to 4 words. "
+        "Do not use quotes, punctuation, or generic prefixes like 'Chat about'. Just the core topic."
+    )
+    try:
+        completion = client.chat.completions.create(
+            model=SINGLE_CHAT_MODEL,
+            messages=[
+                {"role": "system", "content": prompt},
+                {"role": "user", "content": str(first_message or "")[:250]},
+            ],
+            temperature=0.2,
+            max_tokens=18,
+        )
+        raw = str(getattr(completion.choices[0].message, "content", "") or "").strip()
+        raw = re.sub(r"[\"'`]+", "", raw)
+        generated_title = _short_words(raw or fallback, 2, 4)
+        chat_title = generated_title[:30] + '...' if len(generated_title) > 30 else generated_title
+        return chat_title
+    except Exception:
+        chat_title = fallback[:30] + '...' if len(fallback) > 30 else fallback
+        return chat_title
 
 def _get_session_state(session_id: Optional[int]) -> dict:
     if not session_id:
@@ -365,15 +800,19 @@ def _infer_user_gender(name: str, gender_field: Optional[str]) -> str:
         return "female"
     return "unknown"
 
+# ...existing code...
+
 def _get_salutation(name: str, gender: str) -> str:
     name_l = (name or "").strip().lower()
     if "saurav" in name_l:
-        return "Saurav bhai"
+        return "Ok Bro"
     if gender == "female":
-        return "Behen"
+        return random.choice(["Behen", "Scholar", "Pyari"])
     if gender == "male":
-        return "Bhai"
-    return "Buddy"
+        return random.choice(["Bhai", "Buddy", "Dost"])
+    return "Friend"  # Default fallback
+
+# ...existing code...
 
 def _maybe_salutation_prefix(name: str, gender: str) -> str:
     if random.random() > 0.2:
@@ -458,7 +897,6 @@ def _get_last_topic(session_id: Optional[int]) -> Optional[str]:
     return topics[-1] if topics else None
 
 def _is_easter_egg_allowed(conversation_history, window: int = 15) -> bool:
-    """Allow 19 April Easter egg only if not used in last N AI messages."""
     if not conversation_history:
         return True
     ai_seen = 0
@@ -473,33 +911,67 @@ def _is_easter_egg_allowed(conversation_history, window: int = 15) -> bool:
     return True
 
 def get_ai_response(prompt=None, messages=None, models=None, session_state=None, session_id=None, **kwargs):
-    """Groq chat completion with model fallback on rate limits."""
-    models = models or ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "llama3-8b-8192"]
+    """Groq single-model completion with strict auto-resume stitching."""
     if messages is None:
         messages = [{"role": "user", "content": str(prompt) if prompt is not None else ""}]
 
     if session_id is not None and session_state is not None:
         SESSION_STATE[str(session_id)] = session_state
 
-    last_error = None
-    for model_name in models:
-        try:
-            safe_messages = cast(Any, messages)
-            return client.chat.completions.create(
-                model=model_name,
-                messages=safe_messages,
-                **kwargs
-            )
-        except Exception as e:
-            last_error = e
-            msg = str(e).lower()
-            if "rate_limit_exceeded" in msg or "rate limit" in msg or "429" in msg:
-                print(f"⚠️ {model_name} limit reached! Switching to next...")
-                continue
-            raise
-    if last_error:
-        raise last_error
+    kwargs["max_tokens"] = MAX_TOKENS
+
+    safe_messages = list(cast(list, messages))
+    user_prompt = str(prompt or "").strip()
+    if not user_prompt:
+        for msg in reversed(safe_messages):
+            if str(msg.get("role", "")).lower() == "user":
+                user_prompt = str(msg.get("content", "") or "").strip()
+                if user_prompt:
+                    break
+
+    full_response = ""
+    current_prompt = user_prompt
+    last_response = None
+
+    i = 0
+    while i < 4:
+        invoke_messages = list(safe_messages)
+        if i > 0:
+            if full_response.strip():
+                invoke_messages.append({"role": "assistant", "content": full_response})
+            invoke_messages.append({"role": "user", "content": current_prompt})
+
+        response = client.chat.completions.create(
+            model=SINGLE_CHAT_MODEL,
+            messages=cast(Any, invoke_messages),
+            **kwargs
+        )
+        last_response = response
+        response_text = str(getattr(response.choices[0].message, "content", "") or "")
+        full_response += response_text
+
+        finish_reason = str(getattr(response.choices[0], "finish_reason", "") or "").strip().lower()
+        ended_abruptly = _needs_auto_continue(finish_reason, full_response)
+
+        if ended_abruptly and i < 3:
+            current_prompt = AUTO_CONTINUE_PROMPT
+            i += 1
+            continue
+        break
+
+    if full_response and full_response.count("```") % 2 == 1:
+        full_response = full_response.rstrip() + "\n```"
+
+    # Forceful cleanup before returning final response
+    clean_response = full_response.split("Next suggestions:")[0].strip()
+    if clean_response.startswith('{') and '"answer":' in clean_response:
+        clean_response = clean_response.split('"answer":')[1].strip().strip('}').strip('"')
+
+    if last_response is not None:
+        cast(Any, last_response).choices[0].message.content = clean_response
+        return last_response
     raise RuntimeError("AI response failed without a specific error.")
+
 
 def _is_topic_switch(current_message: str, previous_messages: list) -> bool:
     """Detect if user is switching topics or just greeting."""
@@ -568,6 +1040,23 @@ def _extract_text_from_image_bytes(data: bytes) -> str:
 
     return (text or "").strip()
 
+def _extract_text_from_pdf_bytes(data: bytes) -> str:
+    if not data:
+        return ""
+    try:
+        from pypdf import PdfReader  # type: ignore
+    except Exception:
+        return ""
+
+    try:
+        reader_pdf = PdfReader(io.BytesIO(data))
+        pages: list[str] = []
+        for page in reader_pdf.pages[:30]:
+            pages.append(str(page.extract_text() or "").strip())
+        return "\n".join([p for p in pages if p]).strip()
+    except Exception:
+        return ""
+
 # --- DASHBOARD AND SESSION ENDPOINTS ---
 
 @app.get("/dashboard-stats")
@@ -589,7 +1078,6 @@ def get_dashboard_stats(current_user: User = Depends(get_current_user), db: Sess
         avg_quiz_score=85.0,
         recent_activity="Last active 2 hours ago"
     )
-
 
 @app.get("/debug/session-state")
 def debug_session_state(
@@ -622,7 +1110,6 @@ def debug_session_state(
         "available_sessions": list(SESSION_STATE.keys()),
         "count": len(SESSION_STATE)
     }
-
 
 @app.get("/syllabus-progress")
 def get_syllabus_progress(
@@ -693,6 +1180,157 @@ def get_syllabus_progress(
         "covered_count": covered_count,
         "completion_pct": completion_pct,
     }
+
+@app.get("/study-roadmap/latest")
+def get_latest_study_roadmap(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    roadmap = (
+        db.query(StudyRoadmap)
+        .filter(StudyRoadmap.user_id == current_user.id)
+        .order_by(StudyRoadmap.id.desc())
+        .first()
+    )
+    if not roadmap:
+        return {"has_roadmap": False}
+
+    raw_json = str(getattr(cast(Any, roadmap), "roadmap_json", "") or "")
+    parsed = {}
+    try:
+        parsed = json.loads(raw_json) if raw_json else {}
+    except Exception:
+        parsed = {}
+
+    days = parsed.get("days") if isinstance(parsed, dict) else []
+    safe_days = days if isinstance(days, list) else []
+    total = len(safe_days) or int(parsed.get("total_days", 0) or 0)
+    completed = len([d for d in safe_days if isinstance(d, dict) and bool(d.get("completed"))])
+    completion_pct = float((completed / total) * 100.0) if total > 0 else 0.0
+
+    return {
+        "has_roadmap": True,
+        "id": getattr(cast(Any, roadmap), "id", None),
+        "title": parsed.get("title") if isinstance(parsed, dict) else None,
+        "subject": parsed.get("subject") if isinstance(parsed, dict) else None,
+        "semester": parsed.get("semester") if isinstance(parsed, dict) else None,
+        "duration_days": int(parsed.get("duration_days", 0) or 0) if isinstance(parsed, dict) else 0,
+        "days": safe_days,
+        "total_days": total,
+        "completed_days": completed,
+        "completion_pct": completion_pct,
+        "created_at": getattr(cast(Any, roadmap), "created_at", None),
+    }
+
+
+@app.post("/study-roadmap/accept")
+def accept_study_roadmap(
+    request: StudyRoadmapAcceptRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    ok = _persist_study_roadmap(
+        db=db,
+        user_id=int(getattr(cast(Any, current_user), "id", 0) or 0),
+        subject=request.subject,
+        semester=request.semester,
+        duration_days=int(request.duration_days or 15),
+        answer_text=request.roadmap_text,
+    )
+    if not ok:
+        raise HTTPException(status_code=400, detail="Roadmap content is too short or invalid")
+    return {"ok": True}
+
+
+@app.get("/study-roadmap/history")
+def get_study_roadmap_history(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    rows = (
+        db.query(StudyRoadmap)
+        .filter(StudyRoadmap.user_id == current_user.id)
+        .order_by(StudyRoadmap.id.desc())
+        .limit(100)
+        .all()
+    )
+
+    grouped: dict[str, dict[str, list[dict[str, Any]]]] = {}
+    for row in rows:
+        parsed = {}
+        raw_json = str(getattr(cast(Any, row), "roadmap_json", "") or "")
+        try:
+            parsed = json.loads(raw_json) if raw_json else {}
+        except Exception:
+            parsed = {}
+
+        semester = str(parsed.get("semester") or "Unknown Semester")
+        subject = str(parsed.get("subject") or getattr(cast(Any, row), "subject", None) or "Unknown Subject")
+
+        item = {
+            "id": getattr(cast(Any, row), "id", None),
+            "title": str(parsed.get("title") or getattr(cast(Any, row), "title", None) or "Study Roadmap"),
+            "duration_days": int(parsed.get("duration_days") or parsed.get("total_days") or 0),
+            "created_at": parsed.get("created_at") or getattr(cast(Any, row), "created_at", None),
+            "days": parsed.get("days") if isinstance(parsed.get("days"), list) else [],
+        }
+        grouped.setdefault(semester, {}).setdefault(subject, []).append(item)
+
+    return {"groups": grouped}
+
+@app.post("/apc/performance-report")
+def generate_apc_performance_report(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    sessions = db.query(ChatSession).filter(ChatSession.user_id == current_user.id).all()
+    session_ids = [int(getattr(cast(Any, s), "id", 0) or 0) for s in sessions]
+    chats = []
+    if session_ids:
+        chats = db.query(ChatHistory).filter(ChatHistory.session_id.in_(session_ids)).order_by(ChatHistory.id.asc()).all()
+
+    total_messages = len(chats)
+    eta_minutes = 1 if total_messages <= 120 else 2
+    user_msgs = [c for c in chats if str(getattr(cast(Any, c), "sender", "")).lower() == "user"]
+    ai_msgs = [c for c in chats if str(getattr(cast(Any, c), "sender", "")).lower() == "ai"]
+
+    prompt = (
+        "You are a performance analyzer for an IGNOU BCA student. "
+        "Return plain Markdown with these sections: Progress Summary, Weak Areas, Latest Updates, Next 7-Day Action Plan. "
+        "Keep it practical and realistic in Hinglish.\n\n"
+        f"DATA: total_sessions={len(sessions)}, total_messages={total_messages}, "
+        f"user_messages={len(user_msgs)}, ai_messages={len(ai_msgs)}"
+    )
+    completion = get_ai_response(messages=[{"role": "user", "content": prompt}], temperature=0.4)
+    report_markdown = str(getattr(completion.choices[0].message, "content", "") or "").strip()
+
+    highlights: list[str] = []
+    for line in report_markdown.splitlines():
+        t = str(line or "").strip(" -*\t")
+        if not t:
+            continue
+        highlights.append(t)
+        if len(highlights) >= 4:
+            break
+
+    payload = {
+        "generated_at": datetime.utcnow().isoformat(),
+        "eta_minutes": eta_minutes,
+        "highlights": highlights,
+        "report_markdown": report_markdown,
+    }
+    USER_PERFORMANCE_REPORTS[int(getattr(cast(Any, current_user), "id", 0) or 0)] = payload
+    return payload
+
+@app.get("/apc/performance-summary/latest")
+def get_latest_apc_performance_summary(current_user: User = Depends(get_current_user)):
+    user_id = int(getattr(cast(Any, current_user), "id", 0) or 0)
+    return USER_PERFORMANCE_REPORTS.get(user_id, {
+        "generated_at": None,
+        "eta_minutes": 1,
+        "highlights": [],
+        "report_markdown": "",
+    })
 
 @app.get("/sessions")
 def get_sessions(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -813,6 +1451,7 @@ def chat_endpoint(
     salutation = _get_salutation(user_display, user_gender)
     greeting_prefix = _maybe_salutation_prefix(user_display, user_gender)
     is_basic_question = _is_basic_question(user_message)
+    session_was_created = False
     
     # Create or get session
     session = None
@@ -825,7 +1464,7 @@ def chat_endpoint(
     if not session:
         new_session = ChatSession(
             user_id=current_user.id,
-            title=user_message_raw[:50] if len(user_message_raw) > 50 else user_message_raw
+            title=_generate_short_chat_title(user_message_raw)
         )
         db.add(new_session)
         db.commit()
@@ -833,6 +1472,7 @@ def chat_endpoint(
         new_id = cast(Any, new_session).id
         request.session_id = cast(Optional[int], new_id)
         _enforce_session_limit(db, getattr(current_user, "id"), max_sessions=20)
+        session_was_created = True
     
     # Save user message
     user_msg_obj = ChatHistory(sender="user", text=user_message_raw, session_id=request.session_id)
@@ -840,9 +1480,18 @@ def chat_endpoint(
     db.commit()
     db.refresh(user_msg_obj)
 
+    if session_was_created:
+        try:
+            session_obj = db.query(ChatSession).filter(ChatSession.id == request.session_id).first()
+            if session_obj is not None:
+                cast(Any, session_obj).title = _generate_short_chat_title(user_message_raw)
+                db.commit()
+        except Exception:
+            pass
+
     if _detect_frenzy_reset(user_message):
         reply_text = "Theme restored. Back to normal mode."
-        reply_payload = {"answer": reply_text, "next_suggestions": []}
+        reply_payload = _build_response_payload(reply_text)
         db.add(ChatHistory(sender="ai", text=reply_text, session_id=request.session_id))
         db.commit()
         return {
@@ -856,7 +1505,7 @@ def chat_endpoint(
 
     if _detect_frenzy_trigger(user_message):
         reply_text = FRENZY_POEM
-        reply_payload = {"answer": reply_text, "next_suggestions": []}
+        reply_payload = _build_response_payload(reply_text)
         db.add(ChatHistory(sender="ai", text=reply_text, session_id=request.session_id))
         db.commit()
         return {
@@ -915,7 +1564,7 @@ def chat_endpoint(
             f"User input is a numeric selection: {msg_stripped}.\n"
             "Resolve it using the previous assistant message below (treat it as the list/options context).\n\n"
             f"Previous assistant message:\n{last_ai_message}\n\n"
-            f"Now answer selection {msg_stripped} in the required JSON format."
+            f"Now answer selection {msg_stripped} in plain Markdown text."
         )
     elif is_followup:
         last_topic = _get_last_topic(request.session_id)
@@ -928,7 +1577,7 @@ def chat_endpoint(
                 f"{depth_hint} {example_hint}\n\n"
                 f"Previous assistant message:\n{last_ai_message}\n\n"
                 f"Previous user message:\n{last_user_message}\n\n"
-                "Now respond in required JSON format."
+                "Now respond in plain Markdown text."
             )
         else:
             user_message_for_llm = (
@@ -936,7 +1585,7 @@ def chat_endpoint(
                 "Use the previous assistant message as the topic context and expand on it.\n\n"
                 f"Previous assistant message:\n{last_ai_message}\n\n"
                 f"Previous user message:\n{last_user_message}\n\n"
-                "Now provide a clearer, deeper explanation in required JSON format."
+                "Now provide a clearer, deeper explanation in plain Markdown text."
             )
     else:
         user_message_for_llm = user_message
@@ -997,6 +1646,7 @@ def chat_endpoint(
     
     # STEP 4: Build comprehensive system prompt with reasoning framework
     system_prompt = (
+        f"{CRITICAL_OUTPUT_RULE}\n\n"
         "🤖 YOU ARE BCABUDDY - THE ULTIMATE IGNOU BCA LEARNING COMPANION 🤖\n\n"
         "===== ADVANCED REASONING FRAMEWORK =====\n"
         "BEFORE generating any response, follow these steps internally:\n"
@@ -1084,6 +1734,8 @@ def chat_endpoint(
         "• Level-1 lists must use: 1., 2., 3.\n"
         "• Level-2 lists must use: A., B., C. or i., ii., iii.\n"
         "• NEVER repeat 1., 2., 3. within the same nested structure.\n\n"
+        "• ALL Java/Python code MUST be in fenced blocks using ```java or ```python.\n"
+        "• Mermaid diagrams MUST use simple '-->' arrows only. No text on arrows. Never use '|>'.\n\n"
 
         "===== USER ADDRESSING =====\n"
         f"Use this salutation for direct address: {salutation}\n"
@@ -1100,10 +1752,6 @@ def chat_endpoint(
         "If the question is very basic, add a light, funny roast before the explanation. "
         "Keep it helpful and kind, with emojis (🚀 🧠 💀 🔥 🧐).\n\n"
         
-        "INTERACTION LOOP:\n"
-        "• After every explanation, MUST suggest next logical step in 'next_suggestions' array\n"
-        "• Example: Explained 'Inheritance' → suggest 3 next options\n"
-        "• Always offer: 'Go to Unit X' or 'Practice quiz' or 'See example code'\n\n"
         
         "UNIT 1 SPECIAL HANDLING:\n"
         "• If user says 'Start from beginning' → provide Unit 1 overview with 4-point breakdown\n"
@@ -1111,15 +1759,10 @@ def chat_endpoint(
         "• WAIT for user to select point number (1/2/3/4) before deep-diving\n"
         "• Do NOT auto-explain all 4 points\n\n"
         
-        "===== RESPONSE FORMAT (MANDATORY JSON) =====\n"
-        "{\n"
-        '  \"answer\": \"Hinglish response with numbered points if explaining\",\n'
-        '  \"next_suggestions\": [\"Option 1\", \"Option 2\", \"Option 3\"]\n'
-        "}\n"
-        "• MUST return valid JSON - NO markdown code blocks\n"
-        "• 'answer' must be string (not nested object)\n"
-        "• 'next_suggestions' must be array of exactly 3 strings\n"
-        "• If unclear input: ask clarifying questions in 'answer'\n\n"
+        "===== RESPONSE FORMAT (PLAIN TEXT) =====\n"
+        "Return your answer in plain Markdown text.\n"
+        "CRITICAL: DO NOT use JSON format. DO NOT wrap your answer in { }. Just write naturally.\n"
+        "ALWAYS use ```mermaid for diagrams. NEVER use ASCII art or empty spaces to draw.\n"
 
         "IMPORTANT:\n"
         "• Never reveal internal reasoning or chain-of-thought. Keep 'answer' clean and direct.\n\n"
@@ -1140,26 +1783,55 @@ def chat_endpoint(
 
     if is_basic_question:
         prefix = greeting_prefix or salutation
-        roast = f"{prefix}, ye toh 1st semester ka sawal hai, 4th sem mein kya kar rahe ho? 🤨 Chalo, phir bhi bata deti hoon... 💀"
+        roast = f"{prefix}, ye toh 1st semester ka sawal hai, Iss sem mein kya kar rahe hai? 🤨 Chalo, phir bhi bata deti hoon... 💀"
         system_prompt += f"Start answer with: {roast}\n\n"
     
-    mode_max_tokens = 200
-    mode_hint = "Be brief and direct."
-    if request.response_mode == "thinking":
-        mode_max_tokens = 600
-        mode_hint = "Explain step-by-step with logic."
-    elif request.response_mode == "pro":
-        mode_max_tokens = 2000
-        mode_hint = "Provide deep technical analysis, examples, and detailed explanations."
+    # ===== DYNAMIC PROMPT LOGIC (ADAPTIVE LENGTH, SINGLE MODEL) =====
+    needs_diagram = any(word in user_lower for word in ["diagram", "graph", "draw", "flowchart", "visualize", "model"])
+    mode_hint = (
+        "ADAPTIVE MODE: Decide response depth naturally based on user query complexity. "
+        "Simple asks -> short and direct. Complex asks -> detailed with structure and examples."
+    )
 
-    # Add response mode instructions
-    system_prompt += get_response_mode_instruction(request.response_mode)
+    if needs_diagram:
+        mode_hint += (
+            "\n\nCRITICAL DIAGRAM RULES (READ CAREFULLY):\n"
+            "1. Wrap the diagram in a ```mermaid ... ``` code block.\n"
+            "2. EVERY node and connection MUST be on a NEW LINE — never one-liners.\n"
+            "3. NEVER use '|>' ANYWHERE. Use ONLY '-->' arrows.\n"
+            "4. NEVER put text labels on arrows (-->|label| is STRICTLY FORBIDDEN).\n"
+            "5. NEVER use 'note right of' or 'note left of'.\n"
+            "6. Keep diagrams COMPACT — max 8 nodes. Do not list every protocol.\n"
+            "7. EXACT FORMAT TO FOLLOW:\n"
+            "```mermaid\n"
+            "graph TD\n"
+            "  A[Application Layer]\n"
+            "  B[Transport Layer]\n"
+            "  C[Internet Layer]\n"
+            "  D[Network Access Layer]\n"
+            "  A --> B\n"
+            "  B --> C\n"
+            "  C --> D\n"
+            "```\n"
+            "8. After the diagram block, explain in Hinglish text.\n"
+        )
+
     system_prompt += (
         "\n===== MODE DIRECTIVE =====\n"
         f"{mode_hint}\n"
-        "List formatting: primary lists use 1,2,3. Nested lists use A,B,C or i,ii,iii.\n"
+        "===== RESPONSE FORMAT (PLAIN TEXT) =====\n"
+        "Return your answer in plain Markdown text. DO NOT use JSON format.\n"
+        "CRITICAL RULE: NEVER stop mid-sentence. ALWAYS finish your thought and close your code blocks completely.\n"
     )
-    
+
+    system_prompt += (
+        "\n===== CORE REINFORCEMENT (STRICT) =====\n"
+        "• Return plain Markdown text only. Do NOT return JSON wrappers.\n"
+        "• All Java/Python code MUST be in fenced code blocks with language tags (```java / ```python).\n"
+        "• Tone must be realistic Hinglish peer with diverse openings.\n"
+        "• Avoid repetitive openers, especially 'Arre haan bhai'.\n"
+    )
+
     # Save intent classification to database for later analysis
     user_msg_any = cast(Any, user_msg_obj)
     user_msg_any.intent_type = str(intent_type) if intent_type else None
@@ -1272,6 +1944,15 @@ def chat_endpoint(
     if request.active_tool:
         system_prompt += f"\n\n===== STUDY TOOL MODE: {request.active_tool} =====\n"
         system_prompt += get_study_tool_prompt(request.active_tool, request.selected_subject)
+        system_prompt += (
+            "\n\n===== APC TONE RULE =====\n"
+            "Act as a strict but supportive Exam Coach."
+        )
+    else:
+        system_prompt += (
+            "\n\n===== MAIN APP TONE RULE =====\n"
+            "Adopt a friendly, realistic Hinglish peer tone. CRITICAL: DO NOT repeat the same greeting (like 'Arre Saurav bhai') in every response. Vary your openers (e.g., 'Dekho bhai...', 'Iska logic simple hai...', 'Chalo isko samajhte hain...') or skip the greeting entirely and jump straight to the point."
+        )
     
     # SUBJECT CONTEXT (if applicable)
     if request.selected_subject and not request.active_tool:
@@ -1294,6 +1975,90 @@ def chat_endpoint(
         "intent": intent_type,
         "vibe": vibe_hint
     }
+
+    # FAISS KNOWLEDGE RETRIEVAL (books + PYQs)
+    tool_key = _normalize_tool_key(request.active_tool)
+    retrieved_context = ""
+    retrieved_pyq_docs = []
+    retrieved_book_docs = []
+    if request.mode == 'study' or request.selected_subject or request.active_tool:
+        if tool_key == "exam predictor":
+            retrieved_context, retrieved_pyq_docs = _retrieve_exam_predictor_pyq_context(
+                selected_subject=request.selected_subject,
+                selected_semester=request.selected_semester,
+                k=30,
+            )
+            retrieved_book_docs = []
+        else:
+            retrieved_context, retrieved_pyq_docs, retrieved_book_docs = _retrieve_study_material(
+                user_query=user_message,
+                active_tool=request.active_tool,
+                k=5,
+            )
+
+    if retrieved_context:
+        system_prompt += (
+            "\n\n===== STUDY MATERIAL =====\n"
+            f"{retrieved_context}\n\n"
+            "You are BCABuddy. Use the 'STUDY MATERIAL' provided below to answer the user's question. "
+            "If the information is in the material, prioritize it and mention 'According to your notes/PYQs...'. "
+            "If not, use your general knowledge but stay in the context of IGNOU BCA."
+        )
+
+    if tool_key == "exam predictor":
+        pyq_chunks = [
+            str(getattr(d, "page_content", "")).strip()
+            for d in retrieved_pyq_docs
+            if str(getattr(d, "page_content", "")).strip()
+        ]
+        system_prompt += (
+            "\n\n===== EXAM PREDICTOR RULE =====\n"
+            "Do NOT ask for confidence ratings or survey questions. "
+            "Use only PYQ chunks where metadata['category'] == 'pyq' and metadata['subject'] matches selected subject.\n"
+            "Start EXACTLY with: Based on analyzing the past 4 years of PYQs, here are the topics with a 90% probability of appearing...\n"
+            "After that, provide ONLY a numbered list of predicted questions (minimum 8).\n"
+            "Each line must be like: 1. [Predicted Question]."
+        )
+        if request.selected_semester:
+            system_prompt += f"\nSelected Semester: {request.selected_semester}"
+        if request.selected_subject:
+            system_prompt += f"\nSelected Subject: {request.selected_subject}"
+        if pyq_chunks:
+            system_prompt += "\n\nPYQ PATTERN CHUNKS:\n" + "\n\n".join(pyq_chunks[:12])
+        else:
+            system_prompt += "\n\nNo PYQ chunks were found for the selected filters. Explicitly state this and avoid guessing."
+    elif tool_key == "cheat mode":
+        pyq_chunks = [
+            str(getattr(d, "page_content", "")).strip()
+            for d in retrieved_pyq_docs
+            if str(getattr(d, "page_content", "")).strip()
+        ]
+        system_prompt += (
+            "\n\n===== CHEAT MODE RULE =====\n"
+            "Use PYQ chunks only. Generate concise flashcard-style answers for fast revision.\n"
+            "Each flashcard should be highly scannable, short, and exam-focused."
+        )
+        if pyq_chunks:
+            system_prompt += "\n\nPYQ CHEAT CHUNKS:\n" + "\n\n".join(pyq_chunks[:6])
+    elif tool_key == "viva mentor":
+        book_chunks = [
+            str(getattr(d, "page_content", "")).strip()
+            for d in retrieved_book_docs
+            if str(getattr(d, "page_content", "")).strip()
+        ]
+        system_prompt += (
+            "\n\n===== VIVA MENTOR RULE =====\n"
+            "For Viva Mentor, generate likely viva questions primarily from retrieved book/theory chunks."
+        )
+        if book_chunks:
+            system_prompt += "\n\nBOOK CHUNKS FOR VIVA:\n" + "\n\n".join(book_chunks[:5])
+    elif tool_key == "study roadmap":
+        system_prompt += (
+            "\n\n===== STUDY ROADMAP RULE =====\n"
+            "Generate exactly a 15-day roadmap in this strict format:\n"
+            "Day 1: ...\nDay 2: ...\n...\nDay 15: ...\n"
+            "Keep each day concise, practical, and exam-focused for IGNOU BCA."
+        )
     
     # RAG INTEGRATION (Knowledge Retrieval)
     rag_context = ""
@@ -1303,7 +2068,7 @@ def chat_endpoint(
             if callable(rag_query):
                 rag_result = rag_query(user_message)
                 if rag_result and str(rag_result).strip():
-                    rag_context = f"\n\n📚 **RETRIEVED STUDY MATERIAL:**\n{str(rag_result)[:500]}\n"
+                    rag_context = f"\n\n📚 **USER'S UPLOADED CONTENT (HIGHEST PRIORITY):**\n{str(rag_result)[:700]}\n"
                     system_prompt += rag_context
         except Exception:
             pass  # RAG system optional, continue without it
@@ -1316,32 +2081,16 @@ def chat_endpoint(
             "Use emojis sparingly to enhance tone."
         )
 
+    # COMPLETION DIRECTIVE must remain the last instruction in the system prompt.
+    system_prompt = system_prompt.rstrip() + "\n\n" + COMPLETION_DIRECTIVE
+
     
     # GROQ API CALL
     try:
-        # Precompute context-aware suggestions for padding/normalization
-        topic_hint = ""
-        try:
-            topic_hint = (subject_context.get("topic_keywords") or [""])[0]
-        except Exception:
-            topic_hint = ""
-
-        subject_code = subject_context.get("subject_code") if isinstance(subject_context, dict) else ""
-        subject_label = (subject_code or (request.selected_subject or "")).strip()
-        hint = topic_hint or subject_label or "this topic"
-        context_suggestions = [
-            f"Give a simple example on {hint}",
-            f"Explain {hint} in 5 bullet points",
-            f"Practice 10 MCQs on {hint}"
-        ]
-
-        # Build LLM messages with short-term memory (user + assistant messages)
         messages: list = [{"role": "system", "content": system_prompt}]
 
-        # Add prior messages (exclude the current user message to avoid duplication)
         for m in conversation_history:
-            if str(getattr(m, "id", "")) == str(getattr(user_msg_obj, "id", "")):
-                continue
+            if str(getattr(m, "id", "")) == str(getattr(user_msg_obj, "id", "")): continue
             role = "assistant" if str(getattr(m, "sender", "")) == "ai" else "user"
             text_val = getattr(cast(Any, m), "text", None)
             if text_val is not None and str(text_val).strip():
@@ -1351,122 +2100,57 @@ def chat_endpoint(
 
         completion = get_ai_response(
             messages=messages,
-            temperature=0.8,  # PHASE 2: Increased from 0.7 for more creativity and human-like variation
-            max_tokens=mode_max_tokens,
+            temperature=0.7,
             session_state=session_state,
             session_id=request.session_id
         )
         
         reply_text_raw = completion.choices[0].message.content or ""
-        reply_payload = None
-        try:
-            parsed = _safe_json_loads(reply_text_raw)
-            if not (isinstance(parsed, dict) and "answer" in parsed and "next_suggestions" in parsed):
-                raise ValueError("Missing 'answer' or 'next_suggestions' fields")
-
-            answer = parsed.get("answer")
-            next_suggestions = parsed.get("next_suggestions")
-
-            if not isinstance(answer, str):
-                answer = str(answer)
-
-            if not isinstance(next_suggestions, list):
-                raise ValueError("next_suggestions must be a list")
-
-            cleaned_suggestions = []
-            for s in next_suggestions:
-                if isinstance(s, str) and s.strip():
-                    cleaned_suggestions.append(s.strip())
-
-            # Enforce exactly 3 strings, padded with context-aware suggestions
-            merged = cleaned_suggestions[:]
-            for s in context_suggestions:
-                if s not in merged:
-                    merged.append(s)
-            reply_payload = _build_response_payload(answer, merged or context_suggestions)
-        except Exception as e:
-            raw = reply_text_raw or ""
-            raw_preview = (raw[:200] + "...") if len(raw) > 200 else (raw if raw else "[empty]")
-            print(f"[WARN] LLM JSON parse/validation failed: {e}. Raw: {raw_preview}")
-            reply_payload = None
-
-        if not reply_payload:
-            # Graceful fallback: use raw text as answer if JSON parsing fails
-            fallback_text = reply_text_raw if reply_text_raw else "No response generated."
-            reply_payload = _build_response_payload(fallback_text, context_suggestions)
-
-        reply_payload = _finalize_reply_payload(request.session_id, reply_payload)
-        reply_text = reply_payload["answer"]
-
-        # Calculate confidence score (simple heuristic)
-        confidence_score = 0.95 if isinstance(reply_payload, dict) and "answer" in reply_payload else 0.70
+        reply_text_raw = _extract_answer_text(reply_text_raw)
         
-        # Save AI response with intent classification
+        # 🔥 THE ULTIMATE FIX: AI ab JSON nahi dega, direct answer dega! 🔥
+        answer = _ensure_code_fences(_sanitize_mermaid_blocks(reply_text_raw.strip()))
+        answer = _hard_chop_next_suggestions(answer)
+
+        # Agar AI galti se purani aadat ki wajah se JSON de de, toh usko saaf kar lenge
+        if answer.startswith('{') and '"answer"' in answer:
+            try:
+                parsed = json.loads(answer)
+                if "answer" in parsed:
+                    answer = parsed["answer"]
+            except:
+                pass
+
+        answer = _extract_answer_text(answer)
+
+        reply_payload = _build_response_payload(answer)
+        reply_payload = _finalize_reply_payload(request.session_id, reply_payload)
+        reply_text = _hard_chop_next_suggestions(str(reply_payload.get("answer", answer)))
+
+        # Save AI response
         ai_msg_obj = ChatHistory(
-            sender="ai", 
-            text=reply_text, 
-            session_id=request.session_id,
-            intent_type=intent_type,
-            confidence_score=confidence_score
+            sender="ai", text=reply_text, session_id=request.session_id,
+            intent_type=intent_type, confidence_score=0.95
         )
         db.add(ai_msg_obj)
         db.commit()
         
-        # Auto-generate session title on first message
-        msg_count = db.query(ChatHistory).filter(ChatHistory.session_id == request.session_id).count()
-        if msg_count <= 2:
+        # Auto-generate title logic
+        if db.query(ChatHistory).filter(ChatHistory.session_id == request.session_id).count() <= 2:
             try:
-                title_gen = get_ai_response(
-                    messages=[
-                        {"role": "system", "content": "Generate a short 3-4 word title for this chat. No quotes."},
-                        {"role": "user", "content": user_message}
-                    ]
-                )
-                title_content = title_gen.choices[0].message.content
-                if title_content:
-                    new_title = str(title_content).strip()
-                    session = db.query(ChatSession).filter(ChatSession.id == request.session_id).first()
-                    if session:
-                        session_any = cast(Any, session)
-                        session_any.title = new_title
-                        db.commit()
-            except:
-                pass
+                session = db.query(ChatSession).filter(ChatSession.id == request.session_id).first()
+                if session is not None:
+                    cast(Any, session).title = _generate_short_chat_title(user_message)
+                    db.commit()
+            except: pass
         
         return {"reply": reply_text, "response": reply_payload, "session_id": request.session_id}
-    
+        
     except Exception as e:
         error_msg = f"Error generating response: {str(e)}"
         db.add(ChatHistory(sender="ai", text=error_msg, session_id=request.session_id))
         db.commit()
         raise HTTPException(status_code=500, detail=error_msg)
-
-# --- PDF UPLOAD ENDPOINT ---
-@app.post("/upload")
-async def upload_pdf(file: UploadFile = File(...), current_user: User = Depends(get_current_user)):
-    """Upload PDF for RAG processing"""
-    _check_rate_limit("ocr", getattr(current_user, "id", None), settings.ocr_requests_per_minute)
-    # Validate file size (max 50 MB)
-    MAX_FILE_SIZE = 50 * 1024 * 1024
-    file_content = await file.read()
-    if len(file_content) > MAX_FILE_SIZE:
-        raise HTTPException(status_code=400, detail=f"File size exceeds {MAX_FILE_SIZE / 1024 / 1024:.0f}MB limit")
-    
-    # Validate file type
-    allowed_types = {"application/pdf", "image/jpeg", "image/png"}
-    if file.content_type not in allowed_types:
-        raise HTTPException(status_code=400, detail=f"File type {file.content_type} not allowed. Use PDF, JPEG, or PNG")
-    
-    file_path = os.path.join(UPLOAD_DIR, file.filename or "upload")
-    try:
-        with open(file_path, "wb") as buffer:
-            buffer.write(file_content)
-        chunks = rag_system.upload_pdf(file_path)
-        filename_str = str(file.filename) if file.filename else "file"
-        return {"message": f"Processed {filename_str}. {chunks} chunks added."}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Upload processing failed: {str(e)}")
-
 
 @app.post("/upload-notes-ocr")
 async def upload_notes_ocr(file: UploadFile = File(...), current_user: User = Depends(get_current_user)):
@@ -1513,6 +2197,45 @@ async def upload_notes_ocr(file: UploadFile = File(...), current_user: User = De
 
     return {"points": points[:5], "text": extracted[:5000]}
 
+@app.post("/apc/ocr-quiz")
+async def apc_ocr_quiz(
+    file: UploadFile = File(...),
+    remarks: str = Form(""),
+    current_user: User = Depends(get_current_user),
+):
+    _check_rate_limit("ocr", getattr(current_user, "id", None), settings.ocr_requests_per_minute)
+    if not file:
+        raise HTTPException(status_code=400, detail="file is required")
+
+    content_type = str(file.content_type or "").lower()
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="Empty file")
+
+    extracted_text = ""
+    if content_type.startswith("image/"):
+        extracted_text = _extract_text_from_image_bytes(data)
+    elif "pdf" in content_type or str(file.filename or "").lower().endswith(".pdf"):
+        extracted_text = _extract_text_from_pdf_bytes(data)
+    else:
+        raise HTTPException(status_code=400, detail="Only image/PDF uploads are allowed")
+
+    if not extracted_text:
+        raise HTTPException(status_code=400, detail="Could not extract text from the uploaded document")
+
+    prompt = (
+        "Create a structured quiz strictly from this extracted document text. "
+        "Return plain Markdown with sections: MCQs (10), Short Questions (5), Answer Key.\n\n"
+        f"USER REMARKS/INSTRUCTIONS: {str(remarks or '').strip()[:500]}\n\n"
+        f"DOCUMENT:\n{extracted_text[:8000]}"
+    )
+    completion = get_ai_response(messages=[{"role": "user", "content": prompt}], temperature=0.45)
+    quiz_markdown = str(getattr(completion.choices[0].message, "content", "") or "").strip()
+    return {
+        "quiz_markdown": quiz_markdown,
+        "extracted_chars": len(extracted_text),
+    }
+
 # --- QUIZ ENDPOINT ---
 @app.post("/generate-quiz")
 def generate_quiz(
@@ -1529,13 +2252,15 @@ def generate_quiz(
 
 Return ONLY a valid JSON array (no markdown, no explanations):
 [
-  {{"question": "...", "options": ["...", "...", "...", "..."], "correct_answer": "..."}}
+    {{"question": "...", "options": ["...", "...", "...", "..."], "correct_answer": "...", "hint": "line1\\nline2"}}
 ]
 
 Rules:
 - Each question must have EXACTLY 4 options
 - correct_answer MUST be EXACTLY one of the 4 option strings (verbatim match)
 - Mix easy/medium/hard, cover different syllabus topics
+- exam-focused phrasing, no ambiguity
+- For each question include a 2-line hint for wrong-answer remediation
 """
     
     try:
@@ -1551,7 +2276,25 @@ Rules:
         quiz_data = _safe_json_loads(str(quiz_content))
         if not isinstance(quiz_data, list):
             raise ValueError("Quiz response is not a JSON array")
-        return quiz_data[:count]
+        normalized_quiz = []
+        for item in quiz_data:
+            if not isinstance(item, dict):
+                continue
+            question = str(item.get("question") or "").strip()
+            options = [str(o).strip() for o in (item.get("options") or []) if str(o).strip()]
+            correct = str(item.get("correct_answer") or "").strip()
+            hint = str(item.get("hint") or "").strip()
+            if not question or len(options) != 4 or correct not in options:
+                continue
+            if not hint:
+                hint = "Hint: Core concept ko identify karo pehle.\nHint: Option elimination method se final answer lock karo."
+            normalized_quiz.append({
+                "question": question,
+                "options": options,
+                "correct_answer": correct,
+                "hint": hint,
+            })
+        return normalized_quiz[:count]
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Quiz generation failed: {str(e)}")
@@ -1582,16 +2325,18 @@ def generate_mixed_exam(
 You must return ONLY a valid JSON array of length {total}. No markdown.
 
 Include:
-- {mcq_count} MCQ items with: type='mcq', question, options (exactly 4), correct_answer (must match one option string).
-- {subjective_count} Subjective items with: type='subjective', question, max_marks (integer, default 10).
+- {mcq_count} MCQ items with: type='mcq', question, options (exactly 4), correct_answer (must match one option string), marking_scheme (array), hint (2 lines).
+- {subjective_count} Subjective items with: type='subjective', question, max_marks (integer, default 10), marking_scheme (array).
 
 Schema examples:
-{{"type":"mcq","question":"...","options":["...","...","...","..."],"correct_answer":"..."}}
-{{"type":"subjective","question":"...","max_marks":10}}
+{{"type":"mcq","question":"...","options":["...","...","...","..."],"correct_answer":"...","hint":"line1\\nline2","marking_scheme":["+1 correct","0 wrong","0 unattempted"]}}
+{{"type":"subjective","question":"...","max_marks":10,"marking_scheme":["concept accuracy","keyword coverage","structure","example relevance"]}}
 
 Rules:
 - Questions must be exam-level, cover different topics.
 - Keep wording clear and unambiguous.
+- Timed Pressure: wording should simulate real exam constraints.
+- Use formal marking orientation suitable for evaluator review.
 """
 
     try:
@@ -1670,6 +2415,7 @@ Evaluate the student answer out of {max_marks} using these criteria:
 1) Accuracy: Concept correctness and completeness
 2) Keywords: Presence of relevant technical terms for this topic
 3) Structure: Clear, organized explanation (points/steps/examples)
+4) Formal Marking Scheme alignment: answer should satisfy examiner criteria
 
 Also generate a brief ideal model answer for comparison.
 
@@ -1687,6 +2433,7 @@ Return ONLY valid JSON (no markdown):
 
 Rules:
 - Be fair but strict.
+- Tone must be formal examiner tone suitable for AI Examiner Review.
 - Do NOT reveal chain-of-thought.
 - All keys in the JSON schema MUST be present (use empty string/empty arrays if needed).
 - Keep missed_points and suggested_keywords concise (0-6 items each).
@@ -1864,6 +2611,56 @@ Provide:
 
 
 # --- MCQ EXPLANATION ENDPOINT ---
+@app.post("/explain-question")
+def explain_question(
+    request: ExplainQuestionRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """Explain a specific question using strict concise tutor format."""
+    _check_rate_limit(
+        "grading",
+        getattr(current_user, "id", None),
+        settings.grading_requests_per_minute,
+    )
+
+    action = str(request.action or "").strip().lower()
+    question_text = str(request.question_text or "").strip()
+    correct_answer = str(request.correct_answer or "").strip()
+    user_answer = str(request.user_answer or "").strip()
+
+    if action != "explain_question":
+        raise HTTPException(status_code=400, detail="Invalid action")
+    if not question_text or not correct_answer:
+        raise HTTPException(status_code=400, detail="question_text and correct_answer are required")
+
+    prompt = (
+        "You are BCABuddy, a helpful tutor.\n"
+        "Explain the question clearly and concisely in markdown.\n"
+        "DO NOT ask follow-up questions.\n"
+        "DO NOT include next suggestions.\n"
+        "Use this structure:\n"
+        "### Why this is correct\n"
+        "### Where your answer went wrong\n"
+        "### Quick memory tip\n\n"
+        f"Question: {question_text[:1200]}\n"
+        f"Correct answer: {correct_answer[:500]}\n"
+        f"User answer: {(user_answer or 'Not Attempted')[:500]}"
+    )
+
+    try:
+        completion = get_ai_response(
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.5,
+            max_tokens=360,
+        )
+        explanation_raw = completion.choices[0].message.content or ""
+        explanation = _hard_chop_next_suggestions(_ensure_code_fences(str(explanation_raw).strip()))
+        if not explanation:
+            explanation = "### Why this is correct\nExplanation not available."
+        return {"explanation": explanation}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate explanation: {str(e)}")
+
 @app.post("/explain-mcq")
 def explain_mcq(
     request: MCQExplainRequest,
@@ -1954,4 +2751,3 @@ def health_check():
         "rag_service": "active",
         "ocr_service": "easyocr" if reader else "tesseract" if pytesseract else "unavailable"
     }
-

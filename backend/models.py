@@ -1,14 +1,8 @@
 """
-BCABuddy Database Models
-License: MIT
-Author: Saurav Kumar
-Description: SQLAlchemy models for User, ChatSession, and ChatHistory
+BCABuddy Pydantic Models — Author: Saurav Kumar
 """
-
 from pydantic import BaseModel, Field
-from typing import Optional, List, Literal
-
-# --- PYDANTIC REQUEST/RESPONSE MODELS ---
+from typing import Optional, List
 
 class UserCreate(BaseModel):
     username: str
@@ -21,17 +15,26 @@ class Token(BaseModel):
 class ChatRequest(BaseModel):
     message: str
     mode: str = "auto"
-    selected_subject: str = "" 
+    selected_subject: str = ""
+    selected_semester: str = ""
     session_id: Optional[int] = None
     response_mode: str = "fast"
     active_tool: Optional[str] = None
     is_creator: bool = False
+
+class ChatResponse(BaseModel):
+    answer: str
+    # next_suggestions permanently removed
 
 class QuizRequest(BaseModel):
     subject: str
     semester: int
     count: int = 15
 
+class QuizQuestion(BaseModel):
+    question: str
+    options: List[str]
+    correct_answer: str
 
 class MixedExamRequest(BaseModel):
     subject: str
@@ -39,6 +42,18 @@ class MixedExamRequest(BaseModel):
     mcq_count: int = 12
     subjective_count: int = 3
 
+class MCQExplainRequest(BaseModel):
+    question: str
+    options: List[str]
+    correct_answer: str
+    subject: Optional[str] = None
+    semester: Optional[int] = None
+
+class ExplainQuestionRequest(BaseModel):
+    action: str
+    question_text: str
+    correct_answer: str
+    user_answer: Optional[str] = None
 
 class SubjectiveGradeRequest(BaseModel):
     subject: str
@@ -46,7 +61,6 @@ class SubjectiveGradeRequest(BaseModel):
     question: str
     answer: str
     max_marks: int = 10
-
 
 class SubjectiveGradeResponse(BaseModel):
     score: int
@@ -57,26 +71,6 @@ class SubjectiveGradeResponse(BaseModel):
     suggested_keywords: List[str] = Field(default_factory=list)
     strengths: List[str] = Field(default_factory=list)
     improvements: List[str] = Field(default_factory=list)
-
-
-class MCQExplainRequest(BaseModel):
-    question: str
-    options: List[str]
-    correct_answer: str
-    subject: Optional[str] = None
-    semester: Optional[int] = None
-
-class ChatResponse(BaseModel):
-    answer: str
-    next_suggestions: List[str]
-    intent_type: Optional[str] = None  # ACADEMIC | COMMAND | PERSONAL | AMBIGUOUS
-    confidence_score: Optional[float] = None  # 0-1 confidence in response quality
-    reasoning_context: Optional[str] = None  # Debug/transparency field
-
-class QuizQuestion(BaseModel):
-    question: str
-    options: List[str]
-    correct_answer: str
 
 class DashboardStats(BaseModel):
     total_sessions: int
@@ -94,7 +88,7 @@ class UserProfile(BaseModel):
     college: Optional[str] = None
     enrollment_id: Optional[str] = None
     bio: Optional[str] = None
-    profile_picture_url: Optional[str] = None
+    profile_pic_url: Optional[str] = None   # ← FIX #1 added
     is_creator: bool = False
 
 class UserProfileUpdate(BaseModel):
