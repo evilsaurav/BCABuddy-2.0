@@ -655,19 +655,19 @@ See full [Troubleshooting](#troubleshooting) section for detailed resolutions.
 
 ---
 
-## ?? Roadmap
+## :roller_coaster: Roadmap
 
-### ? Phase 1-2 (Completed)
+###  Phase 1-2 (Completed)
 - Core auth, chat, quiz, exam simulator
 - APC tools, roadmap, performance analytics
 - OCR integration, PDF/CSV export
 
-### ?? Phase 3 (In Progress)
+###  Phase 3 (In Progress)
 - Fix /upload endpoint, centralize API URLs
 - Restore response modes, token auto-refresh
 - KaTeX math rendering
 
-### ?? Phase 4-5 (Planned)
+###  Phase 4-5 (Planned)
 - Per-course knowledge bases
 - Collaborative study groups
 - Mobile app (React Native)
@@ -676,7 +676,7 @@ See full [Troubleshooting](#troubleshooting) section for detailed resolutions.
 
 ---
 
-## ?? Contributing
+##  Contributing
 
 1. Fork repo
 2. Create feature branch: `git checkout -b feature/your-feature`
@@ -691,13 +691,13 @@ See full [Troubleshooting](#troubleshooting) section for detailed resolutions.
 
 ---
 
-## ?? License
+##  License
 
 MIT License - See LICENSE file for details.
 
 ---
 
-## ?? Acknowledgments
+## Acknowledgments
 
 - **IGNOU** for BCA curriculum
 - **Groq** for fast LLaMA 3.3 70B API
@@ -705,14 +705,14 @@ MIT License - See LICENSE file for details.
 
 ---
 
-## ?? Support
+## Support
 
 - **Issues:** [GitHub Issues](https://github.com/yourusername/bcabuddy/issues)
 - **Discussions:** [GitHub Discussions](https://github.com/yourusername/bcabuddy/discussions)
 
 ---
 
-## ?? Related Documentation
+## Related Documentation
 
 - [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md)
 - [SETUP_GUIDE.md](SETUP_GUIDE.md)
@@ -722,6 +722,6 @@ MIT License - See LICENSE file for details.
 
 ---
 
-**Built with ?? for IGNOU BCA Students**
+**Built with :heart: for IGNOU BCA Students**
 
 *Last Updated: March 3, 2026*
