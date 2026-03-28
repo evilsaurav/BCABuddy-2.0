@@ -322,6 +322,15 @@ SESSION_STATE: dict[str, dict] = {}
 # --- SIMPLE IN-MEMORY RATE LIMITER (PER USER) ---
 _RATE_BUCKETS: dict[str, dict[str, float]] = {}
 
+
+class ProviderRateLimitError(Exception):
+    def __init__(self, message: str, retry_after_seconds: int = 60, provider: str = "groq"):
+        super().__init__(message)
+        self.message = str(message)
+        self.retry_after_seconds = max(1, int(retry_after_seconds or 60))
+        self.provider = provider
+        self.reset_at = datetime.utcnow() + timedelta(seconds=self.retry_after_seconds)
+
 def _check_rate_limit(bucket: str, user_id: Optional[int], limit_per_minute: int) -> None:
     """Very lightweight per-user fixed-window limiter. Best-effort only."""
     if not user_id or limit_per_minute <= 0:
@@ -340,6 +349,90 @@ def _check_rate_limit(bucket: str, user_id: Optional[int], limit_per_minute: int
             detail="Too many requests for this feature. Please wait a bit before trying again.",
         )
     bucket_state["count"] = count
+
+
+def _looks_like_provider_rate_limit(error: Exception) -> bool:
+    text = str(error or "").lower()
+    body = str(getattr(error, "body", "") or "").lower()
+    status = getattr(error, "status_code", None)
+    return bool(
+        status == 429
+        or "rate limit" in text
+        or "too many requests" in text
+        or "requests per minute" in text
+        or "tokens per minute" in text
+        or "rate limit" in body
+    )
+
+
+def _extract_retry_after_seconds(error: Exception) -> int:
+    text = " ".join([
+        str(error or ""),
+        str(getattr(error, "body", "") or ""),
+        str(getattr(error, "response", "") or ""),
+    ])
+    patterns = [
+        re.compile(r"try again in\s*(?:(\d+)\s*m(?:in(?:ute)?s?)?)?\s*(?:(\d+)\s*s(?:ec(?:ond)?s?)?)?", re.I),
+        re.compile(r"retry after\s*(\d+)\s*seconds?", re.I),
+        re.compile(r"wait\s*(\d+)\s*seconds?", re.I),
+    ]
+    for pattern in patterns:
+        match = pattern.search(text)
+        if not match:
+            continue
+        groups = match.groups()
+        if len(groups) == 2:
+            minutes = int(groups[0] or 0)
+            seconds = int(groups[1] or 0)
+            total = minutes * 60 + seconds
+            if total > 0:
+                return total
+        elif len(groups) == 1 and groups[0]:
+            return max(1, int(groups[0]))
+    return 60
+
+
+def _format_retry_window(seconds: int) -> str:
+    total = max(1, int(seconds or 0))
+    minutes, secs = divmod(total, 60)
+    if minutes and secs:
+        return f"{minutes}m {secs}s"
+    if minutes:
+        return f"{minutes}m"
+    return f"{secs}s"
+
+
+def _build_provider_rate_limit_message(error: Exception) -> ProviderRateLimitError:
+    retry_after = _extract_retry_after_seconds(error)
+    reset_time = (datetime.utcnow() + timedelta(seconds=retry_after)).strftime("%I:%M:%S %p UTC")
+    message = (
+        f"Wait, let me breathe. Groq free-tier limit hit. "
+        f"Try again in about {_format_retry_window(retry_after)} "
+        f"(around {reset_time})."
+    )
+    return ProviderRateLimitError(message=message, retry_after_seconds=retry_after)
+
+
+def _choose_completion_budget(user_prompt: str, messages: Optional[list[dict[str, Any]]] = None) -> int:
+    prompt_lower = str(user_prompt or "").lower()
+    wants_detail = any(
+        phrase in prompt_lower
+        for phrase in [
+            "detail", "detailed", "deep", "step by step", "step-by-step",
+            "example", "examples", "full explanation", "full detail", "elaborate", "expand"
+        ]
+    )
+    needs_code_or_diagram = any(
+        phrase in prompt_lower
+        for phrase in ["code", "program", "debug", "diagram", "flowchart", "mermaid"]
+    )
+    if wants_detail and needs_code_or_diagram:
+        return min(MAX_TOKENS, 2200)
+    if wants_detail:
+        return min(MAX_TOKENS, 1600)
+    if needs_code_or_diagram:
+        return min(MAX_TOKENS, 1200)
+    return min(MAX_TOKENS, 700)
 
 # --- bcrypt/passlib compatibility shim ---
 # Some bcrypt builds don't expose `__about__`, but passlib expects it.
@@ -918,8 +1011,6 @@ def get_ai_response(prompt=None, messages=None, models=None, session_state=None,
     if session_id is not None and session_state is not None:
         SESSION_STATE[str(session_id)] = session_state
 
-    kwargs["max_tokens"] = MAX_TOKENS
-
     safe_messages = list(cast(list, messages))
     user_prompt = str(prompt or "").strip()
     if not user_prompt:
@@ -928,6 +1019,11 @@ def get_ai_response(prompt=None, messages=None, models=None, session_state=None,
                 user_prompt = str(msg.get("content", "") or "").strip()
                 if user_prompt:
                     break
+
+    kwargs["max_tokens"] = min(
+        int(kwargs.get("max_tokens") or MAX_TOKENS),
+        _choose_completion_budget(user_prompt, cast(Optional[list[dict[str, Any]]], safe_messages))
+    )
 
     full_response = ""
     current_prompt = user_prompt
@@ -941,11 +1037,16 @@ def get_ai_response(prompt=None, messages=None, models=None, session_state=None,
                 invoke_messages.append({"role": "assistant", "content": full_response})
             invoke_messages.append({"role": "user", "content": current_prompt})
 
-        response = client.chat.completions.create(
-            model=SINGLE_CHAT_MODEL,
-            messages=cast(Any, invoke_messages),
-            **kwargs
-        )
+        try:
+            response = client.chat.completions.create(
+                model=SINGLE_CHAT_MODEL,
+                messages=cast(Any, invoke_messages),
+                **kwargs
+            )
+        except Exception as error:
+            if _looks_like_provider_rate_limit(error):
+                raise _build_provider_rate_limit_message(error) from error
+            raise
         last_response = response
         response_text = str(getattr(response.choices[0].message, "content", "") or "")
         full_response += response_text
@@ -1558,6 +1659,12 @@ def chat_endpoint(
     is_followup = bool(last_ai_message) and any(t in msg_stripped.lower() for t in followup_triggers)
     wants_depth = any(t in msg_stripped.lower() for t in depth_triggers)
     wants_example = any(t in msg_stripped.lower() for t in example_triggers)
+    explicit_detail_requested = bool(wants_depth or wants_example or any(
+        phrase in user_lower for phrase in [
+            "step by step", "step-by-step", "full detail", "in detail", "detailed explanation",
+            "deep explanation", "deep dive", "elaborate", "expand", "long answer", "full explanation"
+        ]
+    ))
 
     if re.fullmatch(r"[1-9]", msg_stripped) and bool(last_ai_message):
         user_message_for_llm = (
@@ -1789,9 +1896,19 @@ def chat_endpoint(
     # ===== DYNAMIC PROMPT LOGIC (ADAPTIVE LENGTH, SINGLE MODEL) =====
     needs_diagram = any(word in user_lower for word in ["diagram", "graph", "draw", "flowchart", "visualize", "model"])
     mode_hint = (
-        "ADAPTIVE MODE: Decide response depth naturally based on user query complexity. "
-        "Simple asks -> short and direct. Complex asks -> detailed with structure and examples."
+        "ADAPTIVE MODE: Keep answers short by default. "
+        "For simple asks, reply in 2-6 lines or tight bullets. "
+        "Only expand into a detailed, structured explanation when the user explicitly asks for depth, examples, or step-by-step help."
     )
+
+    if explicit_detail_requested:
+        mode_hint += (
+            " The user explicitly wants more depth, so provide a structured detailed answer with examples where useful."
+        )
+    else:
+        mode_hint += (
+            " Do not over-explain the first answer. Give the direct answer first, then offer to expand if needed."
+        )
 
     if needs_diagram:
         mode_hint += (
@@ -1830,6 +1947,9 @@ def chat_endpoint(
         "• All Java/Python code MUST be in fenced code blocks with language tags (```java / ```python).\n"
         "• Tone must be realistic Hinglish peer with diverse openings.\n"
         "• Avoid repetitive openers, especially 'Arre haan bhai'.\n"
+        "• Answer short by default. Use compact paragraphs or 3-6 bullets.\n"
+        "• Only give a long explanation when the user explicitly asks for detail, depth, examples, or step-by-step teaching.\n"
+        "• If the answer can fit in a short response, keep it short.\n"
     )
 
     # Save intent classification to database for later analysis
@@ -1976,6 +2096,14 @@ def chat_endpoint(
         "vibe": vibe_hint
     }
 
+    pyq_index_requested = any(
+        phrase in user_lower
+        for phrase in [
+            "pyq", "pyqs", "previous year", "previous-year", "past year question",
+            "rag index", "rag-index", "index file", "from rag", "from the index"
+        ]
+    )
+
     # FAISS KNOWLEDGE RETRIEVAL (books + PYQs)
     tool_key = _normalize_tool_key(request.active_tool)
     retrieved_context = ""
@@ -2004,6 +2132,22 @@ def chat_endpoint(
             "If the information is in the material, prioritize it and mention 'According to your notes/PYQs...'. "
             "If not, use your general knowledge but stay in the context of IGNOU BCA."
         )
+
+    if pyq_index_requested and retrieved_pyq_docs:
+        pyq_index_chunks = [
+            str(getattr(d, "page_content", "")).strip()
+            for d in retrieved_pyq_docs
+            if str(getattr(d, "page_content", "")).strip()
+        ]
+        system_prompt += (
+            "\n\n===== PYQ INDEX OVERRIDE =====\n"
+            "The user is explicitly asking for PYQs or RAG index content.\n"
+            "Answer from the retrieved PYQ/index chunks first.\n"
+            "If the requested item is not present in the retrieved PYQ/index chunks, say clearly that it was not found in the current RAG index.\n"
+            "Do not invent PYQs that are not supported by the index context.\n"
+        )
+        if pyq_index_chunks:
+            system_prompt += "\n\nPYQ INDEX CHUNKS:\n" + "\n\n".join(pyq_index_chunks[:10])
 
     if tool_key == "exam predictor":
         pyq_chunks = [
@@ -2146,6 +2290,24 @@ def chat_endpoint(
         
         return {"reply": reply_text, "response": reply_payload, "session_id": request.session_id}
         
+    except ProviderRateLimitError as e:
+        cooldown_message = (
+            f"{e.message} Free-tier windows reset automatically, so retry after {_format_retry_window(e.retry_after_seconds)}."
+        )
+        db.add(ChatHistory(sender="ai", text=cooldown_message, session_id=request.session_id))
+        db.commit()
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "message": cooldown_message,
+                "retry_after_seconds": e.retry_after_seconds,
+                "reset_at_utc": e.reset_at.isoformat() + "Z",
+                "provider": e.provider,
+                "friendly_code": "groq_rate_limit",
+            },
+        )
+    except HTTPException:
+        raise
     except Exception as e:
         error_msg = f"Error generating response: {str(e)}"
         db.add(ChatHistory(sender="ai", text=error_msg, session_id=request.session_id))
@@ -2750,4 +2912,21 @@ def health_check():
         "ai_service": "groq_llama_3.3_70b",
         "rag_service": "active",
         "ocr_service": "easyocr" if reader else "tesseract" if pytesseract else "unavailable"
+    }
+
+@app.get("/discovery")
+def discovery_info():
+    """Discovery endpoint for Android clients to identify a compatible BCABuddy server."""
+    return {
+        "status": "ok",
+        "service": "BCABuddy API",
+        "service_name": "BCABuddy",
+        "version": "2.0.0",
+        "environment": "local-lan",
+        "compatible_app": "android-local",
+        "auth_available": True,
+        "health_path": "/health",
+        "login_path": "/login",
+        "signup_path": "/signup",
+        "display_name": "BCABuddy Local Backend",
     }

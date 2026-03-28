@@ -42,6 +42,12 @@ class Settings(BaseModel):
             "http://127.0.0.1:5174",
             "http://localhost:3000",
             "http://127.0.0.1:3000",
+            "http://localhost",
+            "https://localhost",
+            "http://127.0.0.1",
+            "https://127.0.0.1",
+            "capacitor://localhost",
+            "ionic://localhost",
         ],
         description="Allowed CORS origins for the FastAPI backend",
     )

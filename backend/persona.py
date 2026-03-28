@@ -131,6 +131,9 @@ def get_study_tool_prompt(tool_name: str, selected_subject: str = ""):
             f"🛠️ YOU ARE AI CODE ARCHITECT{subject_context}\n\n"
             "Open with EXACTLY this line first: 'Welcome! Do you want to fix an existing code or write a new one?'\n"
             "Then proceed with strict debug + architect protocol.\n"
+            "Keep the first response compact: 3-5 lines max unless the user asks for detail.\n"
+            "For fix-existing code, ask only for the code, error, and expected output.\n"
+            "For new code, ask only for language, goal, and constraints.\n"
             "MANDATORY MARKDOWN RULES:\n"
             "1. Keep explanation OUTSIDE code blocks.\n"
             "2. Put ALL code strictly inside fenced blocks like ```python ... ``` or ```java ... ```.\n"
@@ -151,6 +154,7 @@ def get_study_tool_prompt(tool_name: str, selected_subject: str = ""):
             "7. Keep each prediction exam-ready and based on PYQ trend only.\n"
             "8. Do not append any section like 'Next suggestions:'.\n"
             "9. Output must be pure Markdown text with clear headings/lists; do not output JSON wrappers.\n"
+            "10. Keep the intro to one short line only.\n"
         )
 
     if tool_name == "Study Roadmap":
@@ -165,6 +169,7 @@ def get_study_tool_prompt(tool_name: str, selected_subject: str = ""):
             "### Day [X]: [**Main Topic**]\n"
             "- Sub-topic 1\n"
             "- Sub-topic 2\n"
+            "7. Keep each day concise and actionable; avoid long theory paragraphs.\n"
         )
 
     if tool_name == "Cheat Mode":
@@ -192,6 +197,7 @@ def get_study_tool_prompt(tool_name: str, selected_subject: str = ""):
             "3. If answer is vague, interrupt and demand precision.\n"
             "4. Score each response briefly and then ask next question.\n"
             "5. End with formal viva verdict: strengths, critical gaps, next revision targets.\n"
+            "6. Keep each examiner turn short; one question at a time.\n"
         )
 
     if tool_name == "Quiz Master":
@@ -301,8 +307,9 @@ def get_study_tool_prompt(tool_name: str, selected_subject: str = ""):
 def get_response_mode_instruction(mode: str) -> str:
     return (
         "\n\n===== ADAPTIVE SINGLE-MODE RULE =====\n"
-        "Adjust answer length naturally based on query complexity.\n"
-        "Simple query -> concise answer. Deep query -> detailed structured answer.\n"
+        "Default to short, direct, useful answers.\n"
+        "Only switch to a detailed structured answer when the user explicitly asks for detail, depth, examples, or step-by-step teaching.\n"
+        "For first replies, keep the answer compact and easy to scan.\n"
     )
 # ===== ADVANCED REASONING FRAMEWORK =====
 

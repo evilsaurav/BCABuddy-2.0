@@ -165,6 +165,7 @@ async def upload_profile_picture(
         return {
             "message": "Profile picture uploaded",
             "url": str(current_user_any.profile_picture_url),
+            "profile_pic_url": str(current_user_any.profile_picture_url),
         }
     except Exception as e:
         raise HTTPException(
@@ -244,7 +245,11 @@ async def upload_avatar(
         current_user_any.profile_picture_url = public_url
         db.commit()
 
-        return {"message": "Avatar uploaded", "url": str(public_url)}
+        return {
+            "message": "Avatar uploaded",
+            "url": str(public_url),
+            "profile_pic_url": str(public_url),
+        }
     except HTTPException:
         raise
     except Exception as e:
