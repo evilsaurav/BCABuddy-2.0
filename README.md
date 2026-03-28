@@ -298,7 +298,8 @@ cd bcabuddy
 cd backend
 python -m venv .venv
 ```
-
+## PowerShell
+Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
 #### 2.2 Activate Virtual Environment
 
 **Windows (PowerShell):**
