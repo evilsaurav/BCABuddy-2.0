@@ -298,8 +298,10 @@ cd bcabuddy
 cd backend
 python -m venv .venv
 ```
-## PowerShell
-Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
+> [!IMPORTANT]
+> **Windows Users:** Agar `.venv` activate karte waqt `UnauthorizedAccess` error aaye, toh Admin PowerShell mein ye command chalayein:
+> `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Force`
+
 #### 2.2 Activate Virtual Environment
 
 **Windows (PowerShell):**
