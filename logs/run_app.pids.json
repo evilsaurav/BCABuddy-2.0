@@ -1,11 +1,11 @@
 ﻿{
-    "started_at":  "2026-03-29T00:17:31.5901641+05:30",
+    "started_at":  "2026-03-29T00:49:12.4729225+05:30",
     "status":  "running",
     "bind_host":  "127.0.0.1",
     "backend_port":  8000,
     "frontend_port":  5173,
-    "backend_pid":  10140,
-    "frontend_pid":  10472,
+    "backend_pid":  2440,
+    "frontend_pid":  600,
     "killed_backend_pids":  null,
     "killed_frontend_pids":  null,
     "logs":  {
