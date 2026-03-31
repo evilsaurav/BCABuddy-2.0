@@ -8,8 +8,9 @@ export default defineConfig({
     host: 'localhost',
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:8000',
-        changeOrigin: true,
+        // Yahan par humne local server hata kar Azure ka naya URL daal diya hai 👇
+        target: 'https://bcabuddy-web-f5dfgtb2b0dmc8aq.centralindia-01.azurewebsites.net',
+        changeOrigin: true, // Ye pehle se true hai, jo ki cloud server ke liye ekdum sahi hai
         rewrite: (path) => path.replace(/^\/api/, '')
       }
     }
