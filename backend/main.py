@@ -2658,9 +2658,9 @@ Student Answer:
 
 Generate ONLY valid JSON (no markdown) with ALL keys present:
 {{
-  \"model_answer\": \"A concise but complete ideal answer (6-10 lines).\",
-  \"missed_points\": [\"point1\", \"point2\"],
-  \"suggested_keywords\": [\"keyword1\", \"keyword2\"]
+  "model_answer": "A concise but complete ideal answer (6-10 lines).",
+  "missed_points": [""],
+  "suggested_keywords": [""]
 }}
 
 Rules:
