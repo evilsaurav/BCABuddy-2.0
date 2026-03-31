@@ -1,4 +1,4 @@
-name: Deploy BCABuddy to Azure
+name: Deploy BCABuddy API to Azure
 
 on:
   push:
@@ -20,22 +20,11 @@ jobs:
 
       - name: Build and Push Backend Image
         run: |
-          docker build -t "${{ secrets.REGISTRY_LOGIN_SERVER }}/backend:latest" -f backend/Dockerfile backend/
+          docker build -t "${{ secrets.REGISTRY_LOGIN_SERVER }}/backend:latest" -f Dockerfile .
           docker push "${{ secrets.REGISTRY_LOGIN_SERVER }}/backend:latest"
-
-      - name: Build and Push Frontend Image
-        run: |
-          docker build -t "${{ secrets.REGISTRY_LOGIN_SERVER }}/frontend:latest" -f frontend/Dockerfile frontend/
-          docker push "${{ secrets.REGISTRY_LOGIN_SERVER }}/frontend:latest"
 
       - name: Deploy Backend to Azure
         uses: azure/webapps-deploy@v2
         with:
           app-name: 'bcabuddy-api' 
           images: '${{ secrets.REGISTRY_LOGIN_SERVER }}/backend:latest'
-
-      - name: Deploy Frontend to Azure
-        uses: azure/webapps-deploy@v2
-        with:
-          app-name: 'bcabuddy-web' 
-          images: '${{ secrets.REGISTRY_LOGIN_SERVER }}/frontend:latest'
