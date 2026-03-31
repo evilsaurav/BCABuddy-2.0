@@ -20,13 +20,13 @@ jobs:
 
       - name: Build and Push Backend Image
         run: |
-          docker build -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/backend:latest -f backend/Dockerfile backend/
-          docker push ${{ secrets.REGISTRY_LOGIN_SERVER }}/backend:latest
+          docker build -t "${{ secrets.REGISTRY_LOGIN_SERVER }}/backend:latest" -f backend/Dockerfile backend/
+          docker push "${{ secrets.REGISTRY_LOGIN_SERVER }}/backend:latest"
 
       - name: Build and Push Frontend Image
         run: |
-          docker build -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/frontend:latest -f frontend/Dockerfile frontend/
-          docker push ${{ secrets.REGISTRY_LOGIN_SERVER }}/frontend:latest
+          docker build -t "${{ secrets.REGISTRY_LOGIN_SERVER }}/frontend:latest" -f frontend/Dockerfile frontend/
+          docker push "${{ secrets.REGISTRY_LOGIN_SERVER }}/frontend:latest"
 
       - name: Deploy Backend to Azure
         uses: azure/webapps-deploy@v2
