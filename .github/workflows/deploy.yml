@@ -1,0 +1,41 @@
+name: Deploy BCABuddy to Azure
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Login to Azure ACR
+        uses: azure/docker-login@v1
+        with:
+          login-server: ${{ secrets.REGISTRY_LOGIN_SERVER }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Build and Push Backend Image
+        run: |
+          docker build -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/backend:latest -f backend/Dockerfile backend/
+          docker push ${{ secrets.REGISTRY_LOGIN_SERVER }}/backend:latest
+
+      - name: Build and Push Frontend Image
+        run: |
+          docker build -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/frontend:latest -f frontend/Dockerfile frontend/
+          docker push ${{ secrets.REGISTRY_LOGIN_SERVER }}/frontend:latest
+
+      - name: Deploy Backend to Azure
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: 'bcabuddy-api' 
+          images: '${{ secrets.REGISTRY_LOGIN_SERVER }}/backend:latest'
+
+      - name: Deploy Frontend to Azure
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: 'bcabuddy-web' 
+          images: '${{ secrets.REGISTRY_LOGIN_SERVER }}/frontend:latest'
