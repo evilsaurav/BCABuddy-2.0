@@ -20,7 +20,7 @@ jobs:
 
       - name: Build and Push Backend Image
         run: |
-          docker build -t "${{ secrets.REGISTRY_LOGIN_SERVER }}/backend:latest" -f Dockerfile .
+          docker build -t "${{ secrets.REGISTRY_LOGIN_SERVER }}/backend:latest" -f backend/Dockerfile backend/
           docker push "${{ secrets.REGISTRY_LOGIN_SERVER }}/backend:latest"
 
       - name: Deploy Backend to Azure
