@@ -5,6 +5,7 @@ import Particles, { initParticlesEngine } from '@tsparticles/react';
 import { loadSlim } from '@tsparticles/slim';
 import { useNavigate, Link } from 'react-router-dom';
 import ArrowBack from '@mui/icons-material/ArrowBack';
+import { API_BASE } from './utils/apiConfig';
 
 const Signup = () => {
   const [username, setUsername] = useState('');
@@ -86,7 +87,7 @@ const Signup = () => {
     setSuccess('');
     setLoading(true);
     try {
-      const response = await fetch('http://127.0.0.1:8000/signup', {
+      const response = await fetch(`${API_BASE}/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),

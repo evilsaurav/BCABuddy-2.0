@@ -12,8 +12,7 @@ import {
   CircularProgress
 } from '@mui/material';
 import { motion } from 'framer-motion';
-
-const API_BASE = 'http://127.0.0.1:8000';
+import { API_BASE } from '../utils/apiConfig';
 const NEON_PURPLE = '#bb86fc';
 const NEON_CYAN = '#03dac6';
 const GLASS_BG = 'rgba(30, 41, 59, 0.5)';

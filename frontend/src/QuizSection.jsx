@@ -15,6 +15,7 @@ import remarkGfm from 'remark-gfm';
 import { downloadResultPDF } from './utils/pdfExport';
 import { normalizeChoice, resolveCorrectAnswerText, isAnswerCorrect } from './utils/answerNormalization';
 import BackButton from './components/BackButton';
+import { API_BASE as DEFAULT_API_BASE } from './utils/apiConfig';
 
 const NEON_PURPLE = '#bb86fc';
 const NEON_CYAN = '#03dac6';
@@ -34,7 +35,8 @@ const SUBJECTS = {
   'Sem 6': ['BCS-062', 'MCS-022', 'BCS-092']
 };
 
-const QuizSection = ({ onClose, API_BASE }) => {
+const QuizSection = ({ onClose, API_BASE: apiBaseOverride }) => {
+  const API_BASE = apiBaseOverride || DEFAULT_API_BASE;
   const [semester, setSemester] = useState('');
   const [subject, setSubject] = useState('');
   const [quizData, setQuizData] = useState([]);

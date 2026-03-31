@@ -40,14 +40,13 @@ import AdvancedTools from './pages/AdvancedTools';
 import StudyRoadmapCard from './StudyRoadmapCard';
 import { getToken, setToken, clearToken, isTokenExpiringSoon, shouldForceLogout, getTokenRemainingMinutes, shouldWarnTokenExpiry } from './utils/tokenManager';
 import { useAuth } from './AuthContext';
+import { API_BASE } from './utils/apiConfig';
 
 const drawerWidth = 280;
 const NEON_PURPLE = '#bb86fc';
 const NEON_CYAN = '#03dac6';
 const GLASS_BG = 'rgba(30, 41, 59, 0.5)';
 const GLASS_BORDER = '1px solid rgba(255, 255, 255, 0.1)';
-// Prefer env-configured API base; fall back to Vite dev proxy.
-const API_BASE = import.meta.env.VITE_API_BASE || '/api';
 
 const STUDY_ACTIVITY_KEY = 'bcabuddy_study_activity_v1';
 const DAILY_GOALS_KEY = 'bcabuddy_daily_goals_v1';

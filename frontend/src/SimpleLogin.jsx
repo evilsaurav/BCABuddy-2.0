@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { API_BASE } from './utils/apiConfig';
 
 const SimpleLogin = ({ setIsAuthenticated }) => {
   const [username, setUsername] = useState('');
@@ -17,7 +18,7 @@ const SimpleLogin = ({ setIsAuthenticated }) => {
     params.append('password', password);
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/login', {
+      const response = await fetch(`${API_BASE}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: params.toString(),

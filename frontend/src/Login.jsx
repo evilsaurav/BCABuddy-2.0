@@ -7,6 +7,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import ArrowBack from '@mui/icons-material/ArrowBack';
 import { setToken } from './utils/tokenManager';
 import { BCA_MOTIVATIONAL_QUOTES } from './utils/motivationalQuotes';
+import { API_BASE } from './utils/apiConfig';
 
 const NEON_CYAN = '#03dac6';
 const MIDNIGHT_BLUE = '#0a0a12';
@@ -102,7 +103,7 @@ const Login = ({ setIsAuthenticated }) => {
     params.append('password', password);
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/login', {
+      const response = await fetch(`${API_BASE}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: params.toString(),

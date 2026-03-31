@@ -1096,7 +1096,7 @@ def _is_topic_switch(current_message: str, previous_messages: list) -> bool:
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.backend_cors_origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

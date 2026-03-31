@@ -20,6 +20,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Legend, BarChart, Bar, XAxis,
 import { downloadResultPDF } from './utils/pdfExport';
 import { normalizeChoice, resolveCorrectAnswerText, isAnswerCorrect } from './utils/answerNormalization';
 import BackButton from './components/BackButton';
+import { API_BASE as DEFAULT_API_BASE } from './utils/apiConfig';
 
 const NEON_PURPLE = '#bb86fc';
 const NEON_CYAN = '#03dac6';
@@ -31,9 +32,10 @@ function ExamSimulator({
   semester,
   subject,
   onClose,
-  API_BASE,
+  API_BASE: apiBaseOverride,
   ...otherProps
 }) {
+  const API_BASE = apiBaseOverride || DEFAULT_API_BASE;
   // Use prop if provided, else define local
   const [showResults, setShowResults] = useState(false);
   const [step, setStep] = useState('initial');
