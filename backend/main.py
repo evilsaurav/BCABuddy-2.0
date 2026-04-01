@@ -22,7 +22,6 @@ if sys.stderr and hasattr(sys.stderr, "buffer"):
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -1547,22 +1546,47 @@ def get_history(
 
 @app.post("/chat")
 def chat_endpoint(request: ChatRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """
-    Chat endpoint with streaming response and concise AI replies.
-    """
     user_message = request.message[:4000]
 
-    def generate_response():
-        # Simulate AI response streaming
-        yield "AI: "
-        for word in user_message.split():
-            yield f"{word} "
+    # Session handling
+    session_id = getattr(request, 'session_id', None)
+    if not session_id:
+        session = ChatSession(user_id=current_user.id, title=_generate_short_chat_title(user_message))
+        db.add(session)
+        db.commit()
+        db.refresh(session)
+        session_id = session.id
 
-    return StreamingResponse(generate_response(), media_type="text/plain")
+    # Save user message
+    db.add(ChatHistory(session_id=session_id, sender="user", text=user_message))
+    db.commit()
+
+    # Build history for context
+    history = db.query(ChatHistory).filter(ChatHistory.session_id == session_id).order_by(ChatHistory.id).all()
+    messages = [{"role": "system", "content": get_saurav_prompt()}]
+    for h in history[-10:]:
+        role = "user" if h.sender == "user" else "assistant"
+        messages.append({"role": role, "content": h.text})
+
+    # Get AI response
+    try:
+        response = get_ai_response(messages=messages, temperature=0.7)
+        ai_text = str(getattr(response.choices[0].message, "content", "") or "").strip()
+    except ProviderRateLimitError as e:
+        raise HTTPException(status_code=429, detail=e.message)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    # Save AI response
+    db.add(ChatHistory(session_id=session_id, sender="ai", text=ai_text))
+    db.commit()
+
+    payload = _build_response_payload(ai_text)
+    payload["session_id"] = session_id
+    return _finalize_reply_payload(session_id, payload)
 
 @app.post("/api/generate-study-plan", response_model=StudyPlanResponse)
 async def generate_study_plan(request: StudyPlanRequest):
-    client = Groq(api_key="YOUR_GROQ_API_KEY")
     prompt = (
         f"Generate a study plan for the following subjects: {request.subjects}. "
         f"The plan should span {request.days_left} days, with {request.daily_hours} hours per day. "
@@ -1570,7 +1594,13 @@ async def generate_study_plan(request: StudyPlanRequest):
         '{"study_plan": [{"day": 1, "focus_subject": "Subject", "topics_to_cover": ["Topic 1"], "allocated_hours": 2}]}'
     )
     try:
-        response = client.completion(prompt=prompt, model="llama3-8b-8192", max_tokens=500)
-        return response.json()
+        response = get_ai_response(
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.5,
+            max_tokens=1000,
+        )
+        raw_text = str(getattr(response.choices[0].message, "content", "") or "")
+        parsed = _safe_json_loads(raw_text)
+        return parsed
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
