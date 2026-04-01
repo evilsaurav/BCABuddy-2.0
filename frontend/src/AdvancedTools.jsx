@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Box,
   Typography,
@@ -10,6 +10,28 @@ import {
 import { ArrowBack } from '@mui/icons-material';
 
 const AdvancedTools = ({ onBack, onSelectTool, avatarUrl, displayName }) => {
+  const [activeTool, setActiveTool] = useState(null);
+  const [formData, setFormData] = useState({ subjects: '', days_left: '', daily_hours: '' });
+  const [loading, setLoading] = useState(false);
+  const [studyPlan, setStudyPlan] = useState(null);
+
+  const handleGeneratePlan = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/generate-study-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+      const data = await response.json();
+      setStudyPlan(data.study_plan);
+    } catch (error) {
+      console.error('Error generating study plan:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     document.body.classList.add('exam-mode-active');
     return () => document.body.classList.remove('exam-mode-active');
@@ -33,13 +55,69 @@ const AdvancedTools = ({ onBack, onSelectTool, avatarUrl, displayName }) => {
     },
   ];
 
+  if (activeTool === 'study_roadmap') {
+    return (
+      <Box sx={{ p: 3, backgroundColor: '#121212', color: '#fff', minHeight: '100vh' }}>
+        <Button onClick={() => setActiveTool(null)} sx={{ color: '#03dac6', mb: 2 }}>
+          Back to Tools
+        </Button>
+
+        {!studyPlan ? (
+          <Box>
+            <Typography variant="h5" gutterBottom>
+              Generate Your Study Roadmap
+            </Typography>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleGeneratePlan();
+              }}
+            >
+              <input
+                type="text"
+                placeholder="Subjects (e.g., BCS12, MCS202)"
+                value={formData.subjects}
+                onChange={(e) => setFormData({ ...formData, subjects: e.target.value })}
+              />
+              <input
+                type="number"
+                placeholder="Days Left"
+                value={formData.days_left}
+                onChange={(e) => setFormData({ ...formData, days_left: e.target.value })}
+              />
+              <input
+                type="number"
+                placeholder="Daily Hours"
+                value={formData.daily_hours}
+                onChange={(e) => setFormData({ ...formData, daily_hours: e.target.value })}
+              />
+              <button type="submit" disabled={loading}>
+                {loading ? 'Generating...' : 'Generate Plan'}
+              </button>
+            </form>
+          </Box>
+        ) : (
+          <Box>
+            <Typography variant="h5" gutterBottom>
+              Your Study Plan
+            </Typography>
+            {studyPlan.map((day, index) => (
+              <Box key={index}>
+                <Typography>Day {day.day}</Typography>
+                <Typography>Focus Subject: {day.focus_subject}</Typography>
+                <Typography>Topics: {day.topics_to_cover.join(', ')}</Typography>
+                <Typography>Hours: {day.allocated_hours}</Typography>
+              </Box>
+            ))}
+          </Box>
+        )}
+      </Box>
+    );
+  }
+
   return (
     <Box sx={{ p: 3, backgroundColor: '#121212', color: '#fff', minHeight: '100vh' }}>
-      <Button
-        startIcon={<ArrowBack />}
-        onClick={onBack}
-        sx={{ color: '#03dac6', mb: 2 }}
-      >
+      <Button onClick={onBack} sx={{ color: '#03dac6', mb: 2 }}>
         Back to Dashboard
       </Button>
 
@@ -64,7 +142,7 @@ const AdvancedTools = ({ onBack, onSelectTool, avatarUrl, displayName }) => {
                   boxShadow: '0 0 10px #03dac6',
                 },
               }}
-              onClick={() => onSelectTool(tool)}
+              onClick={() => setActiveTool(tool.id)}
             >
               <Typography variant="h6">{tool.title}</Typography>
               <Typography variant="body2" color="textSecondary">
