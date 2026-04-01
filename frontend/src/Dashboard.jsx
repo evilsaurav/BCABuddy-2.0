@@ -3259,7 +3259,7 @@ const Dashboard = ({ onThemeOverride }) => {
           <Box sx={{ p: 3, height: '100vh', overflowY: 'auto' }}>
             <Card sx={{ maxWidth: 980, mx: 'auto', p: 3, bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', backdropFilter: 'blur(12px)' }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography sx={{ color: NEON_CYAN, fontWeight: 900, fontSize: 22, fontWeight: 900 }}>
+                <Typography sx={{ color: NEON_CYAN, fontWeight: 900, fontSize: 22 }}>
                   Review Center
                 </Typography>
                 <Button onClick={() => setReviewOpen(false)} sx={{ color: NEON_PURPLE, fontWeight: 800 }}>
