@@ -22,11 +22,12 @@ if sys.stderr and hasattr(sys.stderr, "buffer"):
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from groq import Groq
-from typing import Optional, Any, cast
+from typing import Optional, Any, cast, List
 import os, shutil
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
@@ -50,7 +51,7 @@ from models import (
     UserCreate, Token, ChatRequest, QuizRequest, QuizQuestion,
     MixedExamRequest, SubjectiveGradeRequest, SubjectiveGradeResponse,
     DashboardStats, UserProfile, UserProfileUpdate, PasswordChange, ChatResponse,
-    MCQExplainRequest, ExplainQuestionRequest,
+    MCQExplainRequest, ExplainQuestionRequest, StudyPlanRequest,
 )
 from persona import (
     get_saurav_prompt, get_jiya_prompt, get_april_19_prompt,
@@ -97,6 +98,17 @@ class StudyRoadmapAcceptRequest(BaseModel):
     duration_days: int = 15
     roadmap_text: str = ""
 
+
+class StudyDay(BaseModel):
+    day: int
+    focus_subject: str
+    topics_to_cover: List[str]
+    allocated_hours: float
+
+
+class StudyPlanResponse(BaseModel):
+    study_plan: List[StudyDay]
+
 # --- FAISS VECTOR STORE (LOAD ONCE AT STARTUP) ---
 BACKEND_DIR = os.path.dirname(__file__)
 
@@ -116,6 +128,9 @@ VECTOR_EMBEDDINGS = HuggingFaceEmbeddings(model_name="sentence-transformers/all-
 
 def _load_vector_db_once():
     try:
+        if not os.path.isdir(VECTOR_DB_PATH):
+            print(f"FAISS load skipped: missing directory at {VECTOR_DB_PATH}")
+            return None
         return FAISS.load_local(
             VECTOR_DB_PATH,
             VECTOR_EMBEDDINGS,
