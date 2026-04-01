@@ -2358,7 +2358,6 @@ const Dashboard = ({ onThemeOverride }) => {
                         borderColor: !subject || !semester ? GLASS_BORDER : `${NEON_CYAN}40`
                       },
                       backdropFilter: 'blur(12px)',
-                      py: 1.2,
                       opacity: !subject || !semester ? 0.5 : 1
                     }}
                   >
@@ -2400,7 +2399,6 @@ const Dashboard = ({ onThemeOverride }) => {
                         borderColor: !subject || !semester ? GLASS_BORDER : `${NEON_CYAN}40`
                       },
                       backdropFilter: 'blur(12px)',
-                      py: 1.2,
                       opacity: !subject || !semester ? 0.5 : 1
                     }}
                   >
