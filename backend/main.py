@@ -1315,7 +1315,7 @@ def get_latest_study_roadmap(
         "title": parsed.get("title") if isinstance(parsed, dict) else None,
         "subject": parsed.get("subject") if isinstance(parsed, dict) else None,
         "semester": parsed.get("semester") if isinstance(parsed, dict) else None,
-        "duration_days": int(parsed.get("duration_days", 0) or 0) if isinstance(parsed, dict) else 0,
+        "duration_days": int(parsed.get("duration_days") or parsed.get("total_days") or 0),
         "days": safe_days,
         "total_days": total,
         "completed_days": completed,
@@ -1544,3 +1544,18 @@ def chat_endpoint(request: ChatRequest, current_user: User = Depends(get_current
             yield f"{word} "
 
     return StreamingResponse(generate_response(), media_type="text/plain")
+
+@app.post("/api/generate-study-plan", response_model=StudyPlanResponse)
+async def generate_study_plan(request: StudyPlanRequest):
+    client = Groq(api_key="YOUR_GROQ_API_KEY")
+    prompt = (
+        f"Generate a study plan for the following subjects: {request.subjects}. "
+        f"The plan should span {request.days_left} days, with {request.daily_hours} hours per day. "
+        "Return the plan as a JSON object with the following schema: "
+        '{"study_plan": [{"day": 1, "focus_subject": "Subject", "topics_to_cover": ["Topic 1"], "allocated_hours": 2}]}'
+    )
+    try:
+        response = client.completion(prompt=prompt, model="llama3-8b-8192", max_tokens=500)
+        return response.json()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

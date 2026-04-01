@@ -12,6 +12,9 @@ BLOB_CONTAINER_NAME = "user-materials"
 if not AZURE_STORAGE_CONNECTION_STRING:
     raise RuntimeError("AZURE_STORAGE_CONNECTION_STRING environment variable is not set.")
 
+# Ensure azure-storage-blob is installed
+from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
+
 blob_service_client = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
 container_client = blob_service_client.get_container_client(BLOB_CONTAINER_NAME)
 
