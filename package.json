@@ -1,0 +1,21 @@
+{
+  "name": "bcabuddy",
+  "version": "1.0.0",
+  "description": "> **AI-Powered IGNOU BCA Learning Assistant**  \r > Full-stack application with intelligent tutoring, exam simulation, roadmap generation, performance analytics, and OCR-powered study tools.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/evilsaurav/BCABuddy-2.0.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/evilsaurav/BCABuddy-2.0/issues"
+  },
+  "homepage": "https://github.com/evilsaurav/BCABuddy-2.0#readme"
+}

@@ -453,7 +453,7 @@ const SafeMermaidViewer = ({ chartCode }) => {
             }}>{copied ? 'Copied!' : 'Copy'}</button>
           </div>
           <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: '11px', marginTop: '6px' }}>
-            💡 Paste at{' '}
+            💡 Paste at
             <a href="https://mermaid.live" target="_blank" rel="noopener noreferrer"
                style={{ color: '#03dac6' }}>mermaid.live</a>{' '}
             to debug the syntax.
@@ -1457,7 +1457,7 @@ const Dashboard = ({ onThemeOverride }) => {
 
     refreshDashboardData();
     
-    // Initialize Mermaid — v10 compatible settings
+    // Initialize Mermaid — v10.x compatible settings
     // NOTE: 'startOnLoad: false' is important in v10 when using mermaid.render() manually.
     // If startOnLoad is true AND we call render() manually, v10 can double-process and throw.
     loadMermaidModule()
@@ -3261,7 +3261,7 @@ const Dashboard = ({ onThemeOverride }) => {
           <Box sx={{ p: 3, height: '100vh', overflowY: 'auto' }}>
             <Card sx={{ maxWidth: 980, mx: 'auto', p: 3, bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', backdropFilter: 'blur(12px)' }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography sx={{ color: NEON_CYAN, fontSize: 22, fontWeight: 900 }}>
+                <Typography sx={{ color: NEON_CYAN, fontWeight: 900, fontSize: 22, fontWeight: 900 }}>
                   Review Center
                 </Typography>
                 <Button onClick={() => setReviewOpen(false)} sx={{ color: NEON_PURPLE, fontWeight: 800 }}>

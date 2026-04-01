@@ -61,3 +61,25 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  body {
+    font-size: 14px;
+  }
+
+  .chat-container {
+    padding: 10px;
+    overflow-x: hidden;
+  }
+
+  .chat-input {
+    width: 100%;
+    font-size: 1em;
+  }
+
+  .chat-messages {
+    max-height: 60vh;
+    overflow-y: auto;
+  }
+}

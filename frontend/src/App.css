@@ -246,3 +246,19 @@ body.frenzy-mode #root {
   background: rgba(225, 215, 198, 0.16);
   border-color: rgba(225, 215, 198, 0.4);
 }
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .app-header {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .app-main {
+    padding: 10px;
+  }
+
+  .app-footer {
+    font-size: 0.9em;
+  }
+}
