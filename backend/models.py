@@ -104,3 +104,9 @@ class PasswordChange(BaseModel):
     old_password: str
     new_password: str
     confirm_password: str
+
+
+class StudyPlanRequest(BaseModel):
+    subjects: List[str] = Field(default_factory=list)
+    days_left: int = 7
+    daily_hours: float = 2.0
