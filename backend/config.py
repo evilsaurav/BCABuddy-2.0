@@ -48,6 +48,7 @@ class Settings(BaseModel):
             "https://127.0.0.1",
             "capacitor://localhost",
             "ionic://localhost",
+            "https://kind-sea-0b41fb700.2.azurestaticapps.net",
         ],
         description="Allowed CORS origins for the FastAPI backend",
     )

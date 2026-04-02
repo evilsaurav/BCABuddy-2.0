@@ -5,9 +5,11 @@
  * Description: AI learning interface with glassmorphism design and smooth animations
  */
 
+import { cacheAiResponse, getLatestAiResponses, cacheSubjectTopics } from './utils/offlineStorage';
+import { normalizeHinglishTranscript } from './utils/hinglishTranslate';
 import React, { useState, useRef, useEffect } from 'react';
-import { 
-  Box, Typography, Drawer, List, ListItem, ListItemIcon, 
+import {
+  Box, Typography, Drawer, List, ListItem, ListItemIcon,
   ListItemText, IconButton, AppBar, Toolbar, Avatar, Divider,
   FormControl, InputLabel, Select, MenuItem, Paper,
   TextField, Chip, CircularProgress, Menu as MuiMenu, Card,
@@ -15,9 +17,9 @@ import {
   Accordion, AccordionSummary, AccordionDetails, Snackbar, Alert,
   Checkbox, LinearProgress
 } from '@mui/material';
-import { 
-  Menu, School, Quiz, ExitToApp, Send, SmartToy, 
-  Person, AttachFile, Delete, Assignment, HistoryEdu, 
+import {
+  Menu, School, Quiz, ExitToApp, Send, SmartToy,
+  Person, AttachFile, Delete, Assignment, HistoryEdu,
   Note, Mic, Science, Summarize, Add, Download, Settings,
   ExpandMore, Dashboard as DashboardIcon, BarChart, Bolt, Book,
   Info, Edit as EditIcon, Lock as LockIcon, LogoutRounded, MoreVert, Timer, Assessment, Stop, WorkspacePremium, VolumeUp
@@ -47,9 +49,7 @@ import SidebarAssignments from './components/SidebarAssignments';
 import { getToken, setToken, clearToken, isTokenExpiringSoon, shouldForceLogout, getTokenRemainingMinutes, shouldWarnTokenExpiry } from './utils/tokenManager';
 import { useAuth } from './AuthContext';
 import { API_BASE } from './utils/apiConfig';
-import { cacheAiResponse, getLatestAiResponses, cacheSubjectTopics } from './utils/offlineStorage';
 import useHinglishVoice from './hooks/useHinglishVoice';
-import { normalizeHinglishTranscript } from './utils/hinglishTranslate';
 import { getExamTrackerSummary } from './utils/examSchedule';
 
 const drawerWidth = 280;
@@ -79,7 +79,7 @@ const safeJsonParse = (value, fallback) => {
   try {
     if (value === null || value === undefined) return fallback;
     return JSON.parse(value);
-  } catch {
+  } catch (e) {
     return fallback;
   }
 };
@@ -142,7 +142,7 @@ const isoDay = (d) => {
   try {
     return new Date(d).toISOString().slice(0, 10);
     return new Date().toISOString().slice(0, 10);
-  } catch {
+  } catch (e) {
     return new Date().toISOString().slice(0, 10);
   }
 };
@@ -307,8 +307,8 @@ const ChartRenderer = ({ dataString }) => {
 const SafeMermaidViewer = ({ chartCode }) => {
   const containerRef = useRef(null);
   const [renderState, setRenderState] = useState('loading');
-  const [errorMsg, setErrorMsg]       = useState('');
-  const [copied, setCopied]           = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!chartCode || !containerRef.current) return;
@@ -316,53 +316,26 @@ const SafeMermaidViewer = ({ chartCode }) => {
     setRenderState('loading');
     setErrorMsg('');
 
-    // ── Comprehensive auto-fix for AI-generated mermaid syntax errors ────────
-
-    // 1. Remove stray backtick fences that leaked from markdown
     let clean = chartCode
       .trim()
       .replace(/^```[a-zA-Z]*\n?/, '')
       .replace(/\n?```$/, '')
+      .replace(/\r\n/g, '\n')
+      .replace(/\r/g, '\n')
       .trim();
 
-    // 2. Windows line endings
-    clean = clean.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    clean = clean
+      .split('\n')
+      .map((line) => {
+        if (!line.includes('-->|') && !line.includes('->|')) return line;
+        line = line.replace(/(^|[^-])->\|/g, '$1-->|');
+        line = line.replace(/\|>/g, '|');
+        return line.replace(/-->\|([^|]*)\|/g, (_m, label) => `-->|${label.replace(/[()]/g, '')}|`);
+      })
+      .join('\n');
 
-    // 3. Fix arrow labels — process each line individually for precision
-    clean = clean.split('\n').map(line => {
-      // Only touch lines that have arrows with labels  -->|...|
-      if (!line.includes('-->|') && !line.includes('->|')) return line;
+    clean = clean.replace(/\[([^\]]*)\]/g, (_m, inner) => `[${inner.replace(/[<>]/g, '')}]`);
 
-      // 3a. Fix single-dash arrow: ->| → -->|
-      line = line.replace(/(?<!-)->\|/g, '-->|');
-
-      // 3b. Fix -->|label|> node  →  -->|label| node
-      //     Catches: |> followed by space, newline, letter, or end of string
-      line = line.replace(/\|>/g, '|');
-
-      // 3c. Remove parentheses INSIDE pipe labels -->|...(...)...|
-      //     Parentheses inside labels are parsed as circle-node syntax → crash
-      //     Strategy: find each -->|...|  and strip ( ) inside the label only
-      line = line.replace(/-->\|([^|]*)\|/g, (match, label) => {
-        const cleanLabel = label.replace(/[()]/g, '');  // strip ( and )
-        return `-->|${cleanLabel}|`;
-      });
-
-      return line;
-    }).join('\n');
-
-    // 4. Fix node labels: strip characters mermaid can't handle inside [ ] { } ( )
-    //    e.g. A[TCP (Layer 4)] is fine, but special chars like < > can break it
-    //    We only strip inside the bracket content, not the brackets themselves
-    clean = clean.replace(/\[([^\]]*)\]/g, (match, inner) => {
-      // Allow letters, numbers, spaces, hyphens, slashes, colons, commas, dots
-      const safe = inner.replace(/[<>]/g, '');
-      return `[${safe}]`;
-    });
-
-    // ──────────────────────────────────────────────────────────────────────
-
-    // Unique ID per render attempt — prevents "element already exists" in v10
     const uid = `mmd${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
     let cancelled = false;
 
@@ -389,8 +362,7 @@ const SafeMermaidViewer = ({ chartCode }) => {
         const ghost = document.getElementById(uid);
         if (ghost) ghost.remove();
         if (!cancelled) {
-          const msg = err?.message || err?.str || String(err) || 'Unknown render error';
-          setErrorMsg(msg);
+          setErrorMsg(err?.message || err?.str || String(err) || 'Unknown render error');
           setRenderState('error');
         }
       }
@@ -422,50 +394,79 @@ const SafeMermaidViewer = ({ chartCode }) => {
         borderRadius: '12px',
         overflowX: 'auto',
         marginTop: '12px',
-        border: '1px solid rgba(3, 218, 198, 0.25)',
+        border: '1px solid rgba(3, 218, 198, 0.25)'
       }}
     >
-      {/* Loading */}
       {renderState === 'loading' && (
         <div style={{ color: '#03dac6', fontSize: '13px', textAlign: 'center', padding: '20px 0' }}>
-          Building diagram... 🏗️
+          Building diagram...
         </div>
       )}
 
-      {/* SVG lands here on success */}
       <div ref={containerRef} style={{ width: '100%' }} />
 
-      {/* Error: show message + raw code so user isn't stuck */}
       {renderState === 'error' && (
         <div style={{ marginTop: '8px' }}>
-          <div style={{
-            color: '#ff6b6b', fontSize: '12px', padding: '8px 12px',
-            background: 'rgba(255,107,107,0.08)', borderRadius: '8px',
-            border: '1px solid rgba(255,107,107,0.25)', marginBottom: '10px'
-          }}>
-            ⚠️ Diagram render failed.
-            {errorMsg && <><br /><span style={{ opacity: 0.6, fontSize: '11px' }}>{errorMsg}</span></>}
+          <div
+            style={{
+              color: '#ff6b6b',
+              fontSize: '12px',
+              padding: '8px 12px',
+              background: 'rgba(255,107,107,0.08)',
+              borderRadius: '8px',
+              border: '1px solid rgba(255,107,107,0.25)',
+              marginBottom: '10px'
+            }}
+          >
+            Diagram render failed.
+            {errorMsg && (
+              <>
+                <br />
+                <span style={{ opacity: 0.6, fontSize: '11px' }}>{errorMsg}</span>
+              </>
+            )}
           </div>
           <div style={{ position: 'relative' }}>
-            <pre style={{
-              background: '#161b22', color: '#c9d1d9', fontSize: '12px',
-              borderRadius: '8px', padding: '10px 42px 10px 12px',
-              overflowX: 'auto', border: '1px solid #30363d',
-              margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word'
-            }}>
+            <pre
+              style={{
+                background: '#161b22',
+                color: '#c9d1d9',
+                fontSize: '12px',
+                borderRadius: '8px',
+                padding: '10px 42px 10px 12px',
+                overflowX: 'auto',
+                border: '1px solid #30363d',
+                margin: 0,
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word'
+              }}
+            >
               {chartCode.trim().replace(/^```[a-zA-Z]*\n?/, '').replace(/\n?```$/, '').trim()}
             </pre>
-            <button onClick={handleCopyCode} style={{
-              position: 'absolute', top: 7, right: 7,
-              background: '#03dac6', color: '#111', border: 'none',
-              borderRadius: 5, padding: '2px 9px', fontWeight: 700,
-              cursor: 'pointer', fontSize: 11
-            }}>{copied ? 'Copied!' : 'Copy'}</button>
+            <button
+              onClick={handleCopyCode}
+              style={{
+                position: 'absolute',
+                top: 7,
+                right: 7,
+                background: '#03dac6',
+                color: '#111',
+                border: 'none',
+                borderRadius: 5,
+                padding: '2px 9px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                fontSize: 11
+              }}
+            >
+              {copied ? 'Copied!' : 'Copy'}
+            </button>
           </div>
           <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: '11px', marginTop: '6px' }}>
-            💡 Paste at
-            <a href="https://mermaid.live" target="_blank" rel="noopener noreferrer"
-               style={{ color: '#03dac6' }}>mermaid.live</a>{' '}
+            Paste at{' '}
+            <a href="https://mermaid.live" target="_blank" rel="noopener noreferrer" style={{ color: '#03dac6' }}>
+              mermaid.live
+            </a>{' '}
             to debug the syntax.
           </div>
         </div>
@@ -475,17 +476,55 @@ const SafeMermaidViewer = ({ chartCode }) => {
 };
 
 // 2. Tumhara Original Enhanced Markdown Renderer (Safe version ke sath)
+const TypewriterText = ({ text, speed = 25, onProgress, onComplete, isInterrupted }) => {
+  const [displayedText, setDisplayedText] = useState('');
+  const indexRef = useRef(0);
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    if (isInterrupted) {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      return undefined;
+    }
+
+    const typeNext = () => {
+      if (isInterrupted) return;
+
+      if (indexRef.current < text.length) {
+        setDisplayedText(text.substring(0, indexRef.current + 1));
+        indexRef.current += 1;
+
+        if (onProgress) onProgress();
+
+        const jitter = Math.random() * 0.8 + 0.6;
+        timerRef.current = setTimeout(typeNext, speed * jitter);
+      } else if (onComplete) {
+        onComplete();
+      }
+    };
+
+    if (indexRef.current < text.length) {
+      timerRef.current = setTimeout(typeNext, speed);
+    } else if (indexRef.current >= text.length && text.length > 0 && onComplete) {
+      onComplete();
+    }
+
+    return () => clearTimeout(timerRef.current);
+  }, [text, speed, isInterrupted, onProgress, onComplete]);
+
+  return <ReactMarkdown children={displayedText} remarkPlugins={[remarkGfm]} components={markdownComponents} />;
+};
+
 const enhancedCodeComponents = ({ inline, className, children, ...props }) => {
   const match = /language-(\w+)/.exec(className || '');
   const codeString = String(children).replace(/\n$/, '');
-  
+
   const [copied, setCopied] = useState(false);
   const handleCopy = () => {
     navigator.clipboard.writeText(codeString);
     setCopied(true);
     setTimeout(() => setCopied(false), 1200);
   };
-
   if (match && match[1] === 'mermaid') {
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
@@ -500,7 +539,7 @@ const enhancedCodeComponents = ({ inline, className, children, ...props }) => {
       </motion.div>
     );
   }
-  
+
   if (!inline && match) {
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
@@ -515,79 +554,8 @@ const enhancedCodeComponents = ({ inline, className, children, ...props }) => {
       </motion.div>
     );
   }
-  
+
   return <code style={{ color: NEON_CYAN, fontSize: '14px' }} {...props}>{children}</code>;
-};
-
-// Markdown component customizations with chart support
-const markdownComponents = {
-  code: enhancedCodeComponents,
-  p: ({ children }) => {
-    // Check if paragraph contains JSON-like chart data
-    const childStr = String(children);
-    if (childStr.startsWith('[{') && childStr.endsWith('}]')) {
-      const chart = <ChartRenderer dataString={childStr} />;
-      if (chart) return chart;
-    }
-    return <p style={{ color: '#FFFFFF', margin: 0 }}>{children}</p>;
-  },
-  strong: ({ children }) => <strong style={{ color: '#FFFFFF', fontWeight: 600 }}>{children}</strong>,
-  em: ({ children }) => <em style={{ color: '#FFFFFF', fontStyle: 'italic' }}>{children}</em>,
-  h1: ({ children }) => <h1 style={{ color: '#FFFFFF', marginBottom: '8px', marginTop: '12px', fontSize: '24px', fontWeight: 700 }}>{children}</h1>,
-  h2: ({ children }) => <h2 style={{ color: '#FFFFFF', marginBottom: '8px', marginTop: '10px', fontSize: '20px', fontWeight: 600 }}>{children}</h2>,
-  h3: ({ children }) => <h3 style={{ color: '#FFFFFF', marginBottom: '6px', marginTop: '8px', fontSize: '16px', fontWeight: 600 }}>{children}</h3>,
-  li: ({ children }) => <li style={{ color: '#FFFFFF', marginBottom: '4px' }}>{children}</li>,
-  blockquote: ({ children }) => <blockquote style={{ color: '#FFFFFF', borderLeft: `3px solid ${NEON_CYAN}`, paddingLeft: '12px', marginLeft: 0, marginTop: '8px', marginBottom: '8px', fontStyle: 'italic' }}>{children}</blockquote>,
-  a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: NEON_CYAN, textDecoration: 'underline', cursor: 'pointer' }}>{children}</a>,
-  ul: ({ children }) => <ul style={{ color: '#FFFFFF', marginLeft: '20px', marginTop: '8px' }}>{children}</ul>,
-  ol: ({ children }) => <ol style={{ color: '#FFFFFF', marginLeft: '20px', marginTop: '8px' }}>{children}</ol>,
-  table: ({ children }) => <table style={{ color: '#FFFFFF', borderCollapse: 'collapse', marginTop: '8px', marginBottom: '8px', width: '100%' }}>{children}</table>,
-  td: ({ children }) => <td style={{ border: `1px solid ${NEON_CYAN}20`, padding: '8px', textAlign: 'left' }}>{children}</td>,
-  th: ({ children }) => <th style={{ border: `1px solid ${NEON_CYAN}40`, padding: '8px', textAlign: 'left', backgroundColor: `${NEON_PURPLE}20`, fontWeight: 600 }}>{children}</th>,
-};
-
-// ROCK-SOLID TYPEWRITER - WILL NEVER ERASE TEXT
-const TypewriterText = ({ text, speed = 25, onProgress, onComplete, isInterrupted }) => {
-  const [displayedText, setDisplayedText] = useState('');
-  const indexRef = useRef(0);
-  const timerRef = useRef(null);
-
-  useEffect(() => {
-    // Agar stop button press hua, turant type karna band karo
-    if (isInterrupted) {
-      if (timerRef.current) clearTimeout(timerRef.current);
-      return;
-    }
-
-    // Sirf aage ka text type karo, pichla erase mat karo
-    const typeNext = () => {
-      if (isInterrupted) return;
-      
-      if (indexRef.current < text.length) {
-        setDisplayedText(text.substring(0, indexRef.current + 1));
-        indexRef.current += 1;
-        
-        if (onProgress) onProgress();
-        
-        const jitter = Math.random() * 0.8 + 0.6;
-        timerRef.current = setTimeout(typeNext, speed * jitter);
-      } else {
-        if (onComplete) onComplete();
-      }
-    };
-
-    if (indexRef.current < text.length) {
-      timerRef.current = setTimeout(typeNext, speed);
-    } else if (indexRef.current >= text.length && text.length > 0) {
-      if (onComplete) onComplete();
-    }
-
-    return () => clearTimeout(timerRef.current);
-  }, [text, speed, isInterrupted, onProgress, onComplete]);
-
-  return (
-    <ReactMarkdown children={displayedText} remarkPlugins={[remarkGfm]} components={markdownComponents} />
-  );
 };
 
 const getJiyaRemarkText = (score, candidateName) => {
@@ -763,7 +731,7 @@ const Dashboard = ({ onThemeOverride }) => {
     try {
       localStorage.setItem(STUDY_ACTIVITY_KEY, JSON.stringify(next));
       setStudyActivityVersion(v => v + 1);
-    } catch {
+    } catch (e) {
       // ignore quota errors
     }
   };
@@ -781,7 +749,7 @@ const Dashboard = ({ onThemeOverride }) => {
   const clearWeeklyActivity = () => {
     try {
       localStorage.removeItem(STUDY_ACTIVITY_KEY);
-    } catch {
+    } catch (e) {
       // ignore
     }
     // Reset the running timer so the next visible tick starts fresh
@@ -792,7 +760,7 @@ const Dashboard = ({ onThemeOverride }) => {
   useEffect(() => {
     try {
       localStorage.setItem(DAILY_GOALS_KEY, JSON.stringify(dailyGoals));
-    } catch {
+    } catch (e) {
       // ignore
     }
   }, [dailyGoals]);
@@ -1075,7 +1043,7 @@ const Dashboard = ({ onThemeOverride }) => {
       setStudyRoadmap(mapped);
       try {
         localStorage.setItem(STUDY_ROADMAP_KEY, JSON.stringify(mapped));
-      } catch {
+      } catch (e) {
         // ignore quota/storage errors
       }
     } catch (e) {
@@ -1163,7 +1131,7 @@ const Dashboard = ({ onThemeOverride }) => {
       setPerformanceSummary(mapped);
       try {
         localStorage.setItem(APC_PERFORMANCE_SUMMARY_KEY, JSON.stringify(mapped));
-      } catch {
+      } catch (e) {
         // ignore storage issues
       }
     } catch (e) {
@@ -1191,7 +1159,7 @@ const Dashboard = ({ onThemeOverride }) => {
       setPerformanceSummary(mapped);
       try {
         localStorage.setItem(APC_PERFORMANCE_SUMMARY_KEY, JSON.stringify(mapped));
-      } catch {
+      } catch (e) {
         // ignore storage issues
       }
     } catch (e) {
@@ -1710,7 +1678,7 @@ const Dashboard = ({ onThemeOverride }) => {
         'Recent cached prompts:',
         historyPreview,
       ].join('\n');
-    } catch {
+    } catch (e) {
       return 'Offline mode active. Cached data read nahi ho paya, please reconnect and retry.';
     }
   };
@@ -1858,14 +1826,19 @@ const Dashboard = ({ onThemeOverride }) => {
           let raw = data.reply.trim();
 
           // 3a. Try to parse the whole thing as JSON first
-          try {
-            const j = JSON.parse(raw);
-            if (j?.answer) {
-              parsedAnswer      = j.answer;
-              parsedSuggestions = Array.isArray(j.next_suggestions) ? j.next_suggestions : [];
-              raw = ''; // mark as handled
+          let j = null;
+          if (raw.startsWith('{') || raw.startsWith('[')) {
+            try {
+              j = JSON.parse(raw);
+            } catch (e) {
+              j = null;
             }
-          } catch { /* not clean JSON, fall through */ }
+          }
+          if (j?.answer) {
+            parsedAnswer = j.answer;
+            parsedSuggestions = Array.isArray(j.next_suggestions) ? j.next_suggestions : [];
+            raw = ''; // mark as handled
+          }
 
           if (raw) {
             // 3b. Strip trailing {"next_suggestions":[...]} blob
@@ -1947,7 +1920,7 @@ const Dashboard = ({ onThemeOverride }) => {
           };
           try {
             localStorage.setItem(STUDY_ROADMAP_KEY, JSON.stringify(localRoadmap));
-          } catch {
+          } catch (e) {
             // ignore quota/storage errors
           }
           setStudyRoadmap(localRoadmap);
@@ -2067,6 +2040,11 @@ const Dashboard = ({ onThemeOverride }) => {
 
   const handleAPCClick = () => {
     navigate('/apc');
+    if (mobileOpen) setMobileOpen(false);
+  };
+
+  const handleMyLockerClick = () => {
+    navigate('/my-locker');
     if (mobileOpen) setMobileOpen(false);
   };
 
@@ -2229,18 +2207,20 @@ const Dashboard = ({ onThemeOverride }) => {
   };
 
   const drawer = (
-    <Box sx={{ 
-      bgcolor: 'transparent', 
-      height: '100%', 
-      color: '#E6EAF0', 
-      display: 'flex', 
-      flexDirection: 'column',
-      overflow: 'hidden',
-      boxSizing: 'border-box',
-      gap: 0,
-      minHeight: 0,
-      flex: 1
-    }}>
+    <Box
+      sx={{
+        bgcolor: 'transparent',
+        height: '100%',
+        color: '#E6EAF0',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        boxSizing: 'border-box',
+        gap: 0,
+        minHeight: 0,
+        flex: 1,
+      }}
+    >
       {/* Header - Fixed */}
       <Box sx={{ p: 2.5, pb: 1.5, flexShrink: 0 }}>
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
@@ -2399,6 +2379,33 @@ const Dashboard = ({ onThemeOverride }) => {
               </motion.div>
             </Tooltip>
 
+            <Tooltip title="My Locker for secure study material uploads">
+              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                <ListItem
+                  component="div"
+                  role="button"
+                  onClick={handleMyLockerClick}
+                  sx={{
+                    bgcolor: GLASS_BG,
+                    border: GLASS_BORDER,
+                    borderRadius: '12px',
+                    cursor: 'pointer',
+                    '&:hover': { backgroundColor: 'rgba(16, 185, 129, 0.2)', borderColor: 'rgba(16, 185, 129, 0.45)' },
+                    backdropFilter: 'blur(12px)',
+                    py: 1.2
+                  }}
+                >
+                  <ListItemIcon sx={{ color: '#10B981', minWidth: '36px' }}>
+                    <LockIcon sx={{ fontSize: '18px' }} />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary="🔐 My Locker"
+                    sx={{ '& .MuiListItemText-primary': { fontSize: '14px', fontWeight: 500 } }}
+                  />
+                </ListItem>
+              </motion.div>
+            </Tooltip>
+
             <Tooltip title="Quick 10-question practice with instant feedback">
               <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                 <ListItem
@@ -2430,86 +2437,36 @@ const Dashboard = ({ onThemeOverride }) => {
               </motion.div>
             </Tooltip>
 
-            <Tooltip title={!subject || !semester ? "Select subject first" : "Full 45-min exam with 20 questions"}>
-              <span>
-                <motion.div whileHover={{ scale: !subject || !semester ? 1 : 1.02 }} whileTap={{ scale: !subject || !semester ? 1 : 0.98 }}>
-                  <ListItem
-                    component="div"
-                    role="button"
-                    onClick={() => {
-                      if (!subject || !semester) {
-                        alert("Please select a subject and semester first.");
-                        return;
-                      }
-                      setShowAdvancedTools(false);
-                      setShowExamSimulator(true);
-                      if (mobileOpen) setMobileOpen(false);
-                    }}
-                    disabled={!subject || !semester}
-                    sx={{
-                      bgcolor: GLASS_BG,
-                      border: GLASS_BORDER,
-                      borderRadius: '12px',
-                      cursor: !subject || !semester ? 'not-allowed' : 'pointer',
-                      '&:hover': {
-                        backgroundColor: !subject || !semester ? GLASS_BG : `${NEON_CYAN}20`,
-                        borderColor: !subject || !semester ? GLASS_BORDER : `${NEON_CYAN}40`
-                      },
-                      backdropFilter: 'blur(12px)',
-                      opacity: !subject || !semester ? 0.5 : 1
-                    }}
-                  >
-                    <ListItemIcon sx={{ color: !subject || !semester ? 'rgba(3, 218, 198, 0.4)' : NEON_CYAN, minWidth: '36px' }}>
-                      <Timer sx={{ fontSize: '18px' }} />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary="📝 Mock Exam"
-                      sx={{ '& .MuiListItemText-primary': { fontSize: '14px', fontWeight: 500 } }}
-                    />
-                  </ListItem>
-                </motion.div>
-              </span>
-            </Tooltip>
-
-            <Tooltip title={!subject || !semester ? "Select subject first" : "Mock test with full coverage"}>
-              <span>
-                <motion.div whileHover={{ scale: !subject || !semester ? 1 : 1.02 }} whileTap={{ scale: !subject || !semester ? 1 : 0.98 }}>
-                  <ListItem
-                    component="div"
-                    role="button"
-                    onClick={() => {
-                      if (!subject || !semester) {
-                        alert("Please select a subject and semester first.");
-                        return;
-                      }
-                      setShowAdvancedTools(false);
-                      setShowExamSimulator(true);
-                      if (mobileOpen) setMobileOpen(false);
-                    }}
-                    disabled={!subject || !semester}
-                    sx={{
-                      bgcolor: GLASS_BG,
-                      border: GLASS_BORDER,
-                      borderRadius: '12px',
-                      cursor: !subject || !semester ? 'not-allowed' : 'pointer',
-                      '&:hover': {
-                        backgroundColor: !subject || !semester ? GLASS_BG : `${NEON_CYAN}20`,
-                        borderColor: !subject || !semester ? GLASS_BORDER : `${NEON_CYAN}40`
-                      },
-                      backdropFilter: 'blur(12px)',
-                      opacity: !subject || !semester ? 0.5 : 1
-                    }}
-                  >
-                    <ListItemIcon sx={{ color: !subject || !semester ? 'rgba(3, 218, 198, 0.4)' : NEON_CYAN, minWidth: '36px' }}>
-                      <Assessment sx={{ fontSize: '18px' }} />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary="🧪 Mock Test"
-                      sx={{ '& .MuiListItemText-primary': { fontSize: '14px', fontWeight: 500 } }}
-                    />
-                  </ListItem>
-                </motion.div>
-              </span>
+            <Tooltip title="Open Advanced Tools workspace">
+              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                <ListItem
+                  component="div"
+                  role="button"
+                  onClick={() => {
+                    setShowAdvancedTools(true);
+                    setShowQuizSection(false);
+                    setShowExamSimulator(false);
+                    if (mobileOpen) setMobileOpen(false);
+                  }}
+                  sx={{
+                    bgcolor: GLASS_BG,
+                    border: GLASS_BORDER,
+                    borderRadius: '12px',
+                    cursor: 'pointer',
+                    '&:hover': { backgroundColor: 'rgba(99, 102, 241, 0.2)', borderColor: 'rgba(99, 102, 241, 0.45)' },
+                    backdropFilter: 'blur(12px)',
+                    py: 1.2
+                  }}
+                >
+                  <ListItemIcon sx={{ color: '#6366F1', minWidth: '36px' }}>
+                    <Settings sx={{ fontSize: '18px' }} />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary="⚙️ Advanced Tools"
+                    sx={{ '& .MuiListItemText-primary': { fontSize: '14px', fontWeight: 500 } }}
+                  />
+                </ListItem>
+              </motion.div>
             </Tooltip>
 
             {ENABLE_LEGACY_QUICK_QUIZ && (
@@ -2759,6 +2716,51 @@ const Dashboard = ({ onThemeOverride }) => {
                 </Box>
 
                 <Box sx={{ display: 'flex', gap: 1.2, flexWrap: 'wrap' }}>
+                  <Button
+                    onClick={() => { setShowAdvancedTools(true); setShowQuizSection(false); setShowExamSimulator(false); }}
+                    startIcon={<Settings sx={{ fontSize: 18 }} />}
+                    sx={{
+                      bgcolor: 'rgba(99, 102, 241, 0.16)',
+                      color: '#E6EAF0',
+                      border: '1px solid rgba(99, 102, 241, 0.45)',
+                      borderRadius: '14px',
+                      fontWeight: 900,
+                      px: 2,
+                      '&:hover': { bgcolor: 'rgba(99, 102, 241, 0.24)', boxShadow: '0 0 18px rgba(99, 102, 241, 0.3)', borderColor: 'rgba(99, 102, 241, 0.75)' }
+                    }}
+                  >
+                    Advanced Tools
+                  </Button>
+                  <Button
+                    onClick={handleAPCClick}
+                    startIcon={<WorkspacePremium sx={{ fontSize: 18 }} />}
+                    sx={{
+                      bgcolor: `${NEON_PURPLE}18`,
+                      color: '#E6EAF0',
+                      border: `1px solid ${NEON_PURPLE}40`,
+                      borderRadius: '14px',
+                      fontWeight: 900,
+                      px: 2,
+                      '&:hover': { bgcolor: `${NEON_PURPLE}24`, boxShadow: `0 0 18px ${NEON_PURPLE}30`, borderColor: `${NEON_PURPLE}70` }
+                    }}
+                  >
+                    APC Center
+                  </Button>
+                  <Button
+                    onClick={handleMyLockerClick}
+                    startIcon={<LockIcon sx={{ fontSize: 18 }} />}
+                    sx={{
+                      bgcolor: 'rgba(16, 185, 129, 0.16)',
+                      color: '#E6EAF0',
+                      border: '1px solid rgba(16, 185, 129, 0.45)',
+                      borderRadius: '14px',
+                      fontWeight: 900,
+                      px: 2,
+                      '&:hover': { bgcolor: 'rgba(16, 185, 129, 0.24)', boxShadow: '0 0 18px rgba(16, 185, 129, 0.3)', borderColor: 'rgba(16, 185, 129, 0.75)' }
+                    }}
+                  >
+                    My Locker
+                  </Button>
                   <Button
                     onClick={() => { setShowAdvancedTools(false); setShowQuizSection(true); }}
                     startIcon={<Quiz sx={{ fontSize: 18 }} />}
@@ -3532,7 +3534,7 @@ const Dashboard = ({ onThemeOverride }) => {
           <Typography sx={{ fontSize: '14px' }}>App Settings</Typography>
         </MenuItem>
         <Divider sx={{ bgcolor: `${NEON_CYAN}20`, my: 1 }} />
-        <MenuItem onClick={() => { setAdminMenuAnchor(null); alert('About coming soon!'); }} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+        <MenuItem onClick={() => { setAdminMenuAnchor(null); navigate('/about'); }} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <Info sx={{ fontSize: 18, color: NEON_CYAN }} />
           <Typography sx={{ fontSize: '14px' }}>About BCABuddy</Typography>
         </MenuItem>
@@ -4197,6 +4199,85 @@ const Dashboard = ({ onThemeOverride }) => {
         </AnimatePresence>
       </Modal>
 
+      <Modal
+        open={showAboutModal}
+        onClose={() => setShowAboutModal(false)}
+        sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}
+      >
+        <Card
+          sx={{
+            width: 'min(980px, 96vw)',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            bgcolor: 'rgba(15, 23, 42, 0.98)',
+            border: `1px solid ${NEON_CYAN}35`,
+            borderRadius: '20px',
+            backdropFilter: 'blur(12px)',
+            p: { xs: 2, md: 3 },
+          }}
+        >
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography sx={{ color: NEON_CYAN, fontWeight: 900, fontSize: { xs: 20, md: 24 } }}>
+              🎓 About BCABuddy
+            </Typography>
+            <Button
+              onClick={() => setShowAboutModal(false)}
+              sx={{ color: '#E6EAF0', border: '1px solid rgba(255,255,255,0.24)', borderRadius: '12px', fontWeight: 800 }}
+            >
+              Close
+            </Button>
+          </Box>
+
+          <Typography sx={{ color: '#E6EAF0', fontWeight: 700, fontSize: 18, mb: 2 }}>
+            Your Personal AI Study Companion
+          </Typography>
+
+          <Typography sx={{ color: 'rgba(230,234,240,0.88)', lineHeight: 1.8, mb: 2 }}>
+            Navigating through a Bachelor of Computer Applications (BCA) degree can be overwhelming. Between decoding vast syllabuses, managing assignments, preparing for term-end exams, and figuring out how to clear backlogs, students often find themselves lost without a clear direction.
+          </Typography>
+
+          <Typography sx={{ color: 'rgba(230,234,240,0.88)', lineHeight: 1.8, mb: 3 }}>
+            That's exactly why BCABuddy was created.
+          </Typography>
+
+          <Typography sx={{ color: NEON_CYAN, fontWeight: 800, fontSize: 17, mb: 1.2 }}>
+            Our Vision
+          </Typography>
+          <Typography sx={{ color: 'rgba(230,234,240,0.88)', lineHeight: 1.8, mb: 3 }}>
+            We believe that every student deserves a personalized, stress-free learning experience. Our vision is to bridge the gap between hard work and smart work by bringing advanced Artificial Intelligence directly to a student's study desk. We want to transform the way BCA students prepare, helping them transition from panicked cramming to structured, confident learning.
+          </Typography>
+
+          <Typography sx={{ color: NEON_CYAN, fontWeight: 800, fontSize: 17, mb: 1.2 }}>
+            What We Do
+          </Typography>
+          <Typography sx={{ color: 'rgba(230,234,240,0.88)', lineHeight: 1.8, mb: 1.2 }}>
+            BCABuddy is not just another study app; it is an intelligent student assistant built to understand your unique academic needs. Powered by state-of-the-art AI (including Groq and advanced language models), BCABuddy offers:
+          </Typography>
+          <Box sx={{ pl: 1, mb: 3 }}>
+            <Typography sx={{ color: 'rgba(230,234,240,0.88)', lineHeight: 1.8, mb: 0.6 }}>
+              • The Advance Preparation Center: A dedicated hub to strategize your exams.
+            </Typography>
+            <Typography sx={{ color: 'rgba(230,234,240,0.88)', lineHeight: 1.8, mb: 0.6 }}>
+              • Interactive Study Roadmaps: Generate custom, day-by-step timelines tailored to your specific subjects, current preparation level, and goals.
+            </Typography>
+            <Typography sx={{ color: 'rgba(230,234,240,0.88)', lineHeight: 1.8 }}>
+              • Targeted Backlog Support: Specialized planning to help you confidently tackle and clear back papers without derailing your current semester.
+            </Typography>
+          </Box>
+
+          <Typography sx={{ color: NEON_CYAN, fontWeight: 800, fontSize: 17, mb: 1.2 }}>
+            The Story Behind BCABuddy
+          </Typography>
+          <Typography sx={{ color: 'rgba(230,234,240,0.88)', lineHeight: 1.8, mb: 2 }}>
+            BCABuddy wasn't built in a corporate boardroom. It was born out of real student experiences, late-night coding sessions, and the genuine desire to solve the everyday academic struggles faced by BCA students. Built by Saurav, with the constant support and inspiration of Jiya, this platform is a passion project designed by a student, for the students.
+          </Typography>
+
+          <Typography sx={{ color: '#E6EAF0', fontWeight: 700, lineHeight: 1.8 }}>
+            We know the journey is tough, but with BCABuddy, you don't have to walk it alone. Let's build your success roadmap together.
+          </Typography>
+        </Card>
+      </Modal>
+
       {ENABLE_LEGACY_QUICK_QUIZ && (
         <Modal open={quizModalOpen} onClose={closeQuickQuiz} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Card sx={{ width: '90%', maxWidth: '600px', bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 3, backdropFilter: 'blur(12px)' }}>
@@ -4308,3 +4389,4 @@ const Dashboard = ({ onThemeOverride }) => {
 };
 
 export default Dashboard;
+

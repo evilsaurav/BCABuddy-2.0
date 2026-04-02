@@ -10,6 +10,8 @@ const Dashboard = lazy(() => import('./Dashboard'));
 const EditProfile = lazy(() => import('./EditProfile'));
 const APCPage = lazy(() => import('./pages/APCPage'));
 const ExamSimulationPage = lazy(() => import('./pages/ExamSimulationPage'));
+const MyLocker = lazy(() => import('./pages/MyLocker'));
+const AboutPage = lazy(() => import('./pages/About'));
 
 const FRENZY_STORAGE_KEY = 'bcabuddy_frenzy_override_v1';
 
@@ -183,6 +185,10 @@ function App() {
                   path="/signup" 
                   element={<Signup />} 
                 />
+                <Route
+                  path="/about"
+                  element={<AboutPage />}
+                />
                 <Route 
                   path="/dashboard" 
                   element={isAuthenticated ? <Dashboard onThemeOverride={applyFrenzyOverride} /> : <Navigate to="/" replace />} 
@@ -198,6 +204,10 @@ function App() {
                 <Route
                   path="/apc"
                   element={isAuthenticated ? <APCPage /> : <Navigate to="/" replace />}
+                />
+                <Route
+                  path="/my-locker"
+                  element={isAuthenticated ? <MyLocker /> : <Navigate to="/" replace />}
                 />
               </Routes>
             </Suspense>

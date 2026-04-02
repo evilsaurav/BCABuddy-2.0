@@ -46,6 +46,7 @@ from config import get_settings
 from auth_utils import get_current_user
 from routes.auth import router as auth_router
 from routes.apc import router as apc_router
+from routes.study_materials import router as study_materials_router
 
 # Import modular components
 from models import (
@@ -475,6 +476,7 @@ app.mount("/profile_pics", StaticFiles(directory=PROFILE_PICS_DIR), name="profil
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 app.include_router(auth_router)
 app.include_router(apc_router)
+app.include_router(study_materials_router)
 
 
 @app.get("/health")
@@ -1575,6 +1577,7 @@ def chat_endpoint(request: ChatRequest, current_user: User = Depends(get_current
     is_lite_mode = requested_mode in {"lite", "fast", "quick"}
 
     user_message = request.message[:2200] if is_lite_mode else request.message[:4000]
+    is_creator_user = bool(getattr(current_user, "is_creator", 0))
 
     # Session handling
     session_id = getattr(request, 'session_id', None)
@@ -1591,7 +1594,46 @@ def chat_endpoint(request: ChatRequest, current_user: User = Depends(get_current
 
     # Build history for context
     history = db.query(ChatHistory).filter(ChatHistory.session_id == session_id).order_by(ChatHistory.id).all()
-    system_prompt = get_saurav_prompt()
+
+    # Frenzy mode controls (frontend listens to theme_override payload)
+    if _detect_frenzy_reset(user_message):
+        reset_text = "Frenzy mode disabled. Theme restored."
+        db.add(ChatHistory(session_id=session_id, sender="ai", text=reset_text))
+        db.commit()
+        payload = _build_response_payload(reset_text)
+        payload["session_id"] = session_id
+        payload["mode"] = "lite" if is_lite_mode else requested_mode
+        payload["theme_override"] = None
+        payload["active"] = False
+        payload["persona"] = "frenzy"
+        payload["reset_label"] = "Restore"
+        return _finalize_reply_payload(session_id, payload)
+
+    if _detect_frenzy_trigger(user_message):
+        frenzy_text = "Frenzy mode activated."
+        db.add(ChatHistory(session_id=session_id, sender="ai", text=frenzy_text))
+        db.commit()
+        payload = _build_response_payload(frenzy_text)
+        payload["session_id"] = session_id
+        payload["mode"] = "lite" if is_lite_mode else requested_mode
+        payload["theme_override"] = "melancholic"
+        payload["active"] = True
+        payload["persona"] = "frenzy"
+        payload["message"] = FRENZY_POEM
+        payload["speed_ms"] = 60
+        payload["reset_label"] = "Restore"
+        return _finalize_reply_payload(session_id, payload)
+
+    persona_trigger = detect_persona_trigger(user_message)
+    easter_egg_allowed = _is_easter_egg_allowed(history, window=15)
+
+    if persona_trigger == "jiya":
+        system_prompt = get_jiya_prompt(is_creator_user)
+    elif persona_trigger == "april19" and easter_egg_allowed:
+        system_prompt = get_april_19_prompt(is_creator_user)
+    else:
+        system_prompt = get_saurav_prompt(is_creator_user)
+
     if is_lite_mode:
         system_prompt += (
             "\n\nLITE MODE ACTIVE: keep answer concise, direct, and exam-focused. "
@@ -1625,6 +1667,332 @@ def chat_endpoint(request: ChatRequest, current_user: User = Depends(get_current
     payload["session_id"] = session_id
     payload["mode"] = "lite" if is_lite_mode else requested_mode
     return _finalize_reply_payload(session_id, payload)
+
+
+@app.post("/upload-notes-ocr")
+async def upload_notes_ocr(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        data = await file.read()
+        extracted = _extract_text_from_image_bytes(data)
+        if not extracted.strip():
+            return {
+                "filename": file.filename,
+                "points": [],
+                "extracted_text": "",
+                "message": "No readable text found in uploaded file.",
+            }
+
+        prompt = (
+            "Extract concise revision key points from the following OCR text. "
+            "Return ONLY valid JSON array of short strings, max 12 items.\n\n"
+            f"OCR_TEXT:\n{extracted[:9000]}"
+        )
+        completion = get_ai_response(
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.25,
+            max_tokens=700,
+        )
+        raw_text = str(getattr(completion.choices[0].message, "content", "") or "")
+        parsed = _safe_json_loads(raw_text)
+
+        points: List[str] = []
+        if isinstance(parsed, list):
+            points = [str(p).strip() for p in parsed if str(p).strip()]
+        elif isinstance(parsed, dict):
+            maybe_points = parsed.get("points")
+            if isinstance(maybe_points, list):
+                points = [str(p).strip() for p in maybe_points if str(p).strip()]
+
+        if not points:
+            # Safe fallback from extracted text when model output is malformed.
+            lines = [ln.strip(" -•\t") for ln in extracted.splitlines() if ln.strip()]
+            points = lines[:8]
+
+        return {
+            "filename": file.filename,
+            "points": points[:12],
+            "extracted_text": extracted[:4000],
+        }
+    except ProviderRateLimitError as e:
+        raise HTTPException(status_code=429, detail=e.message)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"OCR notes processing failed: {str(e)}")
+
+
+@app.post("/apc/ocr-quiz")
+async def apc_ocr_quiz(
+    file: UploadFile = File(...),
+    remarks: str = Form(default=""),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        data = await file.read()
+        extracted = _extract_text_from_image_bytes(data)
+        if not extracted.strip():
+            raise HTTPException(status_code=400, detail="No readable text found in uploaded image.")
+
+        prompt = (
+            "Create an exam-style quiz in markdown from the OCR text below. "
+            "Output should include: heading, 8 MCQs with 4 options each, and an answer key at the end. "
+            "Keep language Hinglish-friendly and concise.\n\n"
+            f"REMARKS: {remarks or 'None'}\n\n"
+            f"OCR_TEXT:\n{extracted[:9000]}"
+        )
+        completion = get_ai_response(
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.4,
+            max_tokens=1400,
+        )
+        quiz_md = str(getattr(completion.choices[0].message, "content", "") or "").strip()
+
+        if not quiz_md:
+            quiz_md = "### OCR Quiz\n\nUnable to generate quiz right now. Please retry with a clearer image."
+
+        return {
+            "quiz_markdown": quiz_md,
+            "extracted_text": extracted[:4000],
+            "filename": file.filename,
+        }
+    except ProviderRateLimitError as e:
+        raise HTTPException(status_code=429, detail=e.message)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"APC OCR quiz failed: {str(e)}")
+
+
+@app.post("/explain-mcq")
+def explain_mcq(
+    request: MCQExplainRequest,
+    current_user: User = Depends(get_current_user),
+):
+    prompt = (
+        "Explain this MCQ in simple Hinglish with clear reasoning. "
+        "Provide: why correct option is right, why others are wrong, and one quick memory trick.\n\n"
+        f"Question: {request.question}\n"
+        f"Options: {request.options}\n"
+        f"Correct Answer: {request.correct_answer}\n"
+        f"Subject: {request.subject or 'N/A'} | Semester: {request.semester or 'N/A'}"
+    )
+    try:
+        completion = get_ai_response(
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.35,
+            max_tokens=800,
+        )
+        text = str(getattr(completion.choices[0].message, "content", "") or "").strip()
+        return {"explanation": text or "Explanation not available."}
+    except ProviderRateLimitError as e:
+        raise HTTPException(status_code=429, detail=e.message)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"MCQ explanation failed: {str(e)}")
+
+
+@app.post("/generate-quiz", response_model=List[QuizQuestion])
+def generate_quiz(
+    request: QuizRequest,
+    current_user: User = Depends(get_current_user),
+):
+    count = max(1, min(int(request.count or 15), 50))
+    prompt = (
+        f"Generate exactly {count} IGNOU BCA MCQs for semester {request.semester}, subject {request.subject}. "
+        "Return ONLY valid JSON array with this schema: "
+        '[{"question":"...","options":["A","B","C","D"],"correct_answer":"..."}]'
+    )
+    try:
+        completion = get_ai_response(
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.5,
+            max_tokens=2200,
+        )
+        raw_text = str(getattr(completion.choices[0].message, "content", "") or "")
+        parsed = _safe_json_loads(raw_text)
+
+        if isinstance(parsed, dict):
+            parsed = parsed.get("questions", [])
+        if not isinstance(parsed, list):
+            raise ValueError("Quiz payload is not a list")
+
+        normalized: List[QuizQuestion] = []
+        for item in parsed:
+            if not isinstance(item, dict):
+                continue
+            question = str(item.get("question", "")).strip()
+            options = item.get("options", [])
+            correct_answer = str(item.get("correct_answer", "")).strip()
+            if not question:
+                continue
+            if not isinstance(options, list):
+                options = []
+            option_values = [str(opt).strip() for opt in options if str(opt).strip()]
+            if len(option_values) < 2:
+                continue
+            if not correct_answer:
+                correct_answer = option_values[0]
+            normalized.append(
+                QuizQuestion(
+                    question=question,
+                    options=option_values[:6],
+                    correct_answer=correct_answer,
+                )
+            )
+
+        if not normalized:
+            raise ValueError("No valid quiz questions generated")
+
+        return normalized[:count]
+    except ProviderRateLimitError as e:
+        raise HTTPException(status_code=429, detail=e.message)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Quiz generation failed: {str(e)}")
+
+
+@app.post("/generate-exam")
+def generate_exam(
+    request: MixedExamRequest,
+    current_user: User = Depends(get_current_user),
+):
+    mcq_count = max(1, min(int(request.mcq_count or 12), 40))
+    subjective_count = max(0, min(int(request.subjective_count or 0), 20))
+
+    # Backward-compatible behavior: frontend exam pages expect MCQ list.
+    quiz_items = generate_quiz(
+        QuizRequest(subject=request.subject, semester=request.semester, count=mcq_count),
+        current_user=current_user,
+    )
+
+    result = [
+        {
+            "question": q.question,
+            "options": q.options,
+            "correct_answer": q.correct_answer,
+            "type": "mcq",
+            "subject": request.subject,
+            "semester": request.semester,
+        }
+        for q in quiz_items
+    ]
+
+    if subjective_count > 0:
+        prompt = (
+            f"Generate exactly {subjective_count} IGNOU BCA subjective questions for semester {request.semester}, "
+            f"subject {request.subject}. Return ONLY valid JSON array with schema: "
+            '[{"question":"...","max_marks":10,"model_answer":"..."}]'
+        )
+        try:
+            completion = get_ai_response(
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.45,
+                max_tokens=1800,
+            )
+            raw_text = str(getattr(completion.choices[0].message, "content", "") or "")
+            parsed = _safe_json_loads(raw_text)
+            if isinstance(parsed, dict):
+                parsed = parsed.get("questions", [])
+            if isinstance(parsed, list):
+                for item in parsed[:subjective_count]:
+                    if not isinstance(item, dict):
+                        continue
+                    question = str(item.get("question", "")).strip()
+                    if not question:
+                        continue
+                    max_marks = int(item.get("max_marks", 10) or 10)
+                    model_answer = str(item.get("model_answer", "")).strip()
+                    result.append(
+                        {
+                            "question": question,
+                            "type": "subjective",
+                            "max_marks": max(2, min(max_marks, 20)),
+                            "model_answer": model_answer,
+                            "subject": request.subject,
+                            "semester": request.semester,
+                        }
+                    )
+        except Exception:
+            # Non-fatal: exam can still continue with MCQ-only set.
+            pass
+
+    return result
+
+
+@app.post("/explain-question")
+def explain_question(
+    request: ExplainQuestionRequest,
+    current_user: User = Depends(get_current_user),
+):
+    prompt = (
+        "Explain the question in simple Hinglish. Keep it exam-focused and concise.\n"
+        f"Question: {request.question_text}\n"
+        f"Correct answer: {request.correct_answer}\n"
+        f"User answer: {request.user_answer or 'Not provided'}"
+    )
+    try:
+        completion = get_ai_response(
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.35,
+            max_tokens=700,
+        )
+        text = str(getattr(completion.choices[0].message, "content", "") or "").strip()
+        return {"explanation": text or "Explanation not available."}
+    except ProviderRateLimitError as e:
+        raise HTTPException(status_code=429, detail=e.message)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Explain failed: {str(e)}")
+
+
+@app.post("/grade-subjective", response_model=SubjectiveGradeResponse)
+def grade_subjective(
+    request: SubjectiveGradeRequest,
+    current_user: User = Depends(get_current_user),
+):
+    max_marks = max(1, min(int(request.max_marks or 10), 20))
+    prompt = (
+        "You are an IGNOU evaluator. Grade the answer and return ONLY valid JSON with keys: "
+        "score, max_marks, feedback, model_answer, missed_points, suggested_keywords, strengths, improvements.\n"
+        f"Subject: {request.subject}\n"
+        f"Semester: {request.semester}\n"
+        f"Question: {request.question}\n"
+        f"Student answer: {request.answer}\n"
+        f"Max marks: {max_marks}"
+    )
+    try:
+        completion = get_ai_response(
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.25,
+            max_tokens=1100,
+        )
+        raw_text = str(getattr(completion.choices[0].message, "content", "") or "")
+        parsed = _safe_json_loads(raw_text)
+        if not isinstance(parsed, dict):
+            raise ValueError("Invalid grading payload")
+
+        score = int(parsed.get("score", 0) or 0)
+        score = max(0, min(score, max_marks))
+
+        def _as_str_list(value: Any) -> List[str]:
+            if isinstance(value, list):
+                return [str(v).strip() for v in value if str(v).strip()][:8]
+            if isinstance(value, str) and value.strip():
+                return [value.strip()]
+            return []
+
+        return SubjectiveGradeResponse(
+            score=score,
+            max_marks=max_marks,
+            feedback=str(parsed.get("feedback", "Evaluation completed.")).strip(),
+            model_answer=str(parsed.get("model_answer", "")).strip(),
+            missed_points=_as_str_list(parsed.get("missed_points")),
+            suggested_keywords=_as_str_list(parsed.get("suggested_keywords")),
+            strengths=_as_str_list(parsed.get("strengths")),
+            improvements=_as_str_list(parsed.get("improvements")),
+        )
+    except ProviderRateLimitError as e:
+        raise HTTPException(status_code=429, detail=e.message)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Subjective grading failed: {str(e)}")
 
 @app.post("/api/generate-study-plan", response_model=StudyPlanResponse)
 async def generate_study_plan(request: StudyPlanRequest):

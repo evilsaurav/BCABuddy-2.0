@@ -203,6 +203,25 @@ const Signup = () => {
                 Sign In Instead
               </motion.div>
             </Link>
+
+            <Link to="/about" style={{ textDecoration: 'none', marginTop: 10, display: 'block' }}>
+              <motion.div
+                whileHover={{ background: C.accentSoft, borderColor: C.accent }}
+                style={{
+                  display: 'block',
+                  textAlign: 'center',
+                  padding: '10px 0',
+                  borderRadius: 12,
+                  border: `1.5px solid ${C.borderLight}`,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: C.textDark,
+                  transition: 'all 180ms',
+                }}
+              >
+                About BCABuddy
+              </motion.div>
+            </Link>
           </motion.div>
 
           <div style={{position:'absolute',bottom:16,display:'flex',alignItems:'center',gap:5,fontSize:11,color:'#9ca3af',zIndex:1}}>
