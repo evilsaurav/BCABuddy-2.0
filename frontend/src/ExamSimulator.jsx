@@ -33,6 +33,7 @@ function ExamSimulator({
   subject,
   onClose,
   API_BASE: apiBaseOverride,
+  globalAbortRef = null,
   ...otherProps
 }) {
   const API_BASE = apiBaseOverride || DEFAULT_API_BASE;
@@ -84,6 +85,20 @@ function ExamSimulator({
   const examRunIdRef = useRef(null);
   const [mcqExplanations, setMcqExplanations] = useState({}); // idx -> explanation text
   const [explainingIndex, setExplainingIndex] = useState(null);
+
+  const createAbortController = () => {
+    const controller = new AbortController();
+    if (globalAbortRef) {
+      globalAbortRef.current = controller;
+    }
+    return controller;
+  };
+
+  const clearAbortController = (controller) => {
+    if (globalAbortRef?.current === controller) {
+      globalAbortRef.current = null;
+    }
+  };
 
   const getDurationByCount = (count) => {
     if (count === 15) return 45;
@@ -219,6 +234,7 @@ function ExamSimulator({
         const mcqCount = Math.max(1, questionCount - subjectiveCount);
         
         // Prefer mixed-exam endpoint; fall back to MCQ-only endpoint if older backend.
+        const examController = createAbortController();
         let res = await fetch(`${API_BASE}/generate-exam`, {
           method: 'POST',
           headers: {
@@ -230,10 +246,13 @@ function ExamSimulator({
             subject,
             mcq_count: mcqCount,
             subjective_count: subjectiveCount
-          })
+          }),
+          signal: examController.signal,
         });
+        clearAbortController(examController);
 
         if (!res.ok) {
+          const quizController = createAbortController();
           res = await fetch(`${API_BASE}/generate-quiz`, {
             method: 'POST',
             headers: {
@@ -244,8 +263,10 @@ function ExamSimulator({
               semester: semesterInt,
               subject,
               count: questionCount
-            })
+            }),
+            signal: quizController.signal,
           });
+          clearAbortController(quizController);
         }
 
         if (!res.ok) {
@@ -277,6 +298,9 @@ function ExamSimulator({
         setLoadError(error?.message || 'Failed to load quiz');
       }
       finally {
+        if (globalAbortRef?.current) {
+          globalAbortRef.current = null;
+        }
         setLoading(false);
       }
     };
@@ -308,6 +332,7 @@ function ExamSimulator({
     try {
       for (const item of pending) {
         const maxMarks = Number.isFinite(item.q?.max_marks) ? item.q.max_marks : 10;
+        const gradeController = createAbortController();
         const res = await fetch(`${API_BASE}/grade-subjective`, {
           method: 'POST',
           headers: {
@@ -320,8 +345,10 @@ function ExamSimulator({
             question: item.q?.question || '',
             answer: String(item.ans),
             max_marks: maxMarks
-          })
+          }),
+          signal: gradeController.signal,
         });
+        clearAbortController(gradeController);
         if (!res.ok) {
           const txt = await res.text().catch(() => '');
           throw new Error(txt || `Failed to grade (HTTP ${res.status})`);
@@ -360,6 +387,9 @@ function ExamSimulator({
       console.error('Subjective grading error:', e);
       setGradingError(e?.message || 'Subjective grading failed');
     } finally {
+      if (globalAbortRef?.current) {
+        globalAbortRef.current = null;
+      }
       setIsGradingSubjective(false);
     }
   };
@@ -553,6 +583,7 @@ function ExamSimulator({
     setExplainingIndex(idx);
     try {
       const semesterInt = semester ? parseInt(String(semester).replace(/[^0-9]/g, ''), 10) : null;
+      const explainController = createAbortController();
       const res = await fetch(`${API_BASE}/explain-mcq`, {
         method: 'POST',
         headers: {
@@ -565,8 +596,10 @@ function ExamSimulator({
           correct_answer: resolveCorrectAnswerText(question),
           subject,
           semester: Number.isFinite(semesterInt) ? semesterInt : null
-        })
+        }),
+        signal: explainController.signal,
       });
+      clearAbortController(explainController);
 
       if (!res.ok) {
         throw new Error(await res.text());
@@ -585,6 +618,9 @@ function ExamSimulator({
         [idx]: 'Failed to fetch explanation. Please try again later.'
       }));
     } finally {
+      if (globalAbortRef?.current) {
+        globalAbortRef.current = null;
+      }
       setExplainingIndex(null);
     }
   };

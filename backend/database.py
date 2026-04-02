@@ -71,6 +71,19 @@ class StudyRoadmap(Base):
     raw_text = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+
+class APCLog(Base):
+    __tablename__ = "apc_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)
+    tool_name = Column(String)
+    subject = Column(String, nullable=True)
+    semester = Column(String, nullable=True)
+    prompt_text = Column(Text, nullable=True)
+    response_text = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
 Base.metadata.create_all(bind=engine)
 
 

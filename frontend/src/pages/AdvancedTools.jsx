@@ -374,7 +374,7 @@ function ProChatCard({ onSelectTool, avatarUrl, displayName }) {
 }
 
 // ── Main export ──────────────────────────────────────────────────────────────
-const AdvancedTools = ({ onBack, onSelectTool, avatarUrl, displayName }) => {
+const AdvancedTools = ({ onBack, onSelectTool, avatarUrl, displayName, globalAbortRef = null }) => {
 
   useEffect(() => {
     document.body.classList.add('exam-mode-active');

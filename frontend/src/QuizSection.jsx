@@ -35,7 +35,7 @@ const SUBJECTS = {
   'Sem 6': ['BCS-062', 'MCS-022', 'BCS-092']
 };
 
-const QuizSection = ({ onClose, API_BASE: apiBaseOverride }) => {
+const QuizSection = ({ onClose, API_BASE: apiBaseOverride, globalAbortRef = null }) => {
   const API_BASE = apiBaseOverride || DEFAULT_API_BASE;
   const [semester, setSemester] = useState('');
   const [subject, setSubject] = useState('');
@@ -126,10 +126,15 @@ const QuizSection = ({ onClose, API_BASE: apiBaseOverride }) => {
       return;
     }
 
+    let controller = null;
     setLoading(true);
     try {
       // Convert "Sem 1" to 1, "Sem 2" to 2, etc. using regex
       const semesterInt = parseInt(semester.replace(/\D/g, ''), 10);
+      controller = new AbortController();
+      if (globalAbortRef) {
+        globalAbortRef.current = controller;
+      }
       
       const res = await fetch(`${API_BASE}/generate-quiz`, {
         method: 'POST',
@@ -137,7 +142,8 @@ const QuizSection = ({ onClose, API_BASE: apiBaseOverride }) => {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ semester: semesterInt, subject, count: 10 })
+        body: JSON.stringify({ semester: semesterInt, subject, count: 10 }),
+        signal: controller.signal,
       });
 
       if (!res.ok) throw new Error('Failed to load quiz');
@@ -152,6 +158,9 @@ const QuizSection = ({ onClose, API_BASE: apiBaseOverride }) => {
       console.error('Quiz load error:', error);
       alert('Failed to load quiz. Please try again.');
     } finally {
+      if (globalAbortRef?.current === controller) {
+        globalAbortRef.current = null;
+      }
       setLoading(false);
     }
   };
@@ -275,6 +284,9 @@ const QuizSection = ({ onClose, API_BASE: apiBaseOverride }) => {
     });
 
     const controller = new AbortController();
+    if (globalAbortRef) {
+      globalAbortRef.current = controller;
+    }
     const timeoutId = setTimeout(() => controller.abort(), 25000);
 
     try {
@@ -314,6 +326,9 @@ const QuizSection = ({ onClose, API_BASE: apiBaseOverride }) => {
       }));
     } finally {
       clearTimeout(timeoutId);
+      if (globalAbortRef?.current === controller) {
+        globalAbortRef.current = null;
+      }
       setExplainingMap((prev) => ({ ...prev, [idx]: false }));
     }
   };

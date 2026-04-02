@@ -44,6 +44,7 @@ import random
 from config import get_settings
 from auth_utils import get_current_user
 from routes.auth import router as auth_router
+from routes.apc import router as apc_router
 
 # Import modular components
 from models import (
@@ -429,24 +430,24 @@ def _build_provider_rate_limit_message(error: Exception) -> ProviderRateLimitErr
 
 def _choose_completion_budget(user_prompt: str, messages: Optional[list[dict[str, Any]]] = None) -> int:
     prompt_lower = str(user_prompt or "").lower()
-    wants_detail = any(
-        phrase in prompt_lower
-        for phrase in [
-            "detail", "detailed", "deep", "step by step", "step-by-step",
-            "example", "examples", "full explanation", "full detail", "elaborate", "expand"
-        ]
-    )
-    needs_code_or_diagram = any(
-        phrase in prompt_lower
-        for phrase in ["code", "program", "debug", "diagram", "flowchart", "mermaid"]
-    )
-    if wants_detail and needs_code_or_diagram:
-        return min(MAX_TOKENS, 2200)
-    if wants_detail:
-        return min(MAX_TOKENS, 1600)
-    if needs_code_or_diagram:
-        return min(MAX_TOKENS, 1200)
-    return min(MAX_TOKENS, 700)
+
+    # Compact by default
+    base_budget = 400
+
+    # On-demand detail triggers
+    detail_triggers = [
+        "explain in detail", "detail mein", "elaborate",
+        "step by step", "full explanation", "deep dive",
+        "samjhao", "poora", "complete",
+    ]
+    if any(trigger in prompt_lower for trigger in detail_triggers):
+        base_budget = 1600
+
+    # Code needs more space
+    if any(trigger in prompt_lower for trigger in ["code", "program", "implement"]):
+        base_budget = max(base_budget, 1200)
+
+    return min(MAX_TOKENS, base_budget)
 
 # --- bcrypt/passlib compatibility shim ---
 # Some bcrypt builds don't expose `__about__`, but passlib expects it.
@@ -465,6 +466,7 @@ app = FastAPI(title="BCABuddy Ultimate")
 app.mount("/profile_pics", StaticFiles(directory=PROFILE_PICS_DIR), name="profile_pics")
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 app.include_router(auth_router)
+app.include_router(apc_router)
 
 
 # --- SYLLABUS MAPPING (STRICT) ---

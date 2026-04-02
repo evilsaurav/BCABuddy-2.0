@@ -691,6 +691,7 @@ const Dashboard = ({ onThemeOverride }) => {
   const sessionsRetryRef = useRef(0);
   const tokenCheckIntervalRef = useRef(null); // Token validation interval
   const isHistoryLoadingRef = useRef(false); // Skip background polling during manual history load
+  const globalAbortRef = useRef(null);
   const abortControllerRef = useRef(null); // Stop Response
   const messageIdRef = useRef(0);
   const streamBufferRef = useRef({});
@@ -844,14 +845,19 @@ const Dashboard = ({ onThemeOverride }) => {
     setIsGenerating(false);
   }, []);
 
-  const handleStopResponse = () => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort(); // Kills network request
-      abortControllerRef.current = null;
+  const stopGeneration = () => {
+    if (globalAbortRef.current) {
+      globalAbortRef.current.abort();
+      globalAbortRef.current = null;
     }
+    abortControllerRef.current = null;
+    setIsGenerating(false);
+  };
+
+  const handleStopResponse = () => {
+    stopGeneration();
     
     setIsAiThinking(false);
-    setIsGenerating(false); // Stop button ko turant Play button banayega
 
     // Jo message abhi type ho raha tha, usko force stop karke UI update karo
     setMessages(prev => prev.map(m => {
@@ -1578,7 +1584,9 @@ const Dashboard = ({ onThemeOverride }) => {
       : normalizeSemesterNumber(semester);
 
     // Create new abort controller (only stop when user clicks Stop)
-    abortControllerRef.current = new AbortController();
+    const controller = new AbortController();
+    globalAbortRef.current = controller;
+    abortControllerRef.current = controller;
 
     let thinkingMessage = null;
 
@@ -1615,7 +1623,7 @@ const Dashboard = ({ onThemeOverride }) => {
           active_tool: selectedTool,
           messages: trimmedMessages
         }),
-        signal: abortControllerRef.current.signal
+        signal: controller.signal
       });
 
       if (res.status === 401) { 
@@ -1623,6 +1631,7 @@ const Dashboard = ({ onThemeOverride }) => {
         setIsAiThinking(false);
         setIsGenerating(false);
         abortControllerRef.current = null;
+        globalAbortRef.current = null;
         navigate('/');
         return; 
       }
@@ -1646,6 +1655,7 @@ const Dashboard = ({ onThemeOverride }) => {
       
       setIsAiThinking(false);
       abortControllerRef.current = null;
+      globalAbortRef.current = null;
 
       if (data?.theme_override !== undefined && typeof onThemeOverride === 'function') {
         onThemeOverride(data);
@@ -1784,14 +1794,13 @@ const Dashboard = ({ onThemeOverride }) => {
     } catch (error) {
       if (error.name === 'AbortError') {
         console.log('Request aborted by user');
-        setIsGenerating(false);
+        stopGeneration();
         return; // Don't show error for intentional abort
       }
       
       console.error('Chat error:', error);
       setIsAiThinking(false);
-      setIsGenerating(false);
-      abortControllerRef.current = null;
+      stopGeneration();
       setCurrentAnswer('');
 
       // Remove temporary thinking message on error
@@ -1873,6 +1882,11 @@ const Dashboard = ({ onThemeOverride }) => {
       setActiveView('chat');
       if (mobileOpen) setMobileOpen(false);
     }, 100);
+  };
+
+  const handleAPCClick = () => {
+    navigate('/apc');
+    if (mobileOpen) setMobileOpen(false);
   };
 
   const loadQuickQuiz = async () => {
@@ -2273,13 +2287,7 @@ const Dashboard = ({ onThemeOverride }) => {
                 <ListItem
                   component="div"
                   role="button"
-                  onClick={() => {
-                    setShowAdvancedTools(true);
-                    setShowQuizSection(false);
-                    setShowExamSimulator(false);
-                    setActiveView('chat');
-                    if (mobileOpen) setMobileOpen(false);
-                  }}
+                  onClick={handleAPCClick}
                   sx={{
                     bgcolor: GLASS_BG,
                     border: GLASS_BORDER,
@@ -3499,6 +3507,7 @@ const Dashboard = ({ onThemeOverride }) => {
         {showAdvancedTools ? (
           <AdvancedTools
             onBack={() => setShowAdvancedTools(false)}
+            globalAbortRef={globalAbortRef}
             avatarUrl={resolveAvatarUrl(profilePic || userProfile?.profile_pic_url || userProfile?.profile_picture_url)}
             displayName={String(userProfile?.display_name || userProfile?.username || 'Student')}
             onSelectTool={(tool) => {
@@ -3533,6 +3542,7 @@ const Dashboard = ({ onThemeOverride }) => {
             <QuizSection 
               onClose={() => setShowQuizSection(false)} 
               API_BASE={API_BASE}
+              globalAbortRef={globalAbortRef}
             />
           </Box>
         ) : showExamSimulator ? (
@@ -3543,6 +3553,7 @@ const Dashboard = ({ onThemeOverride }) => {
               subject={subject} 
               onClose={() => setShowExamSimulator(false)}
               API_BASE={API_BASE}
+              globalAbortRef={globalAbortRef}
             />
           </Box>
         ) : (
@@ -3969,7 +3980,7 @@ const Dashboard = ({ onThemeOverride }) => {
 
                       <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
                         <IconButton 
-                          onClick={isGenerating ? handleStopResponse : handleSend} 
+                          onClick={isGenerating ? stopGeneration : handleSend} 
                           disabled={!isGenerating && !input.trim()}
                           sx={{ 
                             color: 'white', 
