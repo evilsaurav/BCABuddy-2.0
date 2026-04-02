@@ -88,6 +88,8 @@ class UserProfile(BaseModel):
     college: Optional[str] = None
     enrollment_id: Optional[str] = None
     bio: Optional[str] = None
+    exam_date: Optional[str] = None
+    exam_session: Optional[str] = None
     profile_pic_url: Optional[str] = None   # ← FIX #1 added
     is_creator: bool = False
 
@@ -99,6 +101,8 @@ class UserProfileUpdate(BaseModel):
     college: Optional[str] = None
     enrollment_id: Optional[str] = None
     bio: Optional[str] = None
+    exam_date: Optional[str] = None
+    exam_session: Optional[str] = None
 
 class PasswordChange(BaseModel):
     old_password: str

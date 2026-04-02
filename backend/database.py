@@ -30,6 +30,8 @@ class User(Base):
     college = Column(String, nullable=True)
     enrollment_id = Column(String, nullable=True)
     bio = Column(Text, nullable=True)
+    exam_date = Column(String, nullable=True)  # ISO date string: YYYY-MM-DD
+    exam_session = Column(String, nullable=True)
     profile_picture_url = Column(String, nullable=True)
     is_creator = Column(Integer, default=0)  # 0 = False, 1 = True (SQLite compatible)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -115,6 +117,8 @@ _sqlite_ensure_column("users", "email", "email VARCHAR")
 _sqlite_ensure_column("users", "college", "college VARCHAR")
 _sqlite_ensure_column("users", "enrollment_id", "enrollment_id VARCHAR")
 _sqlite_ensure_column("users", "bio", "bio TEXT")
+_sqlite_ensure_column("users", "exam_date", "exam_date VARCHAR")
+_sqlite_ensure_column("users", "exam_session", "exam_session VARCHAR")
 
 def get_db():
     db = SessionLocal()

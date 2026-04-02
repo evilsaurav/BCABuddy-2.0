@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import shutil
 import time
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, cast
 
 import requests
@@ -45,6 +45,46 @@ def _validate_password_strength(password: str) -> None:
             status_code=400,
             detail="Password must include at least one letter and one digit.",
         )
+
+
+def _normalize_exam_preferences(
+    exam_date_raw: str | None,
+    exam_session_raw: str | None,
+) -> tuple[str | None, str | None]:
+    date_text = str(exam_date_raw or "").strip()
+    session_text = str(exam_session_raw or "").strip()
+
+    if not date_text and not session_text:
+        return None, None
+
+    if date_text:
+        try:
+            parsed_date = datetime.strptime(date_text, "%Y-%m-%d").date()
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=400,
+                detail="exam_date must be in YYYY-MM-DD format.",
+            ) from exc
+
+        if parsed_date < date.today():
+            raise HTTPException(
+                status_code=400,
+                detail="exam_date cannot be in the past.",
+            )
+    else:
+        parsed_date = None
+
+    normalized_session = session_text.title() if session_text else None
+    if normalized_session and normalized_session not in {"June", "December"}:
+        raise HTTPException(
+            status_code=400,
+            detail="exam_session must be either 'June' or 'December'.",
+        )
+
+    if parsed_date and not normalized_session:
+        normalized_session = "June" if parsed_date.month <= 6 else "December"
+
+    return date_text or None, normalized_session
 
 
 @router.post("/signup")
@@ -109,6 +149,8 @@ def get_profile(current_user: User = Depends(get_current_user)):
         college=getattr(current_user, "college", None),
         enrollment_id=getattr(current_user, "enrollment_id", None),
         bio=getattr(current_user, "bio", None),
+        exam_date=getattr(current_user, "exam_date", None),
+        exam_session=getattr(current_user, "exam_session", None),
         profile_pic_url=str(profile_pic_val)
         if profile_pic_val is not None
         else None,
@@ -137,8 +179,46 @@ def update_profile(
         current_user_any.enrollment_id = profile_data.enrollment_id
     if getattr(profile_data, "bio", None) is not None:
         current_user_any.bio = profile_data.bio
+    exam_date_update = getattr(profile_data, "exam_date", None)
+    exam_session_update = getattr(profile_data, "exam_session", None)
+    if exam_date_update is not None or exam_session_update is not None:
+        exam_date_value, exam_session_value = _normalize_exam_preferences(
+            exam_date_update
+            if exam_date_update is not None
+            else getattr(current_user_any, "exam_date", None),
+            exam_session_update
+            if exam_session_update is not None
+            else getattr(current_user_any, "exam_session", None),
+        )
+        current_user_any.exam_date = exam_date_value
+        current_user_any.exam_session = exam_session_value
     db.commit()
     return {"message": "Profile updated"}
+
+
+@router.put("/profile/exam-date")
+def update_exam_date(
+    payload: dict,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    current_user_any = cast(Any, current_user)
+    exam_date = str(payload.get("exam_date") or "").strip()
+    exam_session = str(payload.get("exam_session") or "").strip()
+
+    exam_date_value, exam_session_value = _normalize_exam_preferences(
+        exam_date,
+        exam_session,
+    )
+    current_user_any.exam_date = exam_date_value
+    current_user_any.exam_session = exam_session_value
+    db.commit()
+
+    return {
+        "message": "Exam date updated",
+        "exam_date": current_user_any.exam_date,
+        "exam_session": current_user_any.exam_session,
+    }
 
 
 @router.post("/profile/upload-picture")

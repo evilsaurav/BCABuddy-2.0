@@ -8,6 +8,8 @@
 ![React](https://img.shields.io/badge/React-19.2-61DAFB?style=for-the-badge&logo=react&logoColor=black)
 ![Vite](https://img.shields.io/badge/Vite-7.2-646CFF?style=for-the-badge&logo=vite&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
+[![Backend Deploy](https://github.com/evilsaurav/BCABuddy-2.0/actions/workflows/deploy.yml/badge.svg)](https://github.com/evilsaurav/BCABuddy-2.0/actions/workflows/deploy.yml)
+[![Frontend Deploy](https://github.com/evilsaurav/BCABuddy-2.0/actions/workflows/azure-static-web-apps-kind-sea-0b41fb700.yml/badge.svg)](https://github.com/evilsaurav/BCABuddy-2.0/actions/workflows/azure-static-web-apps-kind-sea-0b41fb700.yml)
 
 ---
 

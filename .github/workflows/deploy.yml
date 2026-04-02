@@ -1,8 +1,16 @@
-name: Deploy BCABuddy API to Azure
+name: Deploy Backend to Azure Web App
 
 on:
   push:
     branches: [ "main" ]
+    paths:
+      - "backend/**"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: backend-azure-deploy
+  cancel-in-progress: true
 
 jobs:
   build-and-deploy:
@@ -26,6 +34,6 @@ jobs:
       - name: Deploy Backend to Azure
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'bcabuddy-web'
+          app-name: ${{ secrets.AZURE_BACKEND_WEBAPP_NAME }}
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           images: '${{ secrets.REGISTRY_LOGIN_SERVER }}/backend:latest'

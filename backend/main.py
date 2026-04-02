@@ -1128,7 +1128,7 @@ def _is_topic_switch(current_message: str, previous_messages: list) -> bool:
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.backend_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -1564,7 +1564,10 @@ def get_history(
 
 @app.post("/chat")
 def chat_endpoint(request: ChatRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    user_message = request.message[:4000]
+    requested_mode = str(getattr(request, "mode", "auto") or "auto").strip().lower()
+    is_lite_mode = requested_mode in {"lite", "fast", "quick"}
+
+    user_message = request.message[:2200] if is_lite_mode else request.message[:4000]
 
     # Session handling
     session_id = getattr(request, 'session_id', None)
@@ -1581,14 +1584,26 @@ def chat_endpoint(request: ChatRequest, current_user: User = Depends(get_current
 
     # Build history for context
     history = db.query(ChatHistory).filter(ChatHistory.session_id == session_id).order_by(ChatHistory.id).all()
-    messages = [{"role": "system", "content": get_saurav_prompt()}]
-    for h in history[-10:]:
+    system_prompt = get_saurav_prompt()
+    if is_lite_mode:
+        system_prompt += (
+            "\n\nLITE MODE ACTIVE: keep answer concise, direct, and exam-focused. "
+            "Avoid long storytelling. Use short bullets where possible."
+        )
+
+    messages = [{"role": "system", "content": system_prompt}]
+    history_window = 6 if is_lite_mode else 10
+    for h in history[-history_window:]:
         role = "user" if h.sender == "user" else "assistant"
         messages.append({"role": role, "content": h.text})
 
     # Get AI response
     try:
-        response = get_ai_response(messages=messages, temperature=0.7)
+        response = get_ai_response(
+            messages=messages,
+            temperature=0.45 if is_lite_mode else 0.7,
+            max_tokens=520 if is_lite_mode else 1400,
+        )
         ai_text = str(getattr(response.choices[0].message, "content", "") or "").strip()
     except ProviderRateLimitError as e:
         raise HTTPException(status_code=429, detail=e.message)
@@ -1601,6 +1616,7 @@ def chat_endpoint(request: ChatRequest, current_user: User = Depends(get_current
 
     payload = _build_response_payload(ai_text)
     payload["session_id"] = session_id
+    payload["mode"] = "lite" if is_lite_mode else requested_mode
     return _finalize_reply_payload(session_id, payload)
 
 @app.post("/api/generate-study-plan", response_model=StudyPlanResponse)

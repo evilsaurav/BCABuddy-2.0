@@ -38,9 +38,19 @@ import ExamSimulator from './ExamSimulator';
 import QuizSection from './QuizSection';
 import AdvancedTools from './pages/AdvancedTools';
 import StudyRoadmapCard from './StudyRoadmapCard';
+import ExamCountdown from './components/ExamCountdown';
+import ChatArea from './components/ChatArea';
+import SidebarNewChatButton from './components/SidebarNewChatButton';
+import SidebarRecentHistory from './components/SidebarRecentHistory';
+import SidebarAcademicSetup from './components/SidebarAcademicSetup';
+import SidebarAssignments from './components/SidebarAssignments';
 import { getToken, setToken, clearToken, isTokenExpiringSoon, shouldForceLogout, getTokenRemainingMinutes, shouldWarnTokenExpiry } from './utils/tokenManager';
 import { useAuth } from './AuthContext';
 import { API_BASE } from './utils/apiConfig';
+import { cacheAiResponse, getLatestAiResponses, cacheSubjectTopics } from './utils/offlineStorage';
+import useHinglishVoice from './hooks/useHinglishVoice';
+import { normalizeHinglishTranscript } from './utils/hinglishTranslate';
+import { getExamTrackerSummary } from './utils/examSchedule';
 
 const drawerWidth = 280;
 const NEON_PURPLE = '#bb86fc';
@@ -612,6 +622,9 @@ const Dashboard = ({ onThemeOverride }) => {
   const [semester, setSemester] = useState('');
   const [subject, setSubject] = useState('');
   const [mode, setMode] = useState('auto');
+  const [isOffline, setIsOffline] = useState(
+    typeof navigator !== 'undefined' ? !navigator.onLine : false
+  );
   const [messages, setMessages] = useState([]);
   const [currentAnswer, setCurrentAnswer] = useState('');
   const [input, setInput] = useState('');
@@ -642,7 +655,6 @@ const Dashboard = ({ onThemeOverride }) => {
   const [selectedAnswer, setSelectedAnswer] = useState('');
   const [loadingQuiz, setLoadingQuiz] = useState(false);
   const [scanningImage, setScanningImage] = useState(false);
-  const [isListening, setIsListening] = useState(false);
   const [toolLoadingState, setToolLoadingState] = useState(null); // Track which tool is "loading"
   const [showExamSimulator, setShowExamSimulator] = useState(false); // Phase 4: Exam Simulator
   const [showQuizSection, setShowQuizSection] = useState(false); // PHASE 3: Quiz Section
@@ -666,6 +678,9 @@ const Dashboard = ({ onThemeOverride }) => {
   const [isGeneratingPerformanceReport, setIsGeneratingPerformanceReport] = useState(false);
   const [performanceWaitMinutes, setPerformanceWaitMinutes] = useState(1);
   const [dashboardSlideIndex, setDashboardSlideIndex] = useState(0);
+  const [manualExamEveMode, setManualExamEveMode] = useState(false);
+  const [examTracker, setExamTracker] = useState(() => getExamTrackerSummary(new Date()));
+  const [examDateInput, setExamDateInput] = useState('');
 
   const [dailyGoals, setDailyGoals] = useState(() => {
     const saved = safeJsonParse(localStorage.getItem(DAILY_GOALS_KEY), null);
@@ -682,8 +697,17 @@ const Dashboard = ({ onThemeOverride }) => {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewVersion, setReviewVersion] = useState(0);
   const [studyActivityVersion, setStudyActivityVersion] = useState(0);
+
+  const {
+    isSupported: voiceSupported,
+    isListening,
+    transcript: voiceTranscript,
+    error: voiceError,
+    startListening,
+    stopListening,
+    clearTranscript,
+  } = useHinglishVoice();
   
-  const recognitionRef = useRef(null);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const inputRef = useRef(null);
@@ -696,6 +720,7 @@ const Dashboard = ({ onThemeOverride }) => {
   const messageIdRef = useRef(0);
   const streamBufferRef = useRef({});
   const activeAiMessageIdRef = useRef(null);
+  const examEveAutoTriggeredRef = useRef(false);
   const navigate = useNavigate();
 
   const makeMessageId = () => `${Date.now()}-${messageIdRef.current++}`;
@@ -1289,6 +1314,13 @@ const Dashboard = ({ onThemeOverride }) => {
       const data = await res.json();
       setUserProfile(data);
 
+      const profileExamDate = String(data?.exam_date || '').trim();
+      const profileExamSession = String(data?.exam_session || '').trim();
+      if (profileExamDate) {
+        setExamDateInput(profileExamDate);
+        setExamTracker(getExamTrackerSummary(new Date(), profileExamDate, profileExamSession));
+      }
+
       const raw = data?.profile_pic_url || data?.profile_picture_url;
       if (raw) {
         const normalized = String(raw).startsWith('http') ? String(raw) : `${API_BASE}${String(raw)}`;
@@ -1556,8 +1588,132 @@ const Dashboard = ({ onThemeOverride }) => {
       loadSessions();
     }
   }, [activeView]);
+
+  useEffect(() => {
+    const refreshExamTracker = () => {
+      const preferredDate = String(examDateInput || userProfile?.exam_date || '').trim();
+      const preferredSession = String(userProfile?.exam_session || '').trim();
+      setExamTracker(getExamTrackerSummary(new Date(), preferredDate, preferredSession));
+    };
+    refreshExamTracker();
+    const id = setInterval(refreshExamTracker, 60000);
+    return () => clearInterval(id);
+  }, [examDateInput, userProfile?.exam_date, userProfile?.exam_session]);
+
+  useEffect(() => {
+    const markOnline = () => setIsOffline(false);
+    const markOffline = () => setIsOffline(true);
+
+    window.addEventListener('online', markOnline);
+    window.addEventListener('offline', markOffline);
+
+    return () => {
+      window.removeEventListener('online', markOnline);
+      window.removeEventListener('offline', markOffline);
+    };
+  }, []);
+
+  useEffect(() => {
+    const topics = IGNOU_SYLLABUS[semester]?.[subject];
+    if (!semester || !subject || !Array.isArray(topics) || !topics.length) return;
+
+    cacheSubjectTopics({ semester, subject, topics }).catch(() => {
+      // Ignore offline cache write failures.
+    });
+  }, [semester, subject]);
   
   useEffect(() => scrollToBottom(), [messages, isAiThinking]);
+
+  const isAutoExamEveMode = Number(examTracker?.daysLeft || 0) <= 1;
+  const isExamEveMode = manualExamEveMode || isAutoExamEveMode;
+  const examEveHoursLeft = (() => {
+    const examDate = new Date(examTracker?.examDate || Date.now());
+    const diffMs = examDate.getTime() - Date.now();
+    return Math.max(0, Math.ceil(diffMs / 3600000));
+  })();
+  const examCountdownLabel = Number(examTracker?.daysLeft || 0) <= 1
+    ? `⏱ ${examEveHoursLeft}h left`
+    : `📅 ${Number(examTracker?.daysLeft || 0)}d left`;
+
+  useEffect(() => {
+    if (!isAutoExamEveMode) {
+      examEveAutoTriggeredRef.current = false;
+      return;
+    }
+    if (examEveAutoTriggeredRef.current) return;
+    examEveAutoTriggeredRef.current = true;
+
+    (async () => {
+      const subj = subject || apcSubjectInput || 'current subject';
+      setActiveTool('Exam Predictor');
+      setShowExamAskInput(true);
+      setActiveView('chat');
+      await handleSend(`Exam Eve Mode auto-activated. Give top 20 PYQs for ${subj} with one-line answer hints and priority tags.`);
+    })();
+  }, [isAutoExamEveMode, subject, apcSubjectInput]);
+
+  useEffect(() => {
+    if (!voiceError) return;
+    setMessages(prev => [...prev, {
+      id: makeMessageId(),
+      text: `Voice input: ${voiceError}`,
+      sender: 'ai',
+      isTypingComplete: true,
+    }]);
+  }, [voiceError]);
+
+  const handleVoiceToggle = () => {
+    if (!voiceSupported) {
+      setMessages(prev => [...prev, {
+        id: makeMessageId(),
+        text: 'Voice input is not supported on this browser/device.',
+        sender: 'ai',
+        isTypingComplete: true,
+      }]);
+      return;
+    }
+
+    if (isListening) {
+      stopListening();
+      const normalized = normalizeHinglishTranscript(voiceTranscript);
+      if (normalized) {
+        setInput(prev => `${String(prev || '').trim()}${prev && prev.trim() ? ' ' : ''}${normalized}`.trim());
+      }
+      clearTranscript();
+      return;
+    }
+
+    startListening();
+  };
+
+  const buildOfflineFallbackAnswer = async (promptText) => {
+    try {
+      const cached = await getLatestAiResponses(10);
+      if (!cached.length) {
+        return "Offline mode active. Internet reconnect hote hi fresh AI response milega. Abhi koi cached response available nahi hai.";
+      }
+
+      const latest = cached[0];
+      const historyPreview = cached
+        .slice(0, 3)
+        .map((entry, idx) => `${idx + 1}. ${String(entry.prompt || '').slice(0, 70)}${String(entry.prompt || '').length > 70 ? '...' : ''}`)
+        .join('\n');
+
+      return [
+        'Offline mode active. Live AI response abhi possible nahi hai.',
+        '',
+        `Aapka prompt: "${promptText}"`,
+        '',
+        `Last cached answer (${latest.subject || 'general'}):`,
+        String(latest.answer || '').slice(0, 1200),
+        '',
+        'Recent cached prompts:',
+        historyPreview,
+      ].join('\n');
+    } catch {
+      return 'Offline mode active. Cached data read nahi ho paya, please reconnect and retry.';
+    }
+  };
   
   const handleSend = async (overrideText) => {
     const textToSend = (overrideText !== undefined ? overrideText : input).trim();
@@ -1591,6 +1747,21 @@ const Dashboard = ({ onThemeOverride }) => {
     let thinkingMessage = null;
 
     try {
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        const offlineAnswer = await buildOfflineFallbackAnswer(text);
+        setIsAiThinking(false);
+        setIsGenerating(false);
+        abortControllerRef.current = null;
+        globalAbortRef.current = null;
+        setMessages(prev => [...prev, {
+          id: makeMessageId(),
+          text: offlineAnswer,
+          sender: 'ai',
+          isTypingComplete: true,
+        }]);
+        return;
+      }
+
       // Trim context while preserving latest diagram/code block
       let trimmedMessages = messages;
       const maxContext = 10;
@@ -1786,6 +1957,16 @@ const Dashboard = ({ onThemeOverride }) => {
         const predictions = parsePredictedQuestions(parsedAnswer);
         setExamPredictions(predictions);
       }
+
+      cacheAiResponse({
+        prompt: text,
+        answer: parsedAnswer,
+        subject: selectedSubjectForRequest,
+        mode: modeToSend,
+      }).catch(() => {
+        // Ignore offline cache write failures.
+      });
+
       setTimeout(() => inputRef.current?.focus(), 0);
 
       // v10 FIX: No need to call mermaid.contentLoaded() here.
@@ -1887,6 +2068,48 @@ const Dashboard = ({ onThemeOverride }) => {
   const handleAPCClick = () => {
     navigate('/apc');
     if (mobileOpen) setMobileOpen(false);
+  };
+
+  const saveExamDate = async () => {
+    const value = String(examDateInput || '').trim();
+    try {
+      const res = await fetch(`${API_BASE}/profile/exam-date`, {
+        method: 'PUT',
+        headers: getHeaders(),
+        body: JSON.stringify({ exam_date: value, exam_session: 'Custom Session' }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const savedDate = String(data?.exam_date || '').trim();
+      const savedSession = String(data?.exam_session || '').trim();
+      setExamTracker(getExamTrackerSummary(new Date(), savedDate, savedSession));
+      setMessages(prev => [...prev, {
+        id: makeMessageId(),
+        text: savedDate ? `Exam date saved: ${savedDate}` : 'Exam date cleared.',
+        sender: 'ai',
+        isTypingComplete: true,
+      }]);
+    } catch (e) {
+      setMessages(prev => [...prev, {
+        id: makeMessageId(),
+        text: `Exam date save failed: ${String(e?.message || e)}`,
+        sender: 'ai',
+        isTypingComplete: true,
+      }]);
+    }
+  };
+
+  const activateExamEveMode = async () => {
+    setManualExamEveMode(true);
+    setActiveView('chat');
+    setShowAdvancedTools(false);
+    setShowQuizSection(false);
+    setShowExamSimulator(false);
+    setActiveTool('Exam Predictor');
+    setShowExamAskInput(true);
+    setShowRoadmapAskInput(false);
+    const subj = subject || apcSubjectInput || 'current subject';
+    await handleSend(`Exam Eve Mode active for ${subj}. Give top 20 PYQs with one-line answer hints and final-day strategy.`);
   };
 
   const loadQuickQuiz = async () => {
@@ -2079,6 +2302,10 @@ const Dashboard = ({ onThemeOverride }) => {
           }
         }
       }}>
+        <Box sx={{ px: 1, pb: 1 }}>
+          <ExamCountdown semester={semester} subject={subject} tracker={examTracker} />
+        </Box>
+
         {/* Dashboard Section */}
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1, duration: 0.5 }}>
           <Accordion defaultExpanded sx={{ bgcolor: 'transparent', '&.MuiAccordion-root:before': { display: 'none' } }}>
@@ -2096,185 +2323,48 @@ const Dashboard = ({ onThemeOverride }) => {
         </motion.div>
 
         {/* New Chat Button */}
-        <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15, duration: 0.5 }}>
-          <Box sx={{ px: 1 }}>
-            <ListItem 
-              component="div" 
-              role="button" 
-              onClick={handleNewChat} 
-              sx={{ 
-                borderRadius: '12px', 
-                bgcolor: `${NEON_PURPLE}15`, 
-                border: `1.5px solid ${NEON_PURPLE}40`,
-                '&:hover': { 
-                  backgroundColor: `${NEON_PURPLE}25`, 
-                  borderColor: `${NEON_PURPLE}60` 
-                }, 
-                backdropFilter: 'blur(12px)', 
-                cursor: 'pointer',
-                py: 1.2,
-                px: 1.5,
-                transition: 'all 200ms ease'
-              }}
-            >
-              <ListItemIcon sx={{ color: NEON_PURPLE, minWidth: '36px' }}><Add sx={{ fontSize: '20px' }} /></ListItemIcon>
-              <ListItemText 
-                primary="New Chat" 
-                primaryTypographyProps={{ sx: { fontSize: '14px', fontWeight: 600 } }}
-              />
-            </ListItem>
-          </Box>
-        </motion.div>
+        <SidebarNewChatButton onNewChat={handleNewChat} neonPurple={NEON_PURPLE} />
 
         {/* Recent History Section */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25, duration: 0.5 }}>
-          <Box sx={{ px: 1.5, py: 1 }}>
-            <Typography sx={{ fontSize: '11px', fontWeight: 600, color: 'rgba(255, 255, 255, 0.4)', textTransform: 'uppercase', letterSpacing: '1px' }}>
-              Recent History
-            </Typography>
-          </Box>
-          <Divider sx={{ bgcolor: 'rgba(255, 255, 255, 0.05)' }} />
-          <Box sx={{
-            maxHeight: '220px',
-            overflowY: 'auto',
-            px: 1,
-            pb: 1,
-            '&::-webkit-scrollbar': { width: '6px' },
-            '&::-webkit-scrollbar-track': { bgcolor: 'transparent' },
-            '&::-webkit-scrollbar-thumb': { bgcolor: `${NEON_CYAN}40`, borderRadius: '3px', '&:hover': { bgcolor: `${NEON_CYAN}60` } }
-          }}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-              {recentChats && recentChats.length > 0 ? (
-                <AnimatePresence>
-                  {recentChats.map((s, idx) => (
-                    <motion.div key={s.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 + idx * 0.04, duration: 0.35 }} exit={{ opacity: 0, x: -20 }}>
-                      <ListItem
-                        component="div"
-                        role="button"
-                        onClick={() => {
-                          handleChatClick(s.id);
-                          loadHistory(s.id);
-                        }}
-                        sx={{
-                          borderRadius: '8px',
-                          bgcolor: sessionId === s.id ? `${NEON_CYAN}20` : 'rgba(255, 255, 255, 0.03)',
-                          border: sessionId === s.id ? `1.5px solid ${NEON_CYAN}` : '1.5px solid rgba(255, 255, 255, 0.05)',
-                          '&:hover': {
-                            backgroundColor: sessionId === s.id ? `${NEON_CYAN}25` : 'rgba(255, 255, 255, 0.08)',
-                            borderColor: NEON_CYAN
-                          },
-                          backdropFilter: 'blur(12px)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 1,
-                          overflow: 'hidden',
-                          py: 1,
-                          px: 1.5,
-                          cursor: 'pointer',
-                          transition: 'all 200ms ease'
-                        }}
-                      >
-                        <Timer sx={{ fontSize: 16, color: NEON_CYAN }} />
-                        <ListItemText
-                          primary={s.title}
-                          primaryTypographyProps={{ noWrap: true, className: 'truncate max-w-[150px] inline-block', sx: { fontSize: '13px', fontWeight: sessionId === s.id ? 600 : 400 } }}
-                          sx={{ minWidth: 0, overflow: 'hidden' }}
-                        />
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <IconButton
-                            size="small"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleRenameSession(e, s.id);
-                            }}
-                            sx={{ color: NEON_CYAN, '&:hover': { bgcolor: `${NEON_CYAN}20` } }}
-                          >
-                            <EditIcon sx={{ fontSize: 16 }} />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteSession(e, s.id);
-                            }}
-                            sx={{ color: '#ff6b6b', '&:hover': { bgcolor: 'rgba(255, 107, 107, 0.15)' } }}
-                          >
-                            <Delete sx={{ fontSize: 16 }} />
-                          </IconButton>
-                        </Box>
-                      </ListItem>
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-              ) : (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}>
-                  <Box sx={{ p: 2, textAlign: 'center', color: 'rgba(255, 255, 255, 0.3)', fontSize: '12px' }}>
-                    No chats yet. Start a new chat!
-                  </Box>
-                </motion.div>
-              )}
-            </Box>
-          </Box>
-        </motion.div>
+        <SidebarRecentHistory
+          recentChats={recentChats}
+          sessionId={sessionId}
+          neonCyan={NEON_CYAN}
+          onOpenSession={(id) => {
+            handleChatClick(id);
+            loadHistory(id);
+          }}
+          onRenameSession={handleRenameSession}
+          onDeleteSession={handleDeleteSession}
+        />
 
         {/* Academic Setup Section */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2, duration: 0.5 }}>
-          <Accordion defaultExpanded sx={{ bgcolor: 'transparent', '&.MuiAccordion-root:before': { display: 'none' } }}>
-            <AccordionSummary expandIcon={<ExpandMore />} sx={{ color: NEON_CYAN, fontWeight: 600, p: '8px 0' }}>
-              <School sx={{ mr: 1.5, fontSize: '20px' }} /> Academic Setup
-            </AccordionSummary>
-            <AccordionDetails sx={{ display: 'flex', flexDirection: 'column', gap: 1, p: 1 }}>
-              <FormControl fullWidth size="small">
-                <InputLabel sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>Semester</InputLabel>
-                <Select value={semester} onChange={(e) => { setSemester(e.target.value); setSubject(''); }} sx={{ color: '#E6EAF0', bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '10px', backdropFilter: 'blur(12px)', '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.1)' }, '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: NEON_PURPLE } }}>
-                  {Object.keys(IGNOU_SYLLABUS).map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
-              </Select>
-            </FormControl>
-            {semester && (
-              <FormControl fullWidth size="small">
-                <InputLabel sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>Subject</InputLabel>
-                <Select value={subject} onChange={(e) => setSubject(e.target.value)} sx={{ color: '#E6EAF0', bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '10px', backdropFilter: 'blur(12px)', '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.1)' }, '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: NEON_CYAN } }}>
-                  {Object.keys(IGNOU_SYLLABUS[semester] || {}).map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
-                </Select>
-              </FormControl>
-            )}
-          </AccordionDetails>
-        </Accordion>
-        </motion.div>
+        <SidebarAcademicSetup
+          semester={semester}
+          subject={subject}
+          syllabus={IGNOU_SYLLABUS}
+          onSemesterChange={(value) => {
+            setSemester(value);
+            setSubject('');
+          }}
+          onSubjectChange={(value) => setSubject(value)}
+          neonCyan={NEON_CYAN}
+          neonPurple={NEON_PURPLE}
+          glassBg={GLASS_BG}
+          glassBorder={GLASS_BORDER}
+        />
 
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3, duration: 0.5 }}>
-          <Accordion defaultExpanded sx={{ bgcolor: 'transparent', '&.MuiAccordion-root:before': { display: 'none' } }}>
-            <AccordionSummary expandIcon={<ExpandMore />} sx={{ color: NEON_CYAN, fontWeight: 600, p: '8px 0' }}>
-              <Summarize sx={{ mr: 1.5, fontSize: '20px' }} /> Assignments
-            </AccordionSummary>
-          <AccordionDetails sx={{ display: 'flex', flexDirection: 'column', gap: 1, p: 1 }}>
-            {ASSIGNMENT_TOOLS.map((tool, idx) => {
-              const IconComp = tool.icon;
-              const toolDescriptions = {
-                'Assignments': '📝 Problem-solving practice',
-                'PYQs': '📚 Previous year papers',
-                'Notes': '📖 Revision notes',
-                'Viva': '🎤 Interview Q&A',
-                'Lab Work': '💻 Practical code',
-                'Summary': '✍️ Content condensed'
-              };
-              return (
-                <motion.div key={idx} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                  <Tooltip title={toolDescriptions[tool.label]} placement="right">
-                    <span style={{ display: 'block' }}>
-                      <Button fullWidth size="small" onClick={() => handleStudyTool(tool)} disabled={!subject || !semester} sx={{ bgcolor: activeTool === tool.label ? `${NEON_CYAN}30` : GLASS_BG, border: activeTool === tool.label ? `1px solid ${NEON_CYAN}` : GLASS_BORDER, borderRadius: '8px', color: '#E6EAF0', textTransform: 'none', justifyContent: 'flex-start', backdropFilter: 'blur(12px)', transition: 'all 200ms', '&:hover': { backgroundColor: `${NEON_CYAN}20`, borderColor: `${NEON_CYAN}60` }, '&:disabled': { color: 'rgba(255, 255, 255, 0.3)', borderColor: 'rgba(255, 255, 255, 0.05)' } }}>
-                        <IconComp sx={{ fontSize: 18, mr: 1.5, color: activeTool === tool.label ? NEON_CYAN : NEON_PURPLE }} />
-                        <Typography sx={{ fontSize: '14px', fontWeight: 500 }}>{tool.label}</Typography>
-                        {activeTool === tool.label && <Box sx={{ ml: 'auto', width: '6px', height: '6px', borderRadius: '50%', bgcolor: NEON_CYAN, boxShadow: `0 0 8px ${NEON_CYAN}` }} />}
-                      </Button>
-                    </span>
-                  </Tooltip>
-                </motion.div>
-              );
-            })}
-          </AccordionDetails>
-        </Accordion>
-      </motion.div>
+        <SidebarAssignments
+          tools={ASSIGNMENT_TOOLS}
+          activeTool={activeTool}
+          subject={subject}
+          semester={semester}
+          onToolClick={handleStudyTool}
+          neonCyan={NEON_CYAN}
+          neonPurple={NEON_PURPLE}
+          glassBg={GLASS_BG}
+          glassBorder={GLASS_BORDER}
+        />
 
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4, duration: 0.5 }}>
         <Accordion defaultExpanded sx={{ bgcolor: 'transparent', '&.MuiAccordion-root:before': { display: 'none' } }}>
@@ -3341,6 +3431,44 @@ const Dashboard = ({ onThemeOverride }) => {
             <Typography variant="caption" sx={{ color: NEON_CYAN, fontWeight: 500 }}>
               {subject ? `📚 ${subject}` : '✨ Ready to learn'}
             </Typography>
+
+            <Chip
+              size="small"
+              label={examCountdownLabel}
+              sx={{
+                height: 22,
+                bgcolor: 'rgba(33, 150, 243, 0.14)',
+                border: '1px solid rgba(33, 150, 243, 0.45)',
+                color: '#90caf9',
+                fontWeight: 700,
+              }}
+            />
+
+            <Chip
+              size="small"
+              label={isExamEveMode ? 'Exam Eve ON' : 'Exam Eve'}
+              onClick={() => setManualExamEveMode((prev) => !prev)}
+              sx={{
+                height: 22,
+                cursor: 'pointer',
+                bgcolor: isExamEveMode ? 'rgba(255, 82, 82, 0.2)' : 'rgba(255,255,255,0.08)',
+                border: isExamEveMode ? '1px solid rgba(255, 82, 82, 0.65)' : '1px solid rgba(255,255,255,0.18)',
+                color: isExamEveMode ? '#ff8a80' : '#E6EAF0',
+                fontWeight: 800,
+              }}
+            />
+
+            <Chip
+              size="small"
+              label={isOffline ? 'Offline' : 'Online'}
+              sx={{
+                height: 22,
+                bgcolor: isOffline ? 'rgba(255, 152, 0, 0.18)' : 'rgba(76, 175, 80, 0.18)',
+                border: isOffline ? '1px solid rgba(255, 152, 0, 0.5)' : '1px solid rgba(76, 175, 80, 0.5)',
+                color: isOffline ? '#ffb74d' : '#81c784',
+                fontWeight: 700,
+              }}
+            />
             
             <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
               <IconButton size="small" onClick={(e) => setExportMenuAnchor(e.currentTarget)} sx={{ color: NEON_PURPLE }}>
@@ -3568,7 +3696,74 @@ const Dashboard = ({ onThemeOverride }) => {
             pr: 2,
             boxSizing: 'border-box'
           }}>
-          {activeView === 'dashboard' ? (
+          {isExamEveMode ? (
+            <Box sx={{ flex: 1, overflow: 'auto', pb: 2 }}>
+              <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 3, backdropFilter: 'blur(12px)' }}>
+                <Typography sx={{ color: '#ff8a80', fontSize: '12px', fontWeight: 900, letterSpacing: '0.08em' }}>
+                  EXAM EVE MODE
+                </Typography>
+                <Typography sx={{ color: '#E6EAF0', fontSize: '24px', fontWeight: 900, mt: 0.7 }}>
+                  Focus Sprint Active
+                </Typography>
+                <Typography sx={{ color: 'rgba(230,234,240,0.78)', mt: 0.8 }}>
+                  Exam in about {examEveHoursLeft} hours. Sirf PYQs, important topics, no distractions.
+                </Typography>
+
+                <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                  <Button
+                    onClick={async () => { await activateExamEveMode(); }}
+                    sx={{ color: '#ff8a80', border: '1px solid rgba(255, 82, 82, 0.55)', borderRadius: '12px', fontWeight: 800 }}
+                  >
+                    Load PYQ Strategy
+                  </Button>
+                  <Button
+                    onClick={() => { setShowExamSimulator(true); setShowAdvancedTools(false); setShowQuizSection(false); }}
+                    sx={{ color: NEON_CYAN, border: `1px solid ${NEON_CYAN}45`, borderRadius: '12px', fontWeight: 800 }}
+                  >
+                    Start Mock Exam
+                  </Button>
+                  <Button
+                    onClick={() => setManualExamEveMode(false)}
+                    sx={{ color: '#E6EAF0', border: '1px solid rgba(255,255,255,0.28)', borderRadius: '12px', fontWeight: 800 }}
+                  >
+                    Exit Mode
+                  </Button>
+                </Box>
+
+                <Box sx={{ mt: 1.4, display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <TextField
+                    size="small"
+                    type="date"
+                    label="Exam Date"
+                    value={examDateInput}
+                    onChange={(e) => setExamDateInput(String(e.target.value || ''))}
+                    InputLabelProps={{ shrink: true }}
+                    sx={{ minWidth: 220 }}
+                  />
+                  <Button
+                    onClick={saveExamDate}
+                    sx={{ color: NEON_CYAN, border: `1px solid ${NEON_CYAN}45`, borderRadius: '12px', fontWeight: 800 }}
+                  >
+                    Save Date
+                  </Button>
+                </Box>
+
+                <Box sx={{ mt: 2, p: 1.4, borderRadius: '12px', bgcolor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.12)' }}>
+                  <Typography sx={{ color: NEON_CYAN, fontWeight: 800, fontSize: 13 }}>Last-Day Checklist</Typography>
+                  <Typography sx={{ color: 'rgba(230,234,240,0.85)', fontSize: 13, mt: 1 }}>
+                    1) Top 20 PYQs revise karo
+                  </Typography>
+                  <Typography sx={{ color: 'rgba(230,234,240,0.85)', fontSize: 13, mt: 0.6 }}>
+                    2) Weak topics quick summary padho
+                  </Typography>
+                  <Typography sx={{ color: 'rgba(230,234,240,0.85)', fontSize: 13, mt: 0.6 }}>
+                    3) 1 timed mock do aur mistakes revise karo
+                  </Typography>
+                </Box>
+              </Card>
+            </Box>
+          ) : (
+          activeView === 'dashboard' ? (
             <Box sx={{ flex: 1, overflow: 'auto', pb: 2 }}>
               <DashboardView />
             </Box>
@@ -3626,140 +3821,24 @@ const Dashboard = ({ onThemeOverride }) => {
               {( (normalizeToolKey(activeTool) !== 'exam predictor' || showExamAskInput)
                 && (normalizeToolKey(activeTool) !== 'study roadmap' || showRoadmapAskInput)
               ) && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.5 }}
-                style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}
-              >
-                <Paper sx={{ 
-                  flex: 1,
-                  bgcolor: normalizeToolKey(activeTool) === 'viva mentor' ? 'rgba(2, 10, 2, 0.92)' : 'transparent', 
-                  border: normalizeToolKey(activeTool) === 'viva mentor' ? '1px solid rgba(57,255,20,0.35)' : 'none',
-                  boxShadow: normalizeToolKey(activeTool) === 'viva mentor' ? '0 0 24px rgba(57,255,20,0.12)' : 'none',
-                  borderRadius: 0, 
-                  p: 2, 
-                  overflowY: 'auto', 
-                  overflowX: 'hidden',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  mb: 2,
-                  fontFamily: normalizeToolKey(activeTool) === 'viva mentor' ? 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' : 'inherit',
-                  '&::-webkit-scrollbar': {
-                    width: '8px',
-                  },
-                  '&::-webkit-scrollbar-track': {
-                    bgcolor: 'transparent',
-                  },
-                  '&::-webkit-scrollbar-thumb': {
-                    bgcolor: `${NEON_CYAN}30`,
-                    borderRadius: '4px',
-                    '&:hover': {
-                      bgcolor: `${NEON_CYAN}50`,
-                    }
-                  }
-                }}>
-                  {messages.length === 0 && (
-                    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: 'rgba(255, 255, 255, 0.4)' }}>
-                      <motion.div animate={{ y: [0, -10, 0] }} transition={{ duration: 3, repeat: Infinity }}>
-                        <Box sx={{ fontSize: '56px', mb: 2 }}>💭</Box>
-                      </motion.div>
-                      <Typography sx={{ fontSize: '18px', fontWeight: 500 }}>Start a conversation to learn</Typography>
-                      <Typography sx={{ fontSize: '13px', mt: 1, color: 'rgba(255, 255, 255, 0.3)' }}>Ask anything about your studies</Typography>
-                    </Box>
-                  )}
-                  
-                  <AnimatePresence>
-                    {messages.map((msg) => (
-                      <motion.div key={msg.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} exit={{ opacity: 0, y: -20 }}>
-                        <Box sx={{ display: 'flex', justifyContent: msg.sender === 'user' ? 'flex-end' : 'flex-start', mb: 2.5, gap: 1.5, pr: msg.sender === 'user' ? 0 : 2 }}>
-                          {msg.sender === 'ai' && (
-                            <IconButton
-                              size="small"
-                              onClick={() => handleSpeak(msg.text, msg.id)}
-                              sx={{ color: speakingId === msg.id ? NEON_PURPLE : NEON_CYAN, mt: 0.5 }}
-                            >
-                              {speakingId === msg.id ? <Stop sx={{ fontSize: '16px' }} /> : <VolumeUp sx={{ fontSize: '16px' }} />}
-                            </IconButton>
-                          )}
-                          {msg.sender === 'ai' && <Avatar sx={{ width: 36, height: 36, bgcolor: `${NEON_CYAN}20`, color: NEON_CYAN, border: `1px solid ${NEON_CYAN}40`, flexShrink: 0 }}><SmartToy sx={{ fontSize: '18px' }} /></Avatar>}
-                          <Box sx={{ maxWidth: msg.sender === 'user' ? '70%' : '75%', minWidth: 0 }}>
-                            <motion.div whileHover={{ scale: 1.01 }}>
-                              <Box sx={{ bgcolor: msg.sender === 'user' ? 'rgba(139, 134, 200, 0.15)' : (normalizeToolKey(activeTool) === 'viva mentor' ? 'rgba(1, 20, 1, 0.95)' : 'rgba(10, 13, 23, 0.9)'), border: msg.sender === 'user' ? `1px solid ${NEON_PURPLE}60` : (normalizeToolKey(activeTool) === 'viva mentor' ? '1px solid rgba(57,255,20,0.35)' : `1px solid rgba(255, 255, 255, 0.1)`), color: normalizeToolKey(activeTool) === 'viva mentor' && msg.sender === 'ai' ? '#9dff8a' : '#FFFFFF', p: 2, borderRadius: '16px', wordBreak: 'break-word', overflowWrap: 'break-word', overflowX: 'hidden', lineHeight: 1.6, fontSize: '15px', whiteSpace: 'pre-wrap', backdropFilter: 'blur(12px)', boxShadow: msg.sender === 'user' ? `0 0 15px ${NEON_PURPLE}15` : 'none', fontFamily: normalizeToolKey(activeTool) === 'viva mentor' ? 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' : 'inherit' }}>
-                                {msg.sender === 'ai' && !msg.isTypingComplete ? (
-                                  <TypewriterText
-                                    text={msg.text}
-                                    speed={25}
-                                    onProgress={scrollToBottom}
-                                    onComplete={() => {
-                                      markTypingComplete(msg.id);
-                                      setIsGenerating(false);
-                                    }}
-                                  />
-                                ) : (
-                                  <ReactMarkdown children={msg.text} remarkPlugins={[remarkGfm]} components={markdownComponents} />
-                                )}
-                              </Box>
-                            </motion.div>
-                            {msg.sender === 'ai' && Array.isArray(msg.nextSuggestions) && msg.nextSuggestions.length > 0 && (
-                              <Box
-                                sx={{
-                                  mt: 1,
-                                  display: 'flex',
-                                  gap: 1,
-                                  flexWrap: 'nowrap',
-                                  overflowX: 'auto',
-                                  pb: 0.5,
-                                  '&::-webkit-scrollbar': { height: '4px' },
-                                  '&::-webkit-scrollbar-thumb': { bgcolor: `${NEON_CYAN}55`, borderRadius: '6px' }
-                                }}
-                              >
-                                {msg.nextSuggestions.map((text, idx) => (
-                                  <Chip
-                                    key={`${msg.id}-sugg-${idx}`}
-                                    label={text}
-                                    onClick={async () => {
-                                      await handleSend(text);
-                                    }}
-                                    sx={{
-                                      bgcolor: 'rgba(3, 218, 198, 0.12)',
-                                      color: '#E6EAF0',
-                                      border: '1px solid rgba(3, 218, 198, 0.3)',
-                                      backdropFilter: 'blur(12px)',
-                                      fontWeight: 500,
-                                      fontSize: '12px',
-                                      cursor: 'pointer',
-                                      transition: 'all 200ms ease',
-                                      '&:hover': {
-                                        bgcolor: 'rgba(3, 218, 198, 0.2)',
-                                        boxShadow: '0 0 12px rgba(3, 218, 198, 0.5)'
-                                      }
-                                    }}
-                                  />
-                                ))}
-                              </Box>
-                            )}
-                          </Box>
-                          {msg.sender === 'user' && <Avatar sx={{ width: 36, height: 36, bgcolor: `${NEON_PURPLE}30`, color: NEON_PURPLE, border: `1px solid ${NEON_PURPLE}40`, flexShrink: 0 }}><Person sx={{ fontSize: '18px' }} /></Avatar>}
-                        </Box>
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
-                  
-                  {isAiThinking && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 2.5, gap: 1.5 }}>
-                        <Avatar sx={{ width: 36, height: 36, bgcolor: `${NEON_CYAN}20`, color: NEON_CYAN, border: `1px solid ${NEON_CYAN}40`, flexShrink: 0 }}><SmartToy sx={{ fontSize: '18px' }} /></Avatar>
-                        <Box sx={{ bgcolor: 'rgba(10, 13, 23, 0.9)', border: `1px solid rgba(255, 255, 255, 0.1)`, color: '#FFFFFF', p: 2, borderRadius: '16px', backdropFilter: 'blur(12px)' }}>
-                          <TypingIndicator />
-                        </Box>
-                      </Box>
-                    </motion.div>
-                  )}
-                  
-                  <div ref={messagesEndRef} />
-                </Paper>
-              </motion.div>
+              <ChatArea
+                messages={messages}
+                isAiThinking={isAiThinking}
+                activeTool={activeTool}
+                normalizeToolKey={normalizeToolKey}
+                NEON_CYAN={NEON_CYAN}
+                NEON_PURPLE={NEON_PURPLE}
+                speakingId={speakingId}
+                handleSpeak={handleSpeak}
+                TypewriterText={TypewriterText}
+                markTypingComplete={markTypingComplete}
+                setIsGenerating={setIsGenerating}
+                scrollToBottom={scrollToBottom}
+                markdownComponents={markdownComponents}
+                handleSend={handleSend}
+                messagesEndRef={messagesEndRef}
+                TypingIndicator={TypingIndicator}
+              />
               )}
 
               {/* Input Area */}
@@ -3976,6 +4055,42 @@ const Dashboard = ({ onThemeOverride }) => {
                         </IconButton>
                       </motion.div>
 
+                      <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+                        <IconButton
+                          size="small"
+                          onClick={handleVoiceToggle}
+                          disabled={isAiThinking}
+                          sx={{
+                            color: isListening ? '#000' : NEON_CYAN,
+                            bgcolor: isListening ? NEON_CYAN : 'transparent',
+                            '&:hover': { bgcolor: isListening ? '#49f1e1' : `${NEON_CYAN}20` },
+                          }}
+                        >
+                          <Mic sx={{ fontSize: '20px' }} />
+                        </IconButton>
+                      </motion.div>
+
+                      <FormControl size="small" variant="standard" sx={{ minWidth: 76 }}>
+                        <Select
+                          value={mode}
+                          onChange={(e) => setMode(String(e.target.value || 'auto'))}
+                          disableUnderline
+                          sx={{
+                            color: '#E6EAF0',
+                            fontSize: '12px',
+                            bgcolor: 'rgba(255,255,255,0.06)',
+                            border: GLASS_BORDER,
+                            borderRadius: '10px',
+                            px: 1,
+                            height: 30,
+                          }}
+                        >
+                          <MenuItem value="auto">Auto</MenuItem>
+                          <MenuItem value="lite">Lite</MenuItem>
+                          <MenuItem value="exam">Exam</MenuItem>
+                        </Select>
+                      </FormControl>
+
                       <TextField fullWidth placeholder={isAiThinking ? "AI is typing..." : "Ask your AI teacher..."} value={input} inputRef={inputRef} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !isAiThinking && handleSend()} disabled={isAiThinking} sx={{ '& .MuiOutlinedInput-root': { color: '#E6EAF0', fontSize: '15px', '& fieldset': { border: 'none' }, '&:hover fieldset': { border: 'none' }, '&.Mui-focused fieldset': { border: 'none' } }, '& .MuiOutlinedInput-input': { padding: '10px 0', '&::placeholder': { color: 'rgba(255, 255, 255, 0.4)', opacity: 1 } } }} size="small" variant="standard" />
 
                       <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
@@ -4004,12 +4119,19 @@ const Dashboard = ({ onThemeOverride }) => {
                         </IconButton>
                       </motion.div>
                     </Box>
+
+                    {isListening && (
+                      <Typography sx={{ mt: 1, color: NEON_CYAN, fontSize: '11px' }}>
+                        Listening... {voiceTranscript || 'Bolna start karo'}
+                      </Typography>
+                    )}
                   </Paper>
                 </motion.div>
                 )}
               </Box>
             </>  
             )
+          )
           )}
         </Box>
         )}
