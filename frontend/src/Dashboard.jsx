@@ -558,6 +558,31 @@ const enhancedCodeComponents = ({ inline, className, children, ...props }) => {
   return <code style={{ color: NEON_CYAN, fontSize: '14px' }} {...props}>{children}</code>;
 };
 
+const markdownComponents = {
+  code: enhancedCodeComponents,
+  p: ({ children }) => {
+    const childStr = String(children);
+    if (childStr.startsWith('[{') && childStr.endsWith('}]')) {
+      const chart = <ChartRenderer dataString={childStr} />;
+      if (chart) return chart;
+    }
+    return <p style={{ color: '#FFFFFF', margin: 0 }}>{children}</p>;
+  },
+  strong: ({ children }) => <strong style={{ color: '#FFFFFF', fontWeight: 600 }}>{children}</strong>,
+  em: ({ children }) => <em style={{ color: '#FFFFFF', fontStyle: 'italic' }}>{children}</em>,
+  h1: ({ children }) => <h1 style={{ color: '#FFFFFF', marginBottom: '8px', marginTop: '12px', fontSize: '24px', fontWeight: 700 }}>{children}</h1>,
+  h2: ({ children }) => <h2 style={{ color: '#FFFFFF', marginBottom: '8px', marginTop: '10px', fontSize: '20px', fontWeight: 600 }}>{children}</h2>,
+  h3: ({ children }) => <h3 style={{ color: '#FFFFFF', marginBottom: '6px', marginTop: '8px', fontSize: '16px', fontWeight: 600 }}>{children}</h3>,
+  li: ({ children }) => <li style={{ color: '#FFFFFF', marginBottom: '4px' }}>{children}</li>,
+  blockquote: ({ children }) => <blockquote style={{ color: '#FFFFFF', borderLeft: `3px solid ${NEON_CYAN}`, paddingLeft: '12px', marginLeft: 0, marginTop: '8px', marginBottom: '8px', fontStyle: 'italic' }}>{children}</blockquote>,
+  a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: NEON_CYAN, textDecoration: 'underline', cursor: 'pointer' }}>{children}</a>,
+  ul: ({ children }) => <ul style={{ color: '#FFFFFF', marginLeft: '20px', marginTop: '8px' }}>{children}</ul>,
+  ol: ({ children }) => <ol style={{ color: '#FFFFFF', marginLeft: '20px', marginTop: '8px' }}>{children}</ol>,
+  table: ({ children }) => <table style={{ color: '#FFFFFF', borderCollapse: 'collapse', marginTop: '8px', marginBottom: '8px', width: '100%' }}>{children}</table>,
+  td: ({ children }) => <td style={{ border: `1px solid ${NEON_CYAN}20`, padding: '8px', textAlign: 'left' }}>{children}</td>,
+  th: ({ children }) => <th style={{ border: `1px solid ${NEON_CYAN}40`, padding: '8px', textAlign: 'left', backgroundColor: `${NEON_PURPLE}20`, fontWeight: 600 }}>{children}</th>,
+};
+
 const getJiyaRemarkText = (score, candidateName) => {
   const pct = Number.isFinite(Number(score)) ? Number(score) : null;
   const name = String(candidateName || 'champ').trim() || 'champ';
