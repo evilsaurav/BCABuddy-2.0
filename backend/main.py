@@ -28,6 +28,7 @@ from pydantic import BaseModel
 from groq import Groq
 from typing import Optional, Any, cast, List
 import os, shutil
+import uvicorn
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -471,6 +472,11 @@ app.include_router(apc_router)
 
 @app.get("/health")
 def health_check():
+    return {"status": "ok"}
+
+
+@app.get("/")
+def root_health_check():
     return {"status": "ok"}
 
 
@@ -1611,3 +1617,8 @@ async def generate_study_plan(request: StudyPlanRequest):
         return parsed
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port)
