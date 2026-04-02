@@ -469,6 +469,11 @@ app.include_router(auth_router)
 app.include_router(apc_router)
 
 
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
+
+
 # --- SYLLABUS MAPPING (STRICT) ---
 with open(os.path.join(os.path.dirname(__file__), "syllabus.json"), "r", encoding="utf-8") as f:
     SUBJECT_TITLES = json.load(f)
