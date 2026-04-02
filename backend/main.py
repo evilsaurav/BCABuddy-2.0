@@ -475,6 +475,11 @@ def health_check():
     return {"status": "ok"}
 
 
+@app.get("/api/health")
+def api_health_check():
+    return {"status": "ok"}
+
+
 @app.get("/")
 def root_health_check():
     return {"status": "ok"}
@@ -1620,5 +1625,7 @@ async def generate_study_plan(request: StudyPlanRequest):
 
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run("main:app", host="0.0.0.0", port=port)
+    # Force port 8000 always - Azure Container must use this port
+    port = 8000
+    print(f"[BCABuddy] Starting FastAPI on 0.0.0.0:{port}")
+    uvicorn.run("main:app", host="0.0.0.0", port=port, log_level="info")
