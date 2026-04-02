@@ -668,6 +668,7 @@ const Dashboard = ({ onThemeOverride }) => {
   const [isRoadmapHistoryLoading, setIsRoadmapHistoryLoading] = useState(false);
   const [performanceSummary, setPerformanceSummary] = useState({ highlights: [], report_markdown: '', generated_at: null, eta_minutes: 1 });
   const [showPerformanceReportModal, setShowPerformanceReportModal] = useState(false);
+  const [showAboutModal, setShowAboutModal] = useState(false);
   const [isGeneratingPerformanceReport, setIsGeneratingPerformanceReport] = useState(false);
   const [performanceWaitMinutes, setPerformanceWaitMinutes] = useState(1);
   const [dashboardSlideIndex, setDashboardSlideIndex] = useState(0);
