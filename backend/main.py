@@ -461,7 +461,14 @@ try:
 except Exception:
     pass
 
-app = FastAPI(title="BCABuddy Ultimate")
+app = FastAPI(
+    title="BCABuddy Ultimate",
+    description="AI Learning Assistant for IGNOU BCA",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json"
+)
 
 # Serve uploaded files
 app.mount("/profile_pics", StaticFiles(directory=PROFILE_PICS_DIR), name="profile_pics")
@@ -1641,7 +1648,10 @@ async def generate_study_plan(request: StudyPlanRequest):
 
 
 if __name__ == "__main__":
-    # Force port 8000 always - Azure Container must use this port
-    port = 8000
-    print(f"[BCABuddy] Starting FastAPI on 0.0.0.0:{port}")
-    uvicorn.run("main:app", host="0.0.0.0", port=port, log_level="info")
+    # Read PORT from env (Azure: WEBSITES_PORT, local: PORT, or default 8000)
+    port = int(os.getenv("PORT") or os.getenv("WEBSITES_PORT") or 8000)
+    host = "0.0.0.0"
+    print(f"[BCABuddy] Starting FastAPI on {host}:{port}")
+    print(f"[BCABuddy] Swagger UI: http://{host}:{port}/docs")
+    print(f"[BCABuddy] OpenAPI: http://{host}:{port}/openapi.json")
+    uvicorn.run("main:app", host=host, port=port, log_level="info")
