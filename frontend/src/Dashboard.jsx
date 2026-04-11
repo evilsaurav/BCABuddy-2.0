@@ -2861,6 +2861,7 @@ const Dashboard = ({ onThemeOverride }) => {
     const level = Math.max(1, Math.floor(xp / 350) + 1);
     const levelBase = (level - 1) * 350;
     const levelProgress = Math.max(0, Math.min(1, (xp - levelBase) / 350));
+    const totalWidgetSlides = 3;
 
     const nextTarget = subject ? `${getSubjectLabel(subject)} (${subject})` : (syllabusProgress?.subject ? `${getSubjectLabel(syllabusProgress.subject)} (${syllabusProgress.subject})` : 'Pick a subject');
 
@@ -3217,14 +3218,14 @@ const Dashboard = ({ onThemeOverride }) => {
                     <Box sx={{ display: 'flex', gap: 1 }}>
                       <Button
                         size="small"
-                        onClick={() => setDashboardSlideIndex((prev) => (prev <= 0 ? 1 : prev - 1))}
+                        onClick={() => setDashboardSlideIndex((prev) => (prev <= 0 ? totalWidgetSlides - 1 : prev - 1))}
                         sx={{ minWidth: 34, color: '#E6EAF0', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '12px', fontWeight: 900 }}
                       >
                         ‹
                       </Button>
                       <Button
                         size="small"
-                        onClick={() => setDashboardSlideIndex((prev) => (prev >= 1 ? 0 : prev + 1))}
+                        onClick={() => setDashboardSlideIndex((prev) => (prev >= totalWidgetSlides - 1 ? 0 : prev + 1))}
                         sx={{ minWidth: 34, color: '#E6EAF0', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '12px', fontWeight: 900 }}
                       >
                         ›
@@ -3236,12 +3237,12 @@ const Dashboard = ({ onThemeOverride }) => {
                     <Box
                       sx={{
                         display: 'flex',
-                        width: { xs: '100%', md: '200%' },
-                        transform: { xs: 'translateX(0%)', md: `translateX(-${dashboardSlideIndex * 50}%)` },
+                        width: `${totalWidgetSlides * 100}%`,
+                        transform: `translateX(-${dashboardSlideIndex * (100 / totalWidgetSlides)}%)`,
                         transition: 'transform 420ms ease',
                       }}
                     >
-                      <Box sx={{ width: { xs: '100%', md: '50%' }, pr: { xs: 0, md: 1 } }}>
+                      <Box sx={{ width: `${100 / totalWidgetSlides}%`, pr: 1 }}>
                         <Typography sx={{ color: '#E6EAF0', fontWeight: 800, fontSize: 14, mb: 1 }}>Syllabus Completion</Typography>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
                           <Box sx={{ position: 'relative', width: 90, height: 90 }}>
@@ -3273,13 +3274,75 @@ const Dashboard = ({ onThemeOverride }) => {
                         </Box>
                       </Box>
 
-                      <Box sx={{ width: { xs: '100%', md: '50%' }, pl: { xs: 0, md: 1 }, display: { xs: 'none', md: 'block' } }}>
+                      <Box sx={{ width: `${100 / totalWidgetSlides}%`, px: 1 }}>
                         <Typography sx={{ color: '#E6EAF0', fontWeight: 800, fontSize: 14, mb: 1 }}>Roadmap</Typography>
                         <Typography sx={{ color: 'rgba(255,255,255,0.68)', fontSize: 12, lineHeight: 1.6 }}>
                           Dedicated Roadmap widget is available as a separate fixed card in this grid.
                         </Typography>
+                        <Box sx={{ mt: 1.2, display: 'flex', justifyContent: 'flex-start' }}>
+                          <Button
+                            size="small"
+                            onClick={() => setDashboardSlideIndex(2)}
+                            sx={{ color: NEON_CYAN, border: `1px solid ${NEON_CYAN}35`, borderRadius: '12px', fontWeight: 800 }}
+                          >
+                            Next: Achievements
+                          </Button>
+                        </Box>
+                      </Box>
+
+                      <Box sx={{ width: `${100 / totalWidgetSlides}%`, pl: 1 }}>
+                        <Typography sx={{ color: '#E6EAF0', fontWeight: 800, fontSize: 14, mb: 1 }}>Achievements</Typography>
+                        <Typography sx={{ color: 'rgba(255,255,255,0.68)', fontSize: 12, lineHeight: 1.6 }}>
+                          Your unlocked badges, right inside widget slide.
+                        </Typography>
+                        <Box sx={{ mt: 1.2, display: 'flex', gap: 0.8, flexWrap: 'wrap' }}>
+                          {unlockedBadgePreview.slice(0, 5).map((badge) => (
+                            <Chip
+                              key={`widget-ach-${badge.id}`}
+                              size="small"
+                              label={`${badge.icon || '🏅'} ${badge.name}`}
+                              sx={{
+                                bgcolor: 'rgba(16,185,129,0.16)',
+                                color: '#d1fae5',
+                                border: '1px solid rgba(16,185,129,0.42)',
+                                fontWeight: 700,
+                              }}
+                            />
+                          ))}
+                          {unlockedBadgePreview.length === 0 && (
+                            <Typography sx={{ color: 'rgba(255,255,255,0.62)', fontSize: 12 }}>
+                              No badges unlocked yet. Finish a quiz to start.
+                            </Typography>
+                          )}
+                        </Box>
+                        <Box sx={{ mt: 1.2, display: 'flex', justifyContent: 'flex-start' }}>
+                          <Button
+                            size="small"
+                            onClick={() => navigate('/achievements')}
+                            sx={{ color: NEON_CYAN, border: `1px solid ${NEON_CYAN}35`, borderRadius: '12px', fontWeight: 800 }}
+                          >
+                            Open All Achievements
+                          </Button>
+                        </Box>
                       </Box>
                     </Box>
+                  </Box>
+
+                  <Box sx={{ mt: 1.4, display: 'flex', justifyContent: 'center', gap: 0.8 }}>
+                    {Array.from({ length: totalWidgetSlides }).map((_, idx) => (
+                      <Box
+                        key={`widget-dot-${idx}`}
+                        onClick={() => setDashboardSlideIndex(idx)}
+                        sx={{
+                          width: idx === dashboardSlideIndex ? 18 : 8,
+                          height: 8,
+                          borderRadius: '999px',
+                          cursor: 'pointer',
+                          transition: 'all 180ms ease',
+                          bgcolor: idx === dashboardSlideIndex ? NEON_CYAN : 'rgba(255,255,255,0.25)',
+                        }}
+                      />
+                    ))}
                   </Box>
                 </Card>
               </motion.div>
