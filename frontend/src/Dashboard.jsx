@@ -46,6 +46,7 @@ import SidebarNewChatButton from './components/SidebarNewChatButton';
 import SidebarRecentHistory from './components/SidebarRecentHistory';
 import SidebarAcademicSetup from './components/SidebarAcademicSetup';
 import SidebarAssignments from './components/SidebarAssignments';
+import ThemeToggle from './components/ThemeToggle';
 import { getToken, setToken, clearToken, isTokenExpiringSoon, shouldForceLogout, getTokenRemainingMinutes, shouldWarnTokenExpiry } from './utils/tokenManager';
 import { useAuth } from './AuthContext';
 import { API_BASE } from './utils/apiConfig';
@@ -703,6 +704,8 @@ const Dashboard = ({ onThemeOverride }) => {
   } = useHinglishVoice();
   
   const messagesEndRef = useRef(null);
+  const chatContainerRef = useRef(null);
+  const shouldAutoScrollRef = useRef(true);
   const fileInputRef = useRef(null);
   const inputRef = useRef(null);
   const lastGreetedSubjectRef = useRef(null);
@@ -871,6 +874,7 @@ const Dashboard = ({ onThemeOverride }) => {
     }
     abortControllerRef.current = null;
     setIsGenerating(false);
+    setIsAiThinking(false);
   };
 
   const handleStopResponse = () => {
@@ -879,12 +883,22 @@ const Dashboard = ({ onThemeOverride }) => {
     setIsAiThinking(false);
 
     // Jo message abhi type ho raha tha, usko force stop karke UI update karo
-    setMessages(prev => prev.map(m => {
-      if (m.sender === 'ai' && !m.isTypingComplete) {
-        return { ...m, isTypingComplete: true, isInterrupted: true };
-      }
-      return m;
-    }).filter(m => !m.isTemporary));
+    setMessages(prev => {
+      let updated = prev.map(m => {
+        if (m.sender === 'ai' && !m.isTypingComplete) {
+          return { ...m, isTypingComplete: true, isInterrupted: true };
+        }
+        return m;
+      }).filter(m => !m.isTemporary);
+      
+      // Add a system message showing user stopped response
+      return [...updated, {
+        id: makeMessageId(),
+        text: '⏹️ User stopped the response',
+        sender: 'ai',
+        isTypingComplete: true,
+      }];
+    });
   };
 
   const closeQuickQuiz = () => {
@@ -902,7 +916,17 @@ const Dashboard = ({ onThemeOverride }) => {
     'Content-Type': 'application/json' 
   });
 
-  const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  const handleChatScroll = () => {
+    const el = chatContainerRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    shouldAutoScrollRef.current = distanceFromBottom < 120;
+  };
+
+  const scrollToBottom = () => {
+    if (!shouldAutoScrollRef.current) return;
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   const markTypingComplete = (id) => {
     setMessages(prev => prev.map(m => (m.id === id ? { ...m, isTypingComplete: true } : m)));
@@ -1616,7 +1640,9 @@ const Dashboard = ({ onThemeOverride }) => {
     });
   }, [semester, subject]);
   
-  useEffect(() => scrollToBottom(), [messages, isAiThinking]);
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, isAiThinking]);
 
   const isAutoExamEveMode = Number(examTracker?.daysLeft || 0) <= 1;
   const isExamEveMode = manualExamEveMode || isAutoExamEveMode;
@@ -1712,6 +1738,8 @@ const Dashboard = ({ onThemeOverride }) => {
   const handleSend = async (overrideText) => {
     const textToSend = (overrideText !== undefined ? overrideText : input).trim();
     if (!textToSend) return;
+
+    shouldAutoScrollRef.current = true;
 
     setInput(''); // IMMEDIATE clear
     if (inputRef.current) inputRef.current.focus();
@@ -2275,7 +2303,7 @@ const Dashboard = ({ onThemeOverride }) => {
                 }
               }}>
                 <span style={{ fontSize: '13px' }}>🔱</span>
-                Supreme Architect
+                Creator
               </Box>
             )}
           </Box>
@@ -3512,6 +3540,8 @@ const Dashboard = ({ onThemeOverride }) => {
               </Tooltip>
             </motion.div>
 
+            <ThemeToggle />
+
             <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
               <Tooltip title={userProfile.display_name || userProfile.username}>
                 <Box onClick={(e) => setUserMenuAnchor(e.currentTarget)} sx={{ width: 40, height: 40, borderRadius: '50%', bgcolor: `${NEON_PURPLE}40`, border: `2px solid ${NEON_CYAN}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: NEON_CYAN, fontWeight: 700, fontSize: '14px', cursor: 'pointer', transition: 'all 200ms ease', '&:hover': { bgcolor: `${NEON_PURPLE}60`, boxShadow: `0 0 15px ${NEON_PURPLE}50` }, position: 'relative', overflow: 'hidden' }}>
@@ -3866,6 +3896,8 @@ const Dashboard = ({ onThemeOverride }) => {
                 handleSend={handleSend}
                 messagesEndRef={messagesEndRef}
                 TypingIndicator={TypingIndicator}
+                chatContainerRef={chatContainerRef}
+                onChatScroll={handleChatScroll}
               />
               )}
 
@@ -4123,7 +4155,7 @@ const Dashboard = ({ onThemeOverride }) => {
 
                       <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
                         <IconButton 
-                          onClick={isGenerating ? stopGeneration : handleSend} 
+                          onClick={isGenerating ? handleStopResponse : handleSend} 
                           disabled={!isGenerating && !input.trim()}
                           sx={{ 
                             color: 'white', 
@@ -4390,22 +4422,7 @@ const Dashboard = ({ onThemeOverride }) => {
         fontWeight: 500
       }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          Architected with
-          <span style={{ color: '#ef4444', fontSize: '14px' }}>❤️</span>
-          by
-          <Box component="span" sx={{ 
-            display: 'inline-flex', 
-            alignItems: 'center', 
-            gap: 0.3,
-            fontWeight: 700,
-            background: 'linear-gradient(to right, #06b6d4, #a855f7)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text'
-          }}>
-            <span style={{ filter: 'none', WebkitTextFillColor: 'initial', background: 'none' }}>🔱</span>
-            Supreme Architect
-          </Box>
+          BCABuddy • IGNOU BCA AI Assistant
         </Box>
       </Box>
 

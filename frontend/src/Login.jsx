@@ -176,12 +176,7 @@ const Login = ({ setIsAuthenticated }) => {
             )}
           </div>
 
-          {/* Attribution */}
-          <div style={{ position:'relative',zIndex:1,display:'flex',alignItems:'center',gap:5,fontSize:11,color:'rgba(255,255,255,0.22)',marginTop:isMobile?20:0 }}>
-            <span>Designed with</span>
-            <motion.span animate={{scale:[1,1.3,1]}} transition={{duration:1.5,repeat:Infinity}} style={{fontSize:13}}>❤️</motion.span>
-            <span style={{color:'rgba(255,255,255,0.36)',fontWeight:600}}>by insomniac for Frenzy</span>
-          </div>
+          <div style={{ position:'relative',zIndex:1,height:isMobile?20:26 }} />
         </div>
 
         {/* RIGHT — Light Form Panel */}
@@ -190,10 +185,37 @@ const Login = ({ setIsAuthenticated }) => {
           background: C.lightBg,
           display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center',
-          padding: isMobile ? '36px 16px 64px' : '48px 40px',
+          padding: isMobile ? '0' : '48px 40px',
           position: 'relative', minHeight: isMobile ? '100vh' : '100vh',
+          overflowY: 'auto',
         }}>
           <div style={{ position:'absolute',inset:0,pointerEvents:'none',backgroundImage:`radial-gradient(circle at 80% 20%, rgba(3,218,198,0.05) 0%, transparent 50%)` }} />
+
+          {/* Back Button */}
+          <motion.button
+            onClick={() => navigate('/')}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            style={{
+              position: 'absolute',
+              top: isMobile ? 12 : 20,
+              left: isMobile ? 12 : 40,
+              zIndex: 10,
+              width: 40,
+              height: 40,
+              borderRadius: 10,
+              border: `1.5px solid ${C.borderLight}`,
+              background: C.lightCard,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 18,
+              transition: 'all 180ms',
+            }}
+          >
+            ←
+          </motion.button>
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -207,6 +229,7 @@ const Login = ({ setIsAuthenticated }) => {
               boxShadow: '0 2px 4px rgba(0,0,0,0.04), 0 12px 40px rgba(0,0,0,0.09)',
               border: `1px solid ${C.borderLight}`,
               position: 'relative', zIndex: 1,
+              margin: isMobile ? '48px 16px 80px 16px' : '0',
             }}
           >
             <div style={{ marginBottom: 26 }}>
@@ -233,6 +256,22 @@ const Login = ({ setIsAuthenticated }) => {
               </motion.button>
             </form>
 
+            <div style={{
+              display:'flex',
+              justifyContent:'space-between',
+              alignItems:'center',
+              marginTop:10,
+              marginBottom:4,
+              fontSize:13
+            }}>
+              <span style={{ color:C.textMuted }}>Forgot password?</span>
+              <Link
+                to="/forgot-password"
+                style={{ textDecoration:'none',color:C.accent,fontWeight:700,cursor:'pointer' }}
+              >
+                Reset now
+              </Link>
+            </div>
             <div style={{ display:'flex',alignItems:'center',gap:12,margin:'22px 0' }}>
               <div style={{flex:1,height:1,background:C.borderLight}} />
               <span style={{fontSize:12,color:C.textMuted}}>New to BCABuddy?</span>
@@ -266,10 +305,10 @@ const Login = ({ setIsAuthenticated }) => {
             </Link>
           </motion.div>
 
-          <div style={{ position:'absolute',bottom:16,display:'flex',alignItems:'center',gap:5,fontSize:11,color:'#9ca3af',zIndex:1 }}>
+          <div style={{ display:'flex',alignItems:'center',gap:5,fontSize:11,color:'#9ca3af',zIndex:1,marginTop:24,marginBottom:isMobile?20:0 }}>
             <span>Designed with</span>
             <motion.span animate={{scale:[1,1.3,1]}} transition={{duration:1.5,repeat:Infinity}} style={{fontSize:13}}>❤️</motion.span>
-            <span style={{fontWeight:600,color:'#6b7280'}}>by insomniac for Frenzy</span>
+            <span style={{fontWeight:600,color:'#6b7280'}}>By Insomniac for Frenzy</span>
           </div>
         </div>
       </div>

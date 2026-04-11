@@ -677,7 +677,7 @@ function ExamSimulator({
   };
 
   const getBadgeLabel = (pct) => {
-    if (pct >= 90) return 'Supreme Architect 👑';
+    if (pct >= 90) return 'Top Performer 👑';
     if (pct >= 70) return 'Pro Coder 💻';
     if (pct < 50) return 'BCA Noob 👶';
     return 'Coder in Progress ⚡';
@@ -1346,7 +1346,7 @@ function ExamSimulator({
                   }}
                 >
                   <Typography sx={{ color: '#E6EAF0', fontWeight: 900, fontSize: '18px' }}>
-                    Supreme Architect 👑
+                    Top Performer 👑
                   </Typography>
                   <Typography sx={{ color: NEON_CYAN, mt: 0.6 }}>
                     Jiya: Poise + power. Ye 95+ crown tumhara hi tha. 👑

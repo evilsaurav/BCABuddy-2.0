@@ -22,6 +22,8 @@ const ChatArea = ({
   handleSend,
   messagesEndRef,
   TypingIndicator,
+  chatContainerRef,
+  onChatScroll,
 }) => {
   return (
     <motion.div
@@ -31,6 +33,8 @@ const ChatArea = ({
       style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}
     >
       <Paper
+        ref={chatContainerRef}
+        onScroll={onChatScroll}
         sx={{
           flex: 1,
           bgcolor: normalizeToolKey(activeTool) === 'viva mentor' ? 'rgba(2, 10, 2, 0.92)' : 'transparent',
@@ -75,7 +79,7 @@ const ChatArea = ({
                 {msg.sender === 'ai' && <Avatar sx={{ width: 36, height: 36, bgcolor: `${NEON_CYAN}20`, color: NEON_CYAN, border: `1px solid ${NEON_CYAN}40`, flexShrink: 0 }}><SmartToy sx={{ fontSize: '18px' }} /></Avatar>}
                 <Box sx={{ maxWidth: msg.sender === 'user' ? '70%' : '75%', minWidth: 0 }}>
                   <motion.div whileHover={{ scale: 1.01 }}>
-                    <Box sx={{ bgcolor: msg.sender === 'user' ? 'rgba(139, 134, 200, 0.15)' : (normalizeToolKey(activeTool) === 'viva mentor' ? 'rgba(1, 20, 1, 0.95)' : 'rgba(10, 13, 23, 0.9)'), border: msg.sender === 'user' ? `1px solid ${NEON_PURPLE}60` : (normalizeToolKey(activeTool) === 'viva mentor' ? '1px solid rgba(57,255,20,0.35)' : `1px solid rgba(255, 255, 255, 0.1)`), color: normalizeToolKey(activeTool) === 'viva mentor' && msg.sender === 'ai' ? '#9dff8a' : '#FFFFFF', p: 2, borderRadius: '16px', wordBreak: 'break-word', overflowWrap: 'break-word', overflowX: 'hidden', lineHeight: 1.6, fontSize: '15px', whiteSpace: 'pre-wrap', backdropFilter: 'blur(12px)', boxShadow: msg.sender === 'user' ? `0 0 15px ${NEON_PURPLE}15` : 'none', fontFamily: normalizeToolKey(activeTool) === 'viva mentor' ? 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' : 'inherit' }}>
+                    <Box sx={{ bgcolor: msg.sender === 'user' ? 'rgba(139, 134, 200, 0.15)' : (normalizeToolKey(activeTool) === 'viva mentor' ? 'rgba(1, 20, 1, 0.95)' : 'rgba(10, 13, 23, 0.9)'), border: 'none', color: normalizeToolKey(activeTool) === 'viva mentor' && msg.sender === 'ai' ? '#9dff8a' : '#FFFFFF', p: 2, borderRadius: '16px', wordBreak: 'break-word', overflowWrap: 'break-word', overflowX: 'hidden', lineHeight: 1.6, fontSize: '15px', whiteSpace: 'pre-wrap', backdropFilter: 'blur(12px)', boxShadow: msg.sender === 'user' ? `0 0 15px ${NEON_PURPLE}15` : 'none', fontFamily: normalizeToolKey(activeTool) === 'viva mentor' ? 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' : 'inherit' }}>
                       {msg.sender === 'ai' && !msg.isTypingComplete ? (
                         <TypewriterText
                           text={msg.text}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { buildApiUrl } from '../utils/apiConfig';
+import BackButton from '../components/BackButton';
 
 const MyLocker = () => {
   const [files, setFiles] = useState([]);
@@ -64,6 +65,7 @@ const MyLocker = () => {
 
   return (
     <div className="p-4">
+      <BackButton />
       <h1 className="text-2xl font-bold mb-4">My Locker</h1>
 
       <div className="mb-4">

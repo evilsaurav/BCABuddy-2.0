@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Button, Card, Typography } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
+import BackButton from '../components/BackButton';
 
 const About = () => {
   const navigate = useNavigate();
@@ -22,6 +23,7 @@ const About = () => {
         p: { xs: 2, md: 3 },
       }}
     >
+      <BackButton />
       <Box sx={{ maxWidth: 980, mx: 'auto' }}>
         <Card
           sx={{

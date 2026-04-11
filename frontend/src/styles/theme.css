@@ -1,0 +1,133 @@
+/* BCABuddy Theme System - CSS Variables */
+
+/* ===== DARK MODE (DEFAULT) ===== */
+:root {
+  /* Background */
+  --bg-primary: #0a0d17;
+  --bg-secondary: #0f1419;
+  --bg-tertiary: #1a1f2e;
+  --bg-overlay: rgba(10, 13, 23, 0.85);
+  
+  /* Text */
+  --text-primary: #E6EAF0;
+  --text-secondary: #c5cad4;
+  --text-tertiary: #a8b0be;
+  --text-muted: rgba(230, 234, 240, 0.5);
+  
+  /* Accent Colors */
+  --neon-cyan: #03dac6;
+  --neon-purple: #bb86fc;
+  --neon-green: #39FF14;
+  
+  /* Chat Messages */
+  --chat-user-bg: rgba(139, 134, 200, 0.15);
+  --chat-user-border: none;
+  --chat-ai-bg: rgba(10, 13, 23, 0.9);
+  --chat-ai-border: none;
+  --chat-user-text: #E6EAF0;
+  --chat-ai-text: #E6EAF0;
+  
+  /* Components */
+  --card-bg: rgba(18, 26, 52, 0.78);
+  --card-border: rgba(255, 255, 255, 0.08);
+  
+  /* Input */
+  --input-bg: rgba(30, 41, 59, 0.5);
+  --input-border: rgba(255, 255, 255, 0.1);
+  --input-text: #E6EAF0;
+  --input-placeholder: rgba(255, 255, 255, 0.4);
+}
+
+/* ===== LIGHT MODE ===== */
+[data-theme="light"] {
+  /* Background */
+  --bg-primary: #f7f6f3;
+  --bg-secondary: #efefed;
+  --bg-tertiary: #e8e7e4;
+  --bg-overlay: rgba(255, 255, 255, 0.7);
+  
+  /* Text */
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --text-tertiary: #767e89;
+  --text-muted: rgba(17, 24, 39, 0.5);
+  
+  /* Accent Colors */
+  --neon-cyan: #03dac6;
+  --neon-purple: #bb86fc;
+  --neon-green: #39FF14;
+  
+  /* Chat Messages */
+  --chat-user-bg: rgba(187, 134, 252, 0.15);
+  --chat-user-border: rgba(187, 134, 252, 0.4);
+  --chat-ai-bg: rgba(230, 234, 240, 0.6);
+  --chat-ai-border: none;
+  --chat-user-text: #111827;
+  --chat-ai-text: #111827;
+  
+  /* Components */
+  --card-bg: rgba(255, 255, 255, 0.85);
+  --card-border: rgba(17, 24, 39, 0.12);
+  
+  /* Input */
+  --input-bg: rgba(255, 255, 255, 0.8);
+  --input-border: rgba(17, 24, 39, 0.15);
+  --input-text: #111827;
+  --input-placeholder: rgba(17, 24, 39, 0.4);
+}
+
+/* ===== Global Application ===== */
+html, body, #root {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+/* Override existing dark background classes when needed */
+.dark-theme-override {
+  background-color: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Smooth transition for theme changes */
+html {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+* {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Disable transition for specific elements that animate */
+.no-theme-transition {
+  transition: none !important;
+}
+
+/* Chat message styling */
+.chat-message-user {
+  background: var(--chat-user-bg);
+  border: var(--chat-user-border);
+  color: var(--chat-user-text);
+}
+
+.chat-message-ai {
+  background: var(--chat-ai-bg);
+  border: var(--chat-ai-border);
+  color: var(--chat-ai-text);
+}
+
+/* Card styling */
+.theme-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+}
+
+/* Input styling */
+.theme-input {
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  color: var(--input-text);
+}
+
+.theme-input::placeholder {
+  color: var(--input-placeholder);
+}

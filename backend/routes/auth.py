@@ -16,10 +16,18 @@ from auth_utils import (
     get_current_user,
     get_password_hash,
     verify_password,
+    create_reset_token,
+    verify_reset_token,
 )
 from config import get_settings
 from database import User, get_db
 from models import PasswordChange, Token, UserCreate, UserProfile, UserProfileUpdate
+from password_reset import (
+    ForgotPasswordRequest,
+    ResetPasswordRequest,
+    ForgotPasswordResponse,
+    ResetPasswordResponse,
+)
 
 settings = get_settings()
 
@@ -360,4 +368,80 @@ def change_password(
     current_user_any.hashed_password = get_password_hash(pwd_data.new_password)
     db.commit()
     return {"message": "Password changed successfully"}
+
+
+
+@router.post("/forgot-password", response_model=ForgotPasswordResponse)
+def forgot_password(
+    req: ForgotPasswordRequest,
+    db: Session = Depends(get_db),
+):
+    """Initiate password reset by username - generates JWT reset token (valid 15 mins)"""
+    username = str(req.username or "").strip()
+    if not username:
+        raise HTTPException(
+            status_code=400,
+            detail="Username is required",
+        )
+
+    # Check if user exists
+    user = db.query(User).filter(User.username == username).first()
+    if not user:
+        # Security best practice: don't reveal if user exists
+        raise HTTPException(
+            status_code=400,
+            detail="Username not found. Please check and retry.",
+        )
+
+    # Create reset token with 15-minute expiry
+    reset_token = create_reset_token(username, expires_in_minutes=15)
+
+    return ForgotPasswordResponse(
+        message=f"Password reset token generated. Token valid for 15 minutes.",
+        reset_token=reset_token,
+        expires_in_minutes=15,
+    )
+
+
+@router.post("/reset-password", response_model=ResetPasswordResponse)
+def reset_password(
+    req: ResetPasswordRequest,
+    db: Session = Depends(get_db),
+):
+    """Reset password using valid reset token"""
+    # Verify reset token
+    username = verify_reset_token(req.reset_token)
+    if not username:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid or expired reset token. Request a new password reset.",
+        )
+
+    # Validate passwords match
+    if req.new_password != req.confirm_password:
+        raise HTTPException(
+            status_code=400,
+            detail="Passwords do not match",
+        )
+
+    # Validate password strength
+    _validate_password_strength(req.new_password)
+
+    # Find user and update password
+    user = db.query(User).filter(User.username == username).first()
+    if not user:
+        raise HTTPException(
+            status_code=400,
+            detail="User not found. This reset token may be expired.",
+        )
+
+    # Update password
+    user_any = cast(Any, user)
+    user_any.hashed_password = get_password_hash(req.new_password)
+    db.commit()
+
+    return ResetPasswordResponse(
+        message="Password reset successfully! You can now login with your new password.",
+        success=True,
+    )
 

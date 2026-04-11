@@ -143,12 +143,7 @@ const Signup = () => {
             )}
           </div>
 
-          {/* Attribution */}
-          <div style={{position:'relative',zIndex:1,display:'flex',alignItems:'center',gap:5,fontSize:11,color:'rgba(255,255,255,0.22)',marginTop:isMobile?20:0}}>
-            <span>Designed with</span>
-            <motion.span animate={{scale:[1,1.3,1]}} transition={{duration:1.5,repeat:Infinity}} style={{fontSize:13}}>❤️</motion.span>
-            <span style={{color:'rgba(255,255,255,0.36)',fontWeight:600}}>by insomniac for Frenzy</span>
-          </div>
+          <div style={{position:'relative',zIndex:1,height:isMobile?20:26}} />
         </div>
 
         {/* RIGHT — Light Form Panel */}
@@ -227,7 +222,7 @@ const Signup = () => {
           <div style={{position:'absolute',bottom:16,display:'flex',alignItems:'center',gap:5,fontSize:11,color:'#9ca3af',zIndex:1}}>
             <span>Designed with</span>
             <motion.span animate={{scale:[1,1.3,1]}} transition={{duration:1.5,repeat:Infinity}} style={{fontSize:13}}>❤️</motion.span>
-            <span style={{fontWeight:600,color:'#6b7280'}}>by insomniac for Frenzy</span>
+            <span style={{fontWeight:600,color:'#6b7280'}}>By Insomniac for Frenzy</span>
           </div>
         </div>
       </div>

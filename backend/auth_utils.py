@@ -59,3 +59,28 @@ async def get_current_user(
         raise HTTPException(status_code=401)
     return user
 
+
+def create_reset_token(username: str, expires_in_minutes: int = 15) -> str:
+    """Create a password reset token with 15-minute expiry (shorter than access token)"""
+    to_encode = {"sub": username, "type": "reset"}
+    expire = datetime.utcnow() + timedelta(minutes=expires_in_minutes)
+    to_encode.update({"exp": expire})
+    return jwt.encode(
+        to_encode, settings.secret_key, algorithm=settings.algorithm
+    )
+
+
+def verify_reset_token(token: str) -> str | None:
+    """Verify password reset token and return username if valid"""
+    try:
+        payload = jwt.decode(
+            token, settings.secret_key, algorithms=[settings.algorithm]
+        )
+        # Check token type
+        if payload.get("type") != "reset":
+            return None
+        username = payload.get("sub")
+        return username
+    except JWTError:
+        return None
+

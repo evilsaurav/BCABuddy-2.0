@@ -3,7 +3,9 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import Login from './Login';
 import './App.css';
+import './styles/theme.css';
 import { AuthProvider } from './AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 
 const Signup = lazy(() => import('./Signup'));
 const Dashboard = lazy(() => import('./Dashboard'));
@@ -13,6 +15,7 @@ const ExamSimulationPage = lazy(() => import('./pages/ExamSimulationPage'));
 const MyLocker = lazy(() => import('./pages/MyLocker'));
 const AboutPage = lazy(() => import('./pages/About'));
 
+const ForgotPassword = lazy(() => import('./ForgotPassword'));
 const FRENZY_STORAGE_KEY = 'bcabuddy_frenzy_override_v1';
 
 const safeJsonParse = (value, fallback) => {
@@ -159,9 +162,10 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <MotionConfig transition={{ duration: frenzyOverride?.active ? 2.5 : 0.3 }}>
-          <Router>
+      <ThemeProvider>
+        <AuthProvider>
+          <MotionConfig transition={{ duration: frenzyOverride?.active ? 2.5 : 0.3 }}>
+            <Router>
             <Suspense fallback={
               <div style={{
                 minHeight: '100vh',
@@ -209,6 +213,10 @@ function App() {
                   path="/my-locker"
                   element={isAuthenticated ? <MyLocker /> : <Navigate to="/" replace />}
                 />
+                <Route
+                  path="/forgot-password"
+                  element={<ForgotPassword />}
+                />
               </Routes>
             </Suspense>
           </Router>
@@ -246,7 +254,8 @@ function App() {
             )}
           </AnimatePresence>
         </MotionConfig>
-      </AuthProvider>
+          </AuthProvider>
+        </ThemeProvider>
     </ErrorBoundary>
   );
 }

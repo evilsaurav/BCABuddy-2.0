@@ -8,6 +8,7 @@ import {
   PlayArrow, ChevronRight, EmojiObjects, Star,
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
+import BackButton from '../components/BackButton';
 
 // ── Design tokens ────────────────────────────────────────────────────────────
 const C = {
@@ -397,6 +398,7 @@ const AdvancedTools = ({ onBack, onSelectTool, avatarUrl, displayName, globalAbo
         ${C.bg}
       `,
     }}>
+      <BackButton />
       <Box sx={{ maxWidth: 1080, mx: 'auto', p: { xs: 2, md: 3 } }}>
 
         {/* ── Top bar ── */}
