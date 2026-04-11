@@ -59,7 +59,7 @@
   
   /* Chat Messages */
   --chat-user-bg: rgba(187, 134, 252, 0.15);
-  --chat-user-border: rgba(187, 134, 252, 0.4);
+  --chat-user-border: 1px solid rgba(187, 134, 252, 0.4);
   --chat-ai-bg: rgba(230, 234, 240, 0.6);
   --chat-ai-border: none;
   --chat-user-text: #111827;

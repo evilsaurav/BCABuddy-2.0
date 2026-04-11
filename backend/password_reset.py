@@ -2,6 +2,7 @@
 BCABuddy Password Reset Models and Utilities - Author: Saurav Kumar
 """
 from pydantic import BaseModel
+from typing import Optional
 
 
 class ForgotPasswordRequest(BaseModel):
@@ -19,8 +20,9 @@ class ResetPasswordRequest(BaseModel):
 class ForgotPasswordResponse(BaseModel):
     """Response model for forgot password request"""
     message: str
-    reset_token: str
+    reset_token: Optional[str] = None
     expires_in_minutes: int
+    email_sent: bool = False
 
 
 class ResetPasswordResponse(BaseModel):

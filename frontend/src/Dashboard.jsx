@@ -47,6 +47,7 @@ import SidebarRecentHistory from './components/SidebarRecentHistory';
 import SidebarAcademicSetup from './components/SidebarAcademicSetup';
 import SidebarAssignments from './components/SidebarAssignments';
 import ThemeToggle from './components/ThemeToggle';
+import { useTheme } from './context/ThemeContext';
 import { getToken, setToken, clearToken, isTokenExpiringSoon, shouldForceLogout, getTokenRemainingMinutes, shouldWarnTokenExpiry } from './utils/tokenManager';
 import { useAuth } from './AuthContext';
 import { API_BASE } from './utils/apiConfig';
@@ -56,8 +57,8 @@ import { getExamTrackerSummary } from './utils/examSchedule';
 const drawerWidth = 280;
 const NEON_PURPLE = '#bb86fc';
 const NEON_CYAN = '#03dac6';
-const GLASS_BG = 'rgba(30, 41, 59, 0.5)';
-const GLASS_BORDER = '1px solid rgba(255, 255, 255, 0.1)';
+const GLASS_BG = 'var(--card-bg)';
+const GLASS_BORDER = '1px solid var(--card-border)';
 
 const STUDY_ACTIVITY_KEY = 'bcabuddy_study_activity_v1';
 const DAILY_GOALS_KEY = 'bcabuddy_daily_goals_v1';
@@ -567,19 +568,19 @@ const markdownComponents = {
       const chart = <ChartRenderer dataString={childStr} />;
       if (chart) return chart;
     }
-    return <p style={{ color: '#FFFFFF', margin: 0 }}>{children}</p>;
+    return <p style={{ color: 'var(--chat-ai-text)', margin: 0 }}>{children}</p>;
   },
-  strong: ({ children }) => <strong style={{ color: '#FFFFFF', fontWeight: 600 }}>{children}</strong>,
-  em: ({ children }) => <em style={{ color: '#FFFFFF', fontStyle: 'italic' }}>{children}</em>,
-  h1: ({ children }) => <h1 style={{ color: '#FFFFFF', marginBottom: '8px', marginTop: '12px', fontSize: '24px', fontWeight: 700 }}>{children}</h1>,
-  h2: ({ children }) => <h2 style={{ color: '#FFFFFF', marginBottom: '8px', marginTop: '10px', fontSize: '20px', fontWeight: 600 }}>{children}</h2>,
-  h3: ({ children }) => <h3 style={{ color: '#FFFFFF', marginBottom: '6px', marginTop: '8px', fontSize: '16px', fontWeight: 600 }}>{children}</h3>,
-  li: ({ children }) => <li style={{ color: '#FFFFFF', marginBottom: '4px' }}>{children}</li>,
-  blockquote: ({ children }) => <blockquote style={{ color: '#FFFFFF', borderLeft: `3px solid ${NEON_CYAN}`, paddingLeft: '12px', marginLeft: 0, marginTop: '8px', marginBottom: '8px', fontStyle: 'italic' }}>{children}</blockquote>,
+  strong: ({ children }) => <strong style={{ color: 'var(--chat-ai-text)', fontWeight: 600 }}>{children}</strong>,
+  em: ({ children }) => <em style={{ color: 'var(--chat-ai-text)', fontStyle: 'italic' }}>{children}</em>,
+  h1: ({ children }) => <h1 style={{ color: 'var(--chat-ai-text)', marginBottom: '8px', marginTop: '12px', fontSize: '24px', fontWeight: 700 }}>{children}</h1>,
+  h2: ({ children }) => <h2 style={{ color: 'var(--chat-ai-text)', marginBottom: '8px', marginTop: '10px', fontSize: '20px', fontWeight: 600 }}>{children}</h2>,
+  h3: ({ children }) => <h3 style={{ color: 'var(--chat-ai-text)', marginBottom: '6px', marginTop: '8px', fontSize: '16px', fontWeight: 600 }}>{children}</h3>,
+  li: ({ children }) => <li style={{ color: 'var(--chat-ai-text)', marginBottom: '4px' }}>{children}</li>,
+  blockquote: ({ children }) => <blockquote style={{ color: 'var(--chat-ai-text)', borderLeft: `3px solid ${NEON_CYAN}`, paddingLeft: '12px', marginLeft: 0, marginTop: '8px', marginBottom: '8px', fontStyle: 'italic' }}>{children}</blockquote>,
   a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: NEON_CYAN, textDecoration: 'underline', cursor: 'pointer' }}>{children}</a>,
-  ul: ({ children }) => <ul style={{ color: '#FFFFFF', marginLeft: '20px', marginTop: '8px' }}>{children}</ul>,
-  ol: ({ children }) => <ol style={{ color: '#FFFFFF', marginLeft: '20px', marginTop: '8px' }}>{children}</ol>,
-  table: ({ children }) => <table style={{ color: '#FFFFFF', borderCollapse: 'collapse', marginTop: '8px', marginBottom: '8px', width: '100%' }}>{children}</table>,
+  ul: ({ children }) => <ul style={{ color: 'var(--chat-ai-text)', marginLeft: '20px', marginTop: '8px' }}>{children}</ul>,
+  ol: ({ children }) => <ol style={{ color: 'var(--chat-ai-text)', marginLeft: '20px', marginTop: '8px' }}>{children}</ol>,
+  table: ({ children }) => <table style={{ color: 'var(--chat-ai-text)', borderCollapse: 'collapse', marginTop: '8px', marginBottom: '8px', width: '100%' }}>{children}</table>,
   td: ({ children }) => <td style={{ border: `1px solid ${NEON_CYAN}20`, padding: '8px', textAlign: 'left' }}>{children}</td>,
   th: ({ children }) => <th style={{ border: `1px solid ${NEON_CYAN}40`, padding: '8px', textAlign: 'left', backgroundColor: `${NEON_PURPLE}20`, fontWeight: 600 }}>{children}</th>,
 };
@@ -611,6 +612,7 @@ const JiyaRemark = ({ score, candidateName }) => {
 };
 
 const Dashboard = ({ onThemeOverride }) => {
+  const { isDark } = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeView, setActiveView] = useState('chat');
   const [semester, setSemester] = useState('');
@@ -2060,16 +2062,23 @@ const Dashboard = ({ onThemeOverride }) => {
   };
 
   const handleNewChat = () => {
-    setMessages([]);
-    setCurrentAnswer('');
-    setSessionId(null);
-    setActiveTool(null);
-    setChatSuggestions(QUICK_SUGGESTIONS);
-    setActiveView('chat');
-    // Stop any ongoing response
-    if (isAiThinking && abortControllerRef.current) {
+    if ((isAiThinking || isGenerating) && abortControllerRef.current) {
       handleStopResponse();
     }
+    setMessages([]);
+    setCurrentAnswer('');
+    setInput('');
+    setIsAiThinking(false);
+    setIsGenerating(false);
+    setSessionId(null);
+    setActiveTool(null);
+    setExamPredictions([]);
+    setRoadmapDraftText('');
+    setShowExamAskInput(false);
+    setShowRoadmapAskInput(false);
+    setHideSuggestions(false);
+    setChatSuggestions(QUICK_SUGGESTIONS);
+    setActiveView('chat');
     loadSessions();
   };
 
@@ -3467,8 +3476,11 @@ const Dashboard = ({ onThemeOverride }) => {
         display: 'flex',
         flexDirection: 'row',
         overflow: 'hidden',
-        bgcolor: '#000000',
-        backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(187, 134, 252, 0.05) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(3, 218, 198, 0.05) 0%, transparent 50%)'
+        bgcolor: 'var(--bg-primary)',
+        color: 'var(--text-primary)',
+        backgroundImage: isDark
+          ? 'radial-gradient(circle at 20% 50%, rgba(187, 134, 252, 0.05) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(3, 218, 198, 0.05) 0%, transparent 50%)'
+          : 'radial-gradient(circle at 18% 35%, rgba(187, 134, 252, 0.12) 0%, transparent 52%), radial-gradient(circle at 82% 70%, rgba(3, 218, 198, 0.10) 0%, transparent 55%)'
       }}
     >
       <AppBar position="fixed" sx={{ width: '100%', bgcolor: GLASS_BG, border: GLASS_BORDER, backdropFilter: 'blur(12px)', zIndex: 1200, boxShadow: 'none' }}>

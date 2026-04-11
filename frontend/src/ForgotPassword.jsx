@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Box,
   Card,
@@ -34,6 +34,16 @@ const ForgotPassword = () => {
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tokenFromUrl = String(params.get('token') || '').trim();
+    if (tokenFromUrl) {
+      setResetToken(tokenFromUrl);
+      setStep('reset');
+      setSuccessMessage('Reset link verified. Please set your new password.');
+    }
+  }, []);
+
   // Step 1: Request password reset with username
   const handleForgotPassword = async (e) => {
     e.preventDefault();
@@ -62,7 +72,11 @@ const ForgotPassword = () => {
       const data = await response.json();
       setResetToken(data.reset_token || '');
       setStep('reset');
-      setSuccessMessage(`Reset token generated! Token expires in ${data.expires_in_minutes || 15} minutes.`);
+      if (data.email_sent) {
+        setSuccessMessage('Password reset link sent to your registered email. Open the link or paste your reset token below.');
+      } else {
+        setSuccessMessage(`Reset token ready. Token expires in ${data.expires_in_minutes || 15} minutes.`);
+      }
     } catch (err) {
       setError(err.message || 'Something went wrong. Please try again.');
     } finally {
@@ -79,6 +93,12 @@ const ForgotPassword = () => {
     try {
       if (!newPassword || !confirmPassword) {
         setError('Both password fields are required');
+        setLoading(false);
+        return;
+      }
+
+      if (!String(resetToken || '').trim()) {
+        setError('Reset token is required. Open email link or paste token manually.');
         setLoading(false);
         return;
       }
@@ -203,7 +223,7 @@ const ForgotPassword = () => {
                     lineHeight: 1.6,
                   }}
                 >
-                  Enter your username to receive a password reset token. The token will be valid for 15 minutes.
+                  Enter your username. If your account has an email, we will send a secure reset link. Otherwise, you can continue with a token.
                 </Typography>
 
                 {error && (
@@ -256,7 +276,7 @@ const ForgotPassword = () => {
                       '&:disabled': { opacity: 0.6 },
                     }}
                   >
-                    {loading ? <CircularProgress size={20} /> : 'Send Reset Token'}
+                    {loading ? <CircularProgress size={20} /> : 'Send Reset Link'}
                   </Button>
                 </Box>
 
@@ -332,6 +352,28 @@ const ForgotPassword = () => {
                 )}
 
                 <Box component="form" onSubmit={handleResetPassword} sx={{ display: 'grid', gap: 2 }}>
+                  <TextField
+                    fullWidth
+                    label="Reset Token"
+                    variant="outlined"
+                    value={resetToken}
+                    onChange={(e) => setResetToken(e.target.value)}
+                    placeholder="Paste token from email link if needed"
+                    disabled={loading}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        bgcolor: 'rgba(255,255,255,0.04)',
+                        color: '#E6EAF0',
+                        borderRadius: '12px',
+                        '& fieldset': { borderColor: 'rgba(255,255,255,0.12)' },
+                        '&:hover fieldset': { borderColor: `${NEON_CYAN}35` },
+                        '&.Mui-focused fieldset': { borderColor: `${NEON_CYAN}60` },
+                      },
+                      '& .MuiOutlinedInput-input': { color: '#E6EAF0' },
+                      '& .MuiInputBase-input::placeholder': { color: 'rgba(255,255,255,0.4)', opacity: 1 },
+                    }}
+                  />
+
                   <TextField
                     fullWidth
                     label="New Password"

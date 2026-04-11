@@ -33,6 +33,7 @@ Pillow>=11.2.0
 python-dotenv==1.0.1
 pydantic>=2.11.0
 requests>=2.32.5,<3
+azure-communication-email>=1.0.0,<2
 
 # Testing
 pytest>=8.0,<9

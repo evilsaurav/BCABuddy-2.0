@@ -21,6 +21,7 @@ from auth_utils import (
 )
 from config import get_settings
 from database import User, get_db
+from email_service import send_password_reset_email
 from models import PasswordChange, Token, UserCreate, UserProfile, UserProfileUpdate
 from password_reset import (
     ForgotPasswordRequest,
@@ -376,7 +377,7 @@ def forgot_password(
     req: ForgotPasswordRequest,
     db: Session = Depends(get_db),
 ):
-    """Initiate password reset by username - generates JWT reset token (valid 15 mins)"""
+    """Initiate password reset using Azure email when available with token fallback."""
     username = str(req.username or "").strip()
     if not username:
         raise HTTPException(
@@ -396,10 +397,47 @@ def forgot_password(
     # Create reset token with 15-minute expiry
     reset_token = create_reset_token(username, expires_in_minutes=15)
 
+    user_email = str(getattr(user, "email", "") or "").strip()
+    frontend_base = settings.password_reset_frontend_base_url.rstrip("/")
+    reset_link = f"{frontend_base}/forgot-password?token={reset_token}"
+
+    # Email-first path (Azure Communication Services), if user email and env are configured.
+    if user_email:
+        try:
+            email_sent = send_password_reset_email(
+                to_email=user_email,
+                reset_link=reset_link,
+                username=username,
+            )
+            if email_sent:
+                return ForgotPasswordResponse(
+                    message=(
+                        "Password reset link sent to your registered email. "
+                        "Link is valid for 15 minutes."
+                    ),
+                    expires_in_minutes=15,
+                    email_sent=True,
+                )
+        except Exception:
+            # Keep backward compatibility if Azure mail is temporarily unavailable.
+            return ForgotPasswordResponse(
+                message=(
+                    "Email service unavailable right now. "
+                    "Use the reset token below (valid for 15 minutes)."
+                ),
+                reset_token=reset_token,
+                expires_in_minutes=15,
+                email_sent=False,
+            )
+
     return ForgotPasswordResponse(
-        message=f"Password reset token generated. Token valid for 15 minutes.",
+        message=(
+            "Password reset token generated. "
+            "Token valid for 15 minutes."
+        ),
         reset_token=reset_token,
         expires_in_minutes=15,
+        email_sent=False,
     )
 
 

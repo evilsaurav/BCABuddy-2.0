@@ -26,6 +26,18 @@ class Settings(BaseModel):
     groq_api_key: Optional[str] = Field(
         default=None, description="Groq API key for LLM calls"
     )
+    azure_email_connection_string: Optional[str] = Field(
+        default=None,
+        description="Azure Communication Services Email connection string",
+    )
+    azure_email_sender: Optional[str] = Field(
+        default=None,
+        description="Verified sender email address for Azure Communication Services",
+    )
+    password_reset_frontend_base_url: str = Field(
+        default="http://localhost:5173",
+        description="Frontend base URL used to construct password reset links",
+    )
 
     # Storage paths
     upload_dir: str = Field(default="uploads", description="Directory for uploaded files")
@@ -111,6 +123,13 @@ def get_settings() -> Settings:
             os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", str(60 * 24))
         ),
         groq_api_key=os.getenv("GROQ_API_KEY"),
+        azure_email_connection_string=os.getenv(
+            "AZURE_EMAIL_CONNECTION_STRING"
+        ),
+        azure_email_sender=os.getenv("AZURE_EMAIL_SENDER"),
+        password_reset_frontend_base_url=os.getenv(
+            "PASSWORD_RESET_FRONTEND_BASE_URL", "http://localhost:5173"
+        ).rstrip("/"),
         upload_dir=os.getenv("UPLOAD_DIR", "uploads"),
         profile_pics_dir=os.getenv("PROFILE_PICS_DIR", "profile_pics"),
     )

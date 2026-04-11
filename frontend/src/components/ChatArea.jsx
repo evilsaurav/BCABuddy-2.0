@@ -58,12 +58,12 @@ const ChatArea = ({
         }}
       >
         {messages.length === 0 && (
-          <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: 'rgba(255, 255, 255, 0.4)' }}>
+          <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: 'var(--text-muted)' }}>
             <motion.div animate={{ y: [0, -10, 0] }} transition={{ duration: 3, repeat: Infinity }}>
               <Box sx={{ fontSize: '56px', mb: 2 }}>💭</Box>
             </motion.div>
             <Typography sx={{ fontSize: '18px', fontWeight: 500 }}>Start a conversation to learn</Typography>
-            <Typography sx={{ fontSize: '13px', mt: 1, color: 'rgba(255, 255, 255, 0.3)' }}>Ask anything about your studies</Typography>
+            <Typography sx={{ fontSize: '13px', mt: 1, color: 'var(--text-muted)' }}>Ask anything about your studies</Typography>
           </Box>
         )}
 
@@ -79,7 +79,7 @@ const ChatArea = ({
                 {msg.sender === 'ai' && <Avatar sx={{ width: 36, height: 36, bgcolor: `${NEON_CYAN}20`, color: NEON_CYAN, border: `1px solid ${NEON_CYAN}40`, flexShrink: 0 }}><SmartToy sx={{ fontSize: '18px' }} /></Avatar>}
                 <Box sx={{ maxWidth: msg.sender === 'user' ? '70%' : '75%', minWidth: 0 }}>
                   <motion.div whileHover={{ scale: 1.01 }}>
-                    <Box sx={{ bgcolor: msg.sender === 'user' ? 'rgba(139, 134, 200, 0.15)' : (normalizeToolKey(activeTool) === 'viva mentor' ? 'rgba(1, 20, 1, 0.95)' : 'rgba(10, 13, 23, 0.9)'), border: 'none', color: normalizeToolKey(activeTool) === 'viva mentor' && msg.sender === 'ai' ? '#9dff8a' : '#FFFFFF', p: 2, borderRadius: '16px', wordBreak: 'break-word', overflowWrap: 'break-word', overflowX: 'hidden', lineHeight: 1.6, fontSize: '15px', whiteSpace: 'pre-wrap', backdropFilter: 'blur(12px)', boxShadow: msg.sender === 'user' ? `0 0 15px ${NEON_PURPLE}15` : 'none', fontFamily: normalizeToolKey(activeTool) === 'viva mentor' ? 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' : 'inherit' }}>
+                    <Box sx={{ bgcolor: msg.sender === 'user' ? 'var(--chat-user-bg)' : (normalizeToolKey(activeTool) === 'viva mentor' ? 'rgba(1, 20, 1, 0.95)' : 'var(--chat-ai-bg)'), border: msg.sender === 'user' ? 'var(--chat-user-border)' : 'var(--chat-ai-border)', color: normalizeToolKey(activeTool) === 'viva mentor' && msg.sender === 'ai' ? '#9dff8a' : (msg.sender === 'user' ? 'var(--chat-user-text)' : 'var(--chat-ai-text)'), p: 2, borderRadius: '16px', wordBreak: 'break-word', overflowWrap: 'break-word', overflowX: 'hidden', lineHeight: 1.6, fontSize: '15px', whiteSpace: 'pre-wrap', backdropFilter: 'blur(12px)', boxShadow: msg.sender === 'user' ? `0 0 15px ${NEON_PURPLE}15` : 'none', fontFamily: normalizeToolKey(activeTool) === 'viva mentor' ? 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' : 'inherit' }}>
                       {msg.sender === 'ai' && !msg.isTypingComplete ? (
                         <TypewriterText
                           text={msg.text}
@@ -133,7 +133,7 @@ const ChatArea = ({
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
             <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 2.5, gap: 1.5 }}>
               <Avatar sx={{ width: 36, height: 36, bgcolor: `${NEON_CYAN}20`, color: NEON_CYAN, border: `1px solid ${NEON_CYAN}40`, flexShrink: 0 }}><SmartToy sx={{ fontSize: '18px' }} /></Avatar>
-              <Box sx={{ bgcolor: 'rgba(10, 13, 23, 0.9)', border: `1px solid rgba(255, 255, 255, 0.1)`, color: '#FFFFFF', p: 2, borderRadius: '16px', backdropFilter: 'blur(12px)' }}>
+              <Box sx={{ bgcolor: 'var(--chat-ai-bg)', border: 'var(--chat-ai-border)', color: 'var(--chat-ai-text)', p: 2, borderRadius: '16px', backdropFilter: 'blur(12px)' }}>
                 <TypingIndicator />
               </Box>
             </Box>
