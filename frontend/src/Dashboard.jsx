@@ -22,7 +22,7 @@ import {
   Person, AttachFile, Delete, Assignment, HistoryEdu,
   Note, Mic, Science, Summarize, Add, Download, Settings,
   ExpandMore, Dashboard as DashboardIcon, BarChart, Bolt, Book,
-  Info, Edit as EditIcon, Lock as LockIcon, LogoutRounded, MoreVert, Timer, Assessment, Stop, WorkspacePremium, VolumeUp
+  Info, Edit as EditIcon, Lock as LockIcon, LogoutRounded, MoreVert, Timer, Assessment, Stop, WorkspacePremium, VolumeUp, EmojiEvents
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
@@ -53,6 +53,7 @@ import { useAuth } from './AuthContext';
 import { API_BASE } from './utils/apiConfig';
 import useHinglishVoice from './hooks/useHinglishVoice';
 import { getExamTrackerSummary } from './utils/examSchedule';
+import { BADGE_CATALOG, normalizeAchievements, computeBadgeTriggers, mergeAchievements, getBadgeById } from './utils/achievements';
 
 const drawerWidth = 280;
 const NEON_PURPLE = '#bb86fc';
@@ -398,7 +399,7 @@ const SafeMermaidViewer = ({ chartCode }) => {
     <div
       style={{
         width: '100%',
-        backgroundColor: '#0d1117',
+        backgroundColor: 'var(--bg-secondary)',
         padding: '16px',
         borderRadius: '12px',
         overflowX: 'auto',
@@ -438,8 +439,8 @@ const SafeMermaidViewer = ({ chartCode }) => {
           <div style={{ position: 'relative' }}>
             <pre
               style={{
-                background: '#161b22',
-                color: '#c9d1d9',
+                background: 'var(--bg-tertiary)',
+                color: 'var(--text-primary)',
                 fontSize: '12px',
                 borderRadius: '8px',
                 padding: '10px 42px 10px 12px',
@@ -705,6 +706,9 @@ const Dashboard = ({ onThemeOverride }) => {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewVersion, setReviewVersion] = useState(0);
   const [studyActivityVersion, setStudyActivityVersion] = useState(0);
+  const [achievements, setAchievements] = useState(() => normalizeAchievements({}));
+  const [showAchievementModal, setShowAchievementModal] = useState(false);
+  const [achievementToast, setAchievementToast] = useState('');
 
   const {
     isSupported: voiceSupported,
@@ -731,6 +735,7 @@ const Dashboard = ({ onThemeOverride }) => {
   const streamBufferRef = useRef({});
   const activeAiMessageIdRef = useRef(null);
   const examEveAutoTriggeredRef = useRef(false);
+  const achievementSyncingRef = useRef(false);
   const navigate = useNavigate();
 
   const makeMessageId = () => `${Date.now()}-${messageIdRef.current++}`;
@@ -766,6 +771,16 @@ const Dashboard = ({ onThemeOverride }) => {
 
   const readWeakTopics = () => {
     const raw = safeJsonParse(localStorage.getItem(WEAK_TOPICS_KEY), []);
+    return Array.isArray(raw) ? raw : [];
+  };
+
+  const readQuizAttempts = () => {
+    const raw = safeJsonParse(localStorage.getItem(QUIZ_ATTEMPTS_KEY), []);
+    return Array.isArray(raw) ? raw : [];
+  };
+
+  const readExamAttempts = () => {
+    const raw = safeJsonParse(localStorage.getItem(EXAM_ATTEMPTS_KEY), []);
     return Array.isArray(raw) ? raw : [];
   };
 
@@ -1367,6 +1382,61 @@ const Dashboard = ({ onThemeOverride }) => {
     }
   };
 
+  const loadAchievements = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/profile/achievements`, { headers: getHeaders() });
+      if (!res.ok) return;
+      const data = await res.json();
+      setAchievements(normalizeAchievements(data));
+    } catch (e) {
+      console.error('Failed to load achievements:', e);
+    }
+  };
+
+  const syncAchievements = async () => {
+    if (achievementSyncingRef.current) return;
+    achievementSyncingRef.current = true;
+    try {
+      const quizAttempts = readQuizAttempts();
+      const examAttempts = readExamAttempts();
+      const studyActivity = readStudyActivity();
+      const reviewItems = readReviewItems();
+
+      const triggerIds = computeBadgeTriggers({
+        quizAttempts,
+        examAttempts,
+        studyActivity,
+        roadmapPct: Number(studyRoadmap?.completion_pct || 0),
+        reviewItems,
+      });
+
+      const nowIso = new Date().toISOString();
+      const { updated, unlockedNow } = mergeAchievements(achievements, triggerIds, nowIso);
+
+      if (unlockedNow.length === 0) return;
+
+      const res = await fetch(`${API_BASE}/profile/achievements`, {
+        method: 'PUT',
+        headers: getHeaders(),
+        body: JSON.stringify({ achievements: updated }),
+      });
+      if (!res.ok) return;
+
+      const payload = await res.json();
+      const nextAchievements = normalizeAchievements(payload?.achievements || updated);
+      setAchievements(nextAchievements);
+
+      const latest = getBadgeById(unlockedNow[unlockedNow.length - 1]);
+      if (latest?.name) {
+        setAchievementToast(`Achievement unlocked: ${latest.name}`);
+      }
+    } catch (e) {
+      console.error('Failed to sync achievements:', e);
+    } finally {
+      achievementSyncingRef.current = false;
+    }
+  };
+
   const resolveAvatarUrl = (url) => {
     if (!url) return null;
     const s = String(url).trim();
@@ -1556,6 +1626,7 @@ const Dashboard = ({ onThemeOverride }) => {
       loadSessions();
       loadDashboardStats();
       loadUserProfile();
+      loadAchievements();
       loadStudyRoadmap();
       loadRoadmapHistory();
       loadPerformanceSummary();
@@ -1658,6 +1729,17 @@ const Dashboard = ({ onThemeOverride }) => {
   }, [activeView]);
 
   useEffect(() => {
+    syncAchievements();
+  }, [studyActivityVersion, reviewVersion, studyRoadmap?.completion_pct]);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      syncAchievements();
+    }, 30000);
+    return () => clearInterval(id);
+  }, [achievements, studyRoadmap?.completion_pct]);
+
+  useEffect(() => {
     const refreshExamTracker = () => {
       const preferredDate = String(examDateInput || userProfile?.exam_date || '').trim();
       const preferredSession = String(userProfile?.exam_session || '').trim();
@@ -1696,6 +1778,9 @@ const Dashboard = ({ onThemeOverride }) => {
 
   const isAutoExamEveMode = Number(examTracker?.daysLeft || 0) <= 1;
   const isExamEveMode = manualExamEveMode || isAutoExamEveMode;
+  const earnedBadges = Array.isArray(achievements?.earned) ? achievements.earned : [];
+  const totalBadges = BADGE_CATALOG.length;
+  const nextBadge = BADGE_CATALOG.find((badge) => !earnedBadges.includes(badge.id));
   const examEveHoursLeft = (() => {
     const examDate = new Date(examTracker?.examDate || Date.now());
     const diffMs = examDate.getTime() - Date.now();
@@ -3551,6 +3636,22 @@ const Dashboard = ({ onThemeOverride }) => {
 
             <Chip
               size="small"
+              icon={<EmojiEvents sx={{ fontSize: 16 }} />}
+              label={`${earnedBadges.length}/${totalBadges} unlocked`}
+              onClick={() => setShowAchievementModal(true)}
+              sx={{
+                height: 22,
+                cursor: 'pointer',
+                bgcolor: 'var(--surface-soft-strong)',
+                border: '1px solid var(--card-border)',
+                color: 'var(--text-primary)',
+                fontWeight: 700,
+                '& .MuiChip-icon': { color: '#f59e0b' },
+              }}
+            />
+
+            <Chip
+              size="small"
               label={examCountdownLabel}
               sx={{
                 height: 22,
@@ -3568,9 +3669,9 @@ const Dashboard = ({ onThemeOverride }) => {
               sx={{
                 height: 22,
                 cursor: 'pointer',
-                bgcolor: isExamEveMode ? 'rgba(255, 82, 82, 0.2)' : 'rgba(255,255,255,0.08)',
-                border: isExamEveMode ? '1px solid rgba(255, 82, 82, 0.65)' : '1px solid rgba(255,255,255,0.18)',
-                color: isExamEveMode ? '#ff8a80' : '#E6EAF0',
+                bgcolor: isExamEveMode ? 'rgba(255, 82, 82, 0.2)' : 'var(--surface-soft-strong)',
+                border: isExamEveMode ? '1px solid rgba(255, 82, 82, 0.65)' : '1px solid var(--card-border)',
+                color: isExamEveMode ? '#ff8a80' : 'var(--text-primary)',
                 fontWeight: 800,
               }}
             />
@@ -3635,8 +3736,8 @@ const Dashboard = ({ onThemeOverride }) => {
       </MuiMenu>
 
       {/* Admin Settings Menu */}
-      <MuiMenu open={Boolean(adminMenuAnchor)} anchorEl={adminMenuAnchor} onClose={() => setAdminMenuAnchor(null)} sx={{ '& .MuiPaper-root': { bgcolor: GLASS_BG, border: GLASS_BORDER, backdropFilter: 'blur(12px)', minWidth: '220px' }, '& .MuiMenuItem-root': { color: '#E6EAF0', '&:hover': { bgcolor: `${NEON_CYAN}20` } } }}>
-        <Typography sx={{ px: 2, py: 1, fontSize: '12px', color: 'rgba(255, 255, 255, 0.5)', fontWeight: 600, textTransform: 'uppercase' }}>⚙️ Settings</Typography>
+      <MuiMenu open={Boolean(adminMenuAnchor)} anchorEl={adminMenuAnchor} onClose={() => setAdminMenuAnchor(null)} sx={{ '& .MuiPaper-root': { bgcolor: GLASS_BG, border: GLASS_BORDER, backdropFilter: 'blur(12px)', minWidth: '220px' }, '& .MuiMenuItem-root': { color: 'var(--text-primary)', '&:hover': { bgcolor: `${NEON_CYAN}20` } } }}>
+        <Typography sx={{ px: 2, py: 1, fontSize: '12px', color: 'var(--text-soft)', fontWeight: 600, textTransform: 'uppercase' }}>⚙️ Settings</Typography>
         <Divider sx={{ bgcolor: `${NEON_CYAN}20` }} />
         <MenuItem onClick={handleChangePassword} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <LockIcon sx={{ fontSize: 18, color: NEON_CYAN }} />
@@ -3658,7 +3759,7 @@ const Dashboard = ({ onThemeOverride }) => {
       </MuiMenu>
 
       {/* User Profile Menu */}
-      <MuiMenu open={Boolean(userMenuAnchor)} anchorEl={userMenuAnchor} onClose={() => setUserMenuAnchor(null)} sx={{ '& .MuiPaper-root': { bgcolor: GLASS_BG, border: GLASS_BORDER, backdropFilter: 'blur(12px)', minWidth: '240px' }, '& .MuiMenuItem-root': { color: '#E6EAF0', '&:hover': { bgcolor: `${NEON_PURPLE}20` } } }}>
+      <MuiMenu open={Boolean(userMenuAnchor)} anchorEl={userMenuAnchor} onClose={() => setUserMenuAnchor(null)} sx={{ '& .MuiPaper-root': { bgcolor: GLASS_BG, border: GLASS_BORDER, backdropFilter: 'blur(12px)', minWidth: '240px' }, '& .MuiMenuItem-root': { color: 'var(--text-primary)', '&:hover': { bgcolor: `${NEON_PURPLE}20` } } }}>
         <Box sx={{ px: 2, py: 2, display: 'flex', alignItems: 'center', gap: 2, borderBottom: `1px solid ${NEON_CYAN}20` }}>
           <Box sx={{ width: 50, height: 50, borderRadius: '50%', bgcolor: `${NEON_PURPLE}40`, border: `2px solid ${NEON_CYAN}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: NEON_CYAN, fontWeight: 700, fontSize: '18px', position: 'relative', overflow: 'hidden' }}>
             {resolveAvatarUrl(userProfile?.profile_pic_url || userProfile?.profile_picture_url || profilePic) ? (
@@ -3678,10 +3779,10 @@ const Dashboard = ({ onThemeOverride }) => {
             )}
           </Box>
           <Box>
-            <Typography sx={{ fontSize: '14px', fontWeight: 600, color: '#E6EAF0' }}>
+            <Typography sx={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
               {userProfile.display_name || userProfile.username}
             </Typography>
-            <Typography sx={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.5)' }}>
+            <Typography sx={{ fontSize: '12px', color: 'var(--text-soft)' }}>
               @{userProfile.username}
             </Typography>
           </Box>
@@ -4442,6 +4543,109 @@ const Dashboard = ({ onThemeOverride }) => {
         </Modal>
       )}
 
+      <Modal open={showAchievementModal} onClose={() => setShowAchievementModal(false)}>
+        <Box
+          sx={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: { xs: '92%', sm: 560 },
+            maxHeight: '78vh',
+            overflowY: 'auto',
+            bgcolor: 'var(--bg-secondary)',
+            border: '1px solid var(--card-border)',
+            borderRadius: '18px',
+            boxShadow: 24,
+            p: 2.2,
+          }}
+        >
+          <Typography sx={{ color: 'var(--text-primary)', fontWeight: 900, fontSize: 20 }}>
+            Achievements
+          </Typography>
+          <Typography sx={{ color: 'var(--text-soft)', fontSize: 12, mt: 0.4 }}>
+            {earnedBadges.length}/{totalBadges} unlocked {nextBadge ? `• Next: ${nextBadge.name}` : '• All unlocked'}
+          </Typography>
+
+          <Box sx={{ mt: 1.2, mb: 0.5, display: 'flex', justifyContent: 'flex-end' }}>
+            <Button
+              size="small"
+              onClick={() => {
+                setShowAchievementModal(false);
+                navigate('/achievements');
+              }}
+              sx={{
+                textTransform: 'none',
+                color: 'var(--text-primary)',
+                border: '1px solid var(--card-border)',
+                bgcolor: 'var(--surface-soft)'
+              }}
+            >
+              Open Full Page
+            </Button>
+          </Box>
+
+          <Box sx={{ mt: 1.8, display: 'grid', gap: 1 }}>
+            {BADGE_CATALOG.map((badge) => {
+              const unlocked = earnedBadges.includes(badge.id);
+              return (
+                <Card
+                  key={badge.id}
+                  sx={{
+                    p: 1.3,
+                    borderRadius: '12px',
+                    bgcolor: unlocked ? 'var(--surface-soft-strong)' : 'var(--surface-soft)',
+                    border: unlocked ? '1px solid rgba(245, 158, 11, 0.45)' : '1px solid var(--card-border)',
+                  }}
+                >
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1.4, alignItems: 'center' }}>
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography sx={{ color: 'var(--text-primary)', fontWeight: 800, fontSize: 14 }}>
+                        {badge.name}
+                      </Typography>
+                      <Typography sx={{ color: 'var(--text-soft)', fontSize: 12 }}>
+                        {badge.hint}
+                      </Typography>
+                    </Box>
+                    <Chip
+                      size="small"
+                      label={unlocked ? 'Unlocked' : badge.rarity}
+                      sx={{
+                        textTransform: 'capitalize',
+                        bgcolor: unlocked ? 'rgba(16, 185, 129, 0.18)' : 'var(--surface-soft-strong)',
+                        color: unlocked ? '#34d399' : 'var(--text-secondary)',
+                        border: unlocked ? '1px solid rgba(16, 185, 129, 0.42)' : '1px solid var(--card-border)',
+                        fontWeight: 700,
+                      }}
+                    />
+                  </Box>
+                </Card>
+              );
+            })}
+          </Box>
+        </Box>
+      </Modal>
+
+      <Snackbar
+        open={Boolean(achievementToast)}
+        autoHideDuration={3500}
+        onClose={() => setAchievementToast('')}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert
+          onClose={() => setAchievementToast('')}
+          severity="success"
+          sx={{
+            width: '100%',
+            bgcolor: 'rgba(16, 185, 129, 0.13)',
+            borderLeft: '4px solid #10B981',
+            color: '#a7f3d0'
+          }}
+        >
+          {achievementToast}
+        </Alert>
+      </Snackbar>
+
       {/* Token Expiry Warning */}
       <Snackbar
         open={showTokenWarning}
@@ -4469,9 +4673,9 @@ const Dashboard = ({ onThemeOverride }) => {
         bottom: 0,
         left: { sm: drawerWidth },
         right: 0,
-        bgcolor: 'rgba(13, 13, 20, 0.85)',
+        bgcolor: 'var(--bg-overlay)',
         backdropFilter: 'blur(12px)',
-        borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+        borderTop: '1px solid var(--card-border)',
         py: 1,
         px: 2,
         display: 'flex',
@@ -4479,7 +4683,7 @@ const Dashboard = ({ onThemeOverride }) => {
         alignItems: 'center',
         zIndex: 1000,
         fontSize: '12px',
-        color: 'rgba(255, 255, 255, 0.6)',
+        color: 'var(--text-soft)',
         fontWeight: 500
       }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>

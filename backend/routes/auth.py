@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import shutil
 import time
+import json
 from datetime import date, datetime
 from typing import Any, cast
 
@@ -40,6 +41,20 @@ SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 SUPABASE_AVATAR_BUCKET = os.getenv("SUPABASE_AVATAR_BUCKET", "avatars")
 
 router = APIRouter()
+
+
+def _normalize_achievements_payload(payload: Any) -> dict[str, Any]:
+    base = payload if isinstance(payload, dict) else {}
+    earned = base.get("earned") if isinstance(base.get("earned"), list) else []
+    unlocked_at = base.get("unlocked_at") if isinstance(base.get("unlocked_at"), dict) else {}
+    stats = base.get("stats") if isinstance(base.get("stats"), dict) else {}
+    normalized = {
+        "version": int(base.get("version") or 1),
+        "earned": [str(x) for x in earned if str(x).strip()],
+        "unlocked_at": {str(k): str(v) for k, v in unlocked_at.items()},
+        "stats": stats,
+    }
+    return normalized
 
 
 def _validate_password_strength(password: str) -> None:
@@ -235,6 +250,31 @@ def update_profile(
 
     db.commit()
     return {"message": "Profile updated"}
+
+
+@router.get("/profile/achievements")
+def get_profile_achievements(current_user: User = Depends(get_current_user)):
+    raw = getattr(current_user, "achievements_json", None)
+    if not raw:
+        return _normalize_achievements_payload({})
+    try:
+        parsed = json.loads(raw)
+    except Exception:
+        parsed = {}
+    return _normalize_achievements_payload(parsed)
+
+
+@router.put("/profile/achievements")
+def update_profile_achievements(
+    payload: dict[str, Any],
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    normalized = _normalize_achievements_payload(payload.get("achievements"))
+    current_user_any = cast(Any, current_user)
+    current_user_any.achievements_json = json.dumps(normalized, ensure_ascii=True)
+    db.commit()
+    return {"message": "Achievements updated", "achievements": normalized}
 
 
 @router.put("/profile/exam-date")

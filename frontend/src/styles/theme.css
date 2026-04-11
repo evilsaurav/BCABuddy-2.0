@@ -18,6 +18,15 @@
   --neon-cyan: #03dac6;
   --neon-purple: #bb86fc;
   --neon-green: #39FF14;
+  --neon-cyan-12: rgba(3, 218, 198, 0.12);
+  --neon-cyan-22: rgba(3, 218, 198, 0.22);
+  --neon-cyan-30: rgba(3, 218, 198, 0.3);
+  --neon-cyan-60: rgba(3, 218, 198, 0.6);
+  --surface-soft: rgba(255, 255, 255, 0.04);
+  --surface-soft-strong: rgba(255, 255, 255, 0.08);
+  --text-soft: rgba(230, 234, 240, 0.65);
+  --texture-dot: rgba(187, 134, 252, 0.11);
+  --texture-glow: rgba(3, 218, 198, 0.1);
   
   /* Chat Messages */
   --chat-user-bg: rgba(139, 134, 200, 0.15);
@@ -56,6 +65,15 @@
   --neon-cyan: #03dac6;
   --neon-purple: #bb86fc;
   --neon-green: #39FF14;
+  --neon-cyan-12: rgba(3, 218, 198, 0.08);
+  --neon-cyan-22: rgba(3, 218, 198, 0.15);
+  --neon-cyan-30: rgba(3, 218, 198, 0.25);
+  --neon-cyan-60: rgba(3, 218, 198, 0.5);
+  --surface-soft: rgba(17, 24, 39, 0.04);
+  --surface-soft-strong: rgba(17, 24, 39, 0.08);
+  --text-soft: rgba(17, 24, 39, 0.66);
+  --texture-dot: rgba(187, 134, 252, 0.2);
+  --texture-glow: rgba(3, 218, 198, 0.18);
   
   /* Chat Messages */
   --chat-user-bg: rgba(187, 134, 252, 0.15);

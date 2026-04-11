@@ -37,6 +37,7 @@ class User(Base):
     auto_save_history = Column(Integer, nullable=False, default=1)
     show_quick_suggestions = Column(Integer, nullable=False, default=1)
     privacy_mode = Column(Integer, nullable=False, default=0)
+    achievements_json = Column(Text, nullable=True)
     profile_picture_url = Column(String, nullable=True)
     is_creator = Column(Integer, default=0)  # 0 = False, 1 = True (SQLite compatible)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -129,6 +130,7 @@ _sqlite_ensure_column("users", "enable_notifications", "enable_notifications INT
 _sqlite_ensure_column("users", "auto_save_history", "auto_save_history INTEGER DEFAULT 1")
 _sqlite_ensure_column("users", "show_quick_suggestions", "show_quick_suggestions INTEGER DEFAULT 1")
 _sqlite_ensure_column("users", "privacy_mode", "privacy_mode INTEGER DEFAULT 0")
+_sqlite_ensure_column("users", "achievements_json", "achievements_json TEXT")
 
 def get_db():
     db = SessionLocal()

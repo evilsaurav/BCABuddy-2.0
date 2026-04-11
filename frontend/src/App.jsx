@@ -14,6 +14,7 @@ const APCPage = lazy(() => import('./pages/APCPage'));
 const ExamSimulationPage = lazy(() => import('./pages/ExamSimulationPage'));
 const MyLocker = lazy(() => import('./pages/MyLocker'));
 const AboutPage = lazy(() => import('./pages/About'));
+const AchievementsPage = lazy(() => import('./pages/Achievements'));
 
 const ForgotPassword = lazy(() => import('./ForgotPassword'));
 const FRENZY_STORAGE_KEY = 'bcabuddy_frenzy_override_v1';
@@ -109,7 +110,7 @@ class ErrorBoundary extends React.Component {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: '#000000',
+          background: 'var(--bg-primary)',
           color: '#ff6b6b',
           padding: '24px',
           textAlign: 'center'
@@ -172,8 +173,8 @@ function App() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                background: '#0a0d17',
-                color: '#03dac6',
+                background: 'var(--bg-primary)',
+                color: 'var(--neon-cyan)',
                 fontSize: '14px',
                 letterSpacing: '0.3px'
               }}>
@@ -212,6 +213,10 @@ function App() {
                 <Route
                   path="/my-locker"
                   element={isAuthenticated ? <MyLocker /> : <Navigate to="/" replace />}
+                />
+                <Route
+                  path="/achievements"
+                  element={isAuthenticated ? <AchievementsPage /> : <Navigate to="/" replace />}
                 />
                 <Route
                   path="/forgot-password"

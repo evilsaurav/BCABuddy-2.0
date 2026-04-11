@@ -1,5 +1,5 @@
 body.exam-mode-active {
-  background: #0a0a0a !important;
+  background: var(--bg-primary) !important;
 }
 
 body.exam-mode-active .MuiCard-root {
@@ -14,7 +14,7 @@ body.exam-mode-active .MuiSvgIcon-root {
 }
 
 .apc-exam-root {
-  background: #0a0a0a;
+  background: var(--bg-primary);
 }
 
 .apc-prochat-card {
