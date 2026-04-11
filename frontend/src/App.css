@@ -5,11 +5,11 @@
   width: 100% !important;
   min-height: 450px; /* Forcefully height badha di */
   overflow-x: auto; 
-  background: #0d0d0d; /* Deep dark background */
+  background: var(--bg-secondary);
   border-radius: 12px;
   padding: 20px;
   margin: 20px 0;
-  border: 1px solid #33ff00; /* Neon border for BCABuddy vibe */
+  border: 1px solid var(--neon-cyan);
   display: flex;
   justify-content: center;
 }
@@ -26,11 +26,11 @@
   width: 100% !important;
   min-height: 450px;
   overflow-x: auto;
-  background: #0d0d0d;
+  background: var(--bg-secondary);
   border-radius: 12px;
   padding: 20px;
   margin: 20px 0;
-  border: 1px solid #33ff00;
+  border: 1px solid var(--neon-cyan);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -38,7 +38,7 @@
 
 /* Loading animation jab tak AI code likh raha ho */
 .building-diagram {
-  color: #33ff00;
+  color: var(--neon-cyan);
   font-family: 'Courier New', Courier, monospace;
   text-align: center;
   padding: 20px;

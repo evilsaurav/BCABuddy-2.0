@@ -96,6 +96,19 @@ def _normalize_exam_preferences(
     return date_text or None, normalized_session
 
 
+def _normalize_response_mode(mode_raw: str | None) -> str:
+    mode = str(mode_raw or "").strip().lower()
+    allowed = {"fast", "thinking", "pro"}
+    if not mode:
+        return "fast"
+    if mode not in allowed:
+        raise HTTPException(
+            status_code=400,
+            detail="default_response_mode must be one of: fast, thinking, pro.",
+        )
+    return mode
+
+
 @router.post("/signup")
 def signup(user: UserCreate, db: Session = Depends(get_db)):
     if db.query(User).filter(User.username == user.username).first():
@@ -160,6 +173,11 @@ def get_profile(current_user: User = Depends(get_current_user)):
         bio=getattr(current_user, "bio", None),
         exam_date=getattr(current_user, "exam_date", None),
         exam_session=getattr(current_user, "exam_session", None),
+        default_response_mode=_normalize_response_mode(getattr(current_user_any, "default_response_mode", "fast")),
+        enable_notifications=bool(getattr(current_user_any, "enable_notifications", 1)),
+        auto_save_history=bool(getattr(current_user_any, "auto_save_history", 1)),
+        show_quick_suggestions=bool(getattr(current_user_any, "show_quick_suggestions", 1)),
+        privacy_mode=bool(getattr(current_user_any, "privacy_mode", 0)),
         profile_pic_url=str(profile_pic_val)
         if profile_pic_val is not None
         else None,
@@ -201,6 +219,20 @@ def update_profile(
         )
         current_user_any.exam_date = exam_date_value
         current_user_any.exam_session = exam_session_value
+
+    if getattr(profile_data, "default_response_mode", None) is not None:
+        current_user_any.default_response_mode = _normalize_response_mode(
+            profile_data.default_response_mode
+        )
+    if getattr(profile_data, "enable_notifications", None) is not None:
+        current_user_any.enable_notifications = 1 if profile_data.enable_notifications else 0
+    if getattr(profile_data, "auto_save_history", None) is not None:
+        current_user_any.auto_save_history = 1 if profile_data.auto_save_history else 0
+    if getattr(profile_data, "show_quick_suggestions", None) is not None:
+        current_user_any.show_quick_suggestions = 1 if profile_data.show_quick_suggestions else 0
+    if getattr(profile_data, "privacy_mode", None) is not None:
+        current_user_any.privacy_mode = 1 if profile_data.privacy_mode else 0
+
     db.commit()
     return {"message": "Profile updated"}
 

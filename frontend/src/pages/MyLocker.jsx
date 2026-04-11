@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { buildApiUrl } from '../utils/apiConfig';
+import { API_BASE, buildApiUrl } from '../utils/apiConfig';
 import BackButton from '../components/BackButton';
 
 const MyLocker = () => {
@@ -12,6 +12,15 @@ const MyLocker = () => {
   useEffect(() => {
     fetchFiles();
   }, []);
+
+  const resolveDownloadUrl = (url) => {
+    const raw = String(url || '').trim();
+    if (!raw) return '#';
+    if (/^https?:\/\//i.test(raw)) return raw;
+    const base = String(API_BASE || '').replace(/\/+$/, '');
+    const path = raw.startsWith('/') ? raw : `/${raw}`;
+    return `${base}${path}`;
+  };
 
   const fetchFiles = async () => {
     try {
@@ -29,7 +38,7 @@ const MyLocker = () => {
       setError('');
     } catch (error) {
       console.error('Error fetching files:', error);
-      setError('Unable to load locker files right now.');
+      setError(error?.response?.data?.detail || 'Unable to load locker files right now.');
     }
   };
 
@@ -57,7 +66,7 @@ const MyLocker = () => {
       fetchFiles();
     } catch (error) {
       console.error('Error uploading file:', error);
-      setError('Upload failed. Please try again.');
+      setError(error?.response?.data?.detail || 'Upload failed. Please try again.');
     } finally {
       setUploading(false);
     }
@@ -91,11 +100,14 @@ const MyLocker = () => {
 
       <div>
         <h2 className="text-xl font-semibold mb-2">Uploaded Files</h2>
+        {files.length === 0 && !error && (
+          <p style={{ color: '#6b7280' }}>No files yet. Upload your first study material.</p>
+        )}
         <ul className="list-disc pl-5">
           {files.map((file, index) => (
             <li key={index} className="mb-2">
               <a
-                href={file.download_url}
+                href={resolveDownloadUrl(file.download_url)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-blue-500 underline"

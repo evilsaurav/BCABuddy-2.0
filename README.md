@@ -459,7 +459,7 @@ Use the unified launcher script:
 
 ---
 
-## ?? API Reference
+## 🔌 API Reference
 
 ### Base URL
 
@@ -487,36 +487,40 @@ See complete API catalog and interactive docs at **http://127.0.0.1:8000/docs** 
 - **/signup, /login** - Authentication
 - **/profile** - User profile management
 - **/chat** - AI chat interface
-- **/sessions** - Chat session CRUD
+- **/sessions** - Chat session list + clear-all history
+- **/sessions/{session_id}** - Rename/Delete a specific session
 - **/generate-quiz, /generate-exam** - Assessment generation
 - **/study-roadmap/{latest|accept|history}** - Roadmap workflows
 - **/apc/performance-report** - Analytics generation
 - **/upload-notes-ocr, /solve-assignment** - OCR processing
+- **/health, /api/health** - Deployment health endpoints
 
 For detailed request/response schemas see [backend/models.py](backend/models.py).
 
 ---
 
-## ?? Data Model
+## 🗄 Data Model
 
 ### SQLite Database Tables
 
 #### **users**
-- `id` (PRIMARY KEY), `username`, `email`, `hashed_password`
-- `display_name`, `bio`, `profile_picture_url`
-- `created_at`, `is_creator`
+- `id` (PRIMARY KEY), `username`, `hashed_password`
+- `display_name`, `gender`, `mobile_number`, `email`, `college`, `enrollment_id`, `bio`
+- `exam_date`, `exam_session`, `profile_picture_url`, `is_creator`, `created_at`
+- `default_response_mode`, `enable_notifications`, `auto_save_history`, `show_quick_suggestions`, `privacy_mode`
 
 #### **chat_sessions**
-- `id` (UUID), `user_id` (FK), `title`
-- `created_at`, `last_message_at`
+- `id` (PRIMARY KEY), `user_id` (FK), `title`, `created_at`
 
 #### **chat_history**
-- `id`, `session_id` (FK), `user_id` (FK)
-- `role` (user/assistant), `content`, `timestamp`
+- `id`, `session_id` (FK), `sender`, `text`, `created_at`
+- `intent_type`, `confidence_score`
 
 #### **study_roadmaps**
-- `id`, `user_id` (FK), `subject`, `semester`
-- `duration_days`, `content` (markdown), `created_at`
+- `id`, `user_id` (FK), `subject`, `title`, `roadmap_json`, `raw_text`, `created_at`
+
+#### **apc_logs**
+- `id`, `user_id` (FK), `tool_name`, `subject`, `semester`, `prompt_text`, `response_text`, `created_at`
 
 ### Vector Stores
 
@@ -527,35 +531,123 @@ See [backend/database.py](backend/database.py) for full schema.
 
 ---
 
-## ? Configuration
+## ⚙️ Configuration (Latest)
 
-### Backend (.env)
+### Backend Environment Variables (`backend/.env`)
 
 ```env
-# Required
-GROQ_API_KEY=your_key
-
-# Security
-SECRET_KEY=your_secret_key
+# ------------------------------
+# Core / Security (required in prod)
+# ------------------------------
+SECRET_KEY=CHANGE_ME_IN_PRODUCTION
+JWT_ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=1440
 
-# Storage
+# ------------------------------
+# AI Provider
+# ------------------------------
+GROQ_API_KEY=your_groq_key
+BCABUDDY_CHAT_MODEL=llama-3.3-70b-versatile
+
+# ------------------------------
+# CORS (comma separated OR JSON array)
+# ------------------------------
+BACKEND_CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+# BACKEND_CORS_ORIGINS=["https://your-frontend.com","https://www.your-frontend.com"]
+
+# ------------------------------
+# File/Storage
+# ------------------------------
 UPLOAD_DIR=uploads
 PROFILE_PICS_DIR=profile_pics
+LOCAL_LOCKER_DIR=uploads/locker
+LOCKER_MAX_UPLOAD_BYTES=26214400
 
-# CORS
-BACKEND_CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+# ------------------------------
+# Azure Email Password Reset (optional)
+# ------------------------------
+AZURE_EMAIL_CONNECTION_STRING=
+AZURE_EMAIL_SENDER=
+PASSWORD_RESET_FRONTEND_BASE_URL=http://localhost:5173
 
-# Rate Limits
+# ------------------------------
+# Supabase Avatar Storage (optional)
+# ------------------------------
+SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
+SUPABASE_AVATAR_BUCKET=avatars
+
+# ------------------------------
+# App rate limits (optional)
+# ------------------------------
 CHAT_REQUESTS_PER_MINUTE=30
 QUIZ_REQUESTS_PER_MINUTE=10
+EXAM_REQUESTS_PER_MINUTE=5
+GRADING_REQUESTS_PER_MINUTE=15
+OCR_REQUESTS_PER_MINUTE=10
 ```
 
-### Frontend (.env)
+### Frontend Environment Variables (`frontend/.env`)
 
 ```env
 VITE_API_BASE=http://127.0.0.1:8000
 ```
+
+Frontend fallback behavior:
+- If `VITE_API_BASE` missing and app runs on localhost, frontend uses `/api` proxy.
+- In production, set `VITE_API_BASE` to deployed backend URL.
+
+### Runtime Behavior from User Settings
+
+- `default_response_mode`: sent in `/chat` payload as `response_mode`.
+- `show_quick_suggestions`: controls suggestion chip visibility in dashboard chat.
+- `auto_save_history` + `privacy_mode`: enforced server-side.
+  - when disabled/privacy enabled, `/sessions` and `/history` return empty for that user
+  - `/chat` responses still work but messages are not persisted
+
+## ☁️ Azure Deployment (Current)
+
+### Backend (App Service - Container)
+
+- Dockerfile exposes port `8000` and respects `${PORT:-${WEBSITES_PORT:-8000}}`.
+- Health check path should be `/api/health`.
+- Startup command in Azure should remain empty (use Docker CMD).
+
+Required app settings:
+
+- `SECRET_KEY`
+- `GROQ_API_KEY`
+- `BACKEND_CORS_ORIGINS`
+
+Recommended app settings:
+
+- `WEBSITES_PORT=8000`
+- `BCABUDDY_CHAT_MODEL=llama-3.3-70b-versatile`
+
+Optional settings:
+
+- `AZURE_EMAIL_CONNECTION_STRING`, `AZURE_EMAIL_SENDER`, `PASSWORD_RESET_FRONTEND_BASE_URL`
+- `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_AVATAR_BUCKET`
+
+### Frontend (Azure Static Web Apps)
+
+- Build output: `frontend/dist`
+- Set repo secret `FRONTEND_VITE_API_BASE` to backend URL.
+
+### GitHub Actions Secrets
+
+- `REGISTRY_LOGIN_SERVER`
+- `REGISTRY_USERNAME`
+- `REGISTRY_PASSWORD`
+- `AZURE_WEBAPP_PUBLISH_PROFILE`
+- `AZURE_BACKEND_WEBAPP_NAME`
+- `AZURE_STATIC_WEB_APPS_API_TOKEN`
+- `FRONTEND_VITE_API_BASE`
+
+Deployment workflows:
+
+- `.github/workflows/deploy.yml` (backend)
+- `.github/workflows/azure-static-web-apps-kind-sea-0b41fb700.yml` (frontend)
 
 ### Launcher Flags (run_app.ps1)
 
@@ -623,13 +715,13 @@ python test_final_integration.py
 
 ---
 
-## ? Known Limitations
+## ⚠️ Known Limitations
 
-1. **Missing /upload endpoint** - Frontend references exist but backend route removed
-2. **Mixed API base URLs** - Some pages hardcode 127.0.0.1:8000 vs /api proxy
-3. **Incomplete RAG user upload** - User PDFs not auto-indexed to vector store
-4. **Response mode handling** - Fast/Thinking/Pro modes partially implemented
-5. **Token auto-refresh** - Manual re-login required after expiry
+1. **Legacy file presence:** `backend/main_old.py` and `backend/main_backup.py` are retained for reference and are not deployment entrypoints.
+2. **In-memory performance summary:** APC performance cache is process-memory based and resets after restart.
+3. **Wildcard CORS risk:** avoid `*` in production origins; whitelist deployed frontend domains only.
+4. **Single SQLite node:** production scaling to multi-instance requires external DB migration.
+5. **Token refresh flow:** session expiry still requires re-authentication (no refresh-token rotation yet).
 
 See [Known Limitations](#known-limitations) for details and workarounds.
 
@@ -727,6 +819,6 @@ MIT License - See LICENSE file for details.
 
 ---
 
-**Built with :heart: for IGNOU BCA Students**
+Built with love for IGNOU BCA Students.
 
-*Last Updated: March 3, 2026*
+Last Updated: April 11, 2026

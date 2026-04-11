@@ -23,10 +23,8 @@ export const ThemeProvider = ({ children }) => {
     // Apply theme to document
     if (isDark) {
       document.documentElement.removeAttribute('data-theme');
-      document.body.style.backgroundColor = '#0a0d17';
     } else {
       document.documentElement.setAttribute('data-theme', 'light');
-      document.body.style.backgroundColor = '#f7f6f3';
     }
     
     // Save preference to localStorage

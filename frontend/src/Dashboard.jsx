@@ -89,6 +89,13 @@ const safeJsonParse = (value, fallback) => {
 const normalizeToolKey = (value) => {
   const raw = String(value || '').trim().toLowerCase().replace(/_/g, ' ');
   const normalized = raw.replace(/\s+/g, ' ');
+  if (['pyq', 'pyqs', 'previous year question', 'previous year questions'].includes(normalized)) return 'pyqs';
+  if (['assignment', 'assignments'].includes(normalized)) return 'assignments';
+  if (['lab work', 'lab'].includes(normalized)) return 'lab work';
+  if (['notes', 'note'].includes(normalized)) return 'notes';
+  if (['summary', 'summaries'].includes(normalized)) return 'summary';
+  if (['viva'].includes(normalized)) return 'viva';
+  if (['ai code architect', 'code architect'].includes(normalized)) return 'ai code architect';
   if (['exam predictor', 'exam-predictor'].includes(normalized)) return 'exam predictor';
   if (['viva mentor', 'ai viva mentor', 'ai-viva-mentor'].includes(normalized)) return 'viva mentor';
   if (['study roadmap', 'study plan', 'roadmap'].includes(normalized)) return 'study roadmap';
@@ -657,6 +664,10 @@ const Dashboard = ({ onThemeOverride }) => {
   const [showAdvancedTools, setShowAdvancedTools] = useState(false);
   const [tokenWarning, setTokenWarning] = useState(null); // Token expiry warning
   const [showTokenWarning, setShowTokenWarning] = useState(false); // Show warning snackbar
+  const [userSettings, setUserSettings] = useState({
+    defaultResponseMode: 'fast',
+    showQuickSuggestions: true,
+  });
   const [studyRoadmap, setStudyRoadmap] = useState({ has_roadmap: false, days: [], completion_pct: 0 });
   const [apcSubjectInput, setApcSubjectInput] = useState('');
   const [apcSemesterInput, setApcSemesterInput] = useState('');
@@ -1341,6 +1352,11 @@ const Dashboard = ({ onThemeOverride }) => {
         setExamTracker(getExamTrackerSummary(new Date(), profileExamDate, profileExamSession));
       }
 
+      setUserSettings({
+        defaultResponseMode: String(data?.default_response_mode || 'fast').toLowerCase(),
+        showQuickSuggestions: Boolean(data?.show_quick_suggestions ?? true),
+      });
+
       const raw = data?.profile_pic_url || data?.profile_picture_url;
       if (raw) {
         const normalized = String(raw).startsWith('http') ? String(raw) : `${API_BASE}${String(raw)}`;
@@ -1395,7 +1411,37 @@ const Dashboard = ({ onThemeOverride }) => {
 
   const handleChangePassword = () => {
     setAdminMenuAnchor(null);
-    alert('Password change coming soon!');
+    navigate('/edit-profile?tab=security');
+  };
+
+  const handleClearChatHistory = async () => {
+    setAdminMenuAnchor(null);
+    const shouldClear = window.confirm('Clear all chat sessions and history? This cannot be undone.');
+    if (!shouldClear) return;
+
+    try {
+      const res = await fetch(`${API_BASE}/sessions`, {
+        method: 'DELETE',
+        headers: getHeaders(),
+      });
+      if (!res.ok) {
+        const detail = await res.text().catch(() => '');
+        throw new Error(detail || `HTTP ${res.status}`);
+      }
+
+      setMessages([]);
+      setSessionId(null);
+      setRecentChats([]);
+      await loadSessions();
+      alert('Chat history cleared successfully.');
+    } catch (e) {
+      alert(`Failed to clear history: ${e.message}`);
+    }
+  };
+
+  const handleOpenAppSettings = () => {
+    setAdminMenuAnchor(null);
+    navigate('/edit-profile?tab=settings');
   };
 
   const getSubjectLabel = (code) => SUBJECT_LABELS[code] || code;
@@ -1421,22 +1467,24 @@ const Dashboard = ({ onThemeOverride }) => {
   };
 
   const getContextualSuggestions = () => {
-    if (activeTool === "Assignments") {
+    if (!userSettings.showQuickSuggestions) return [];
+    const toolKey = normalizeToolKey(activeTool);
+    if (toolKey === 'assignments') {
       return ["Solve Java assignment", "C++ Program logic", "Problem breakdown", "Code explanation", "Step-by-step solution", "Error debugging"];
     }
-    if (activeTool === "Viva") {
+    if (toolKey === 'viva' || toolKey === 'viva mentor') {
       return ["Ask me Java question", "DBMS concepts", "Networking fundamentals", "OOP principles", "Data structure basics", "Algorithm explanation"];
     }
-    if (activeTool === "Lab Work") {
+    if (toolKey === 'lab work') {
       return ["Write a sorting code", "Implement recursion", "Design a class", "Create linked list", "Debug this code", "Optimize solution"];
     }
-    if (activeTool === "PYQs") {
+    if (toolKey === 'pyqs') {
       return ["2023 exam questions", "Frequently asked topics", "Marking scheme", "Sample answers", "Predict next exam", "Common patterns"];
     }
-    if (activeTool === "Notes") {
+    if (toolKey === 'notes') {
       return ["Chapter summary", "Key formulas", "Memory tricks", "Definition list", "Important points", "Revision guide"];
     }
-    if (activeTool === "Summary") {
+    if (toolKey === 'summary') {
       return ["Condense this text", "Summarize chapter", "Extract key points", "Main ideas only", "Shorten passage", "Quick recap"];
     }
     if (chatSuggestions && chatSuggestions.length > 0) return chatSuggestions;
@@ -1814,8 +1862,9 @@ const Dashboard = ({ onThemeOverride }) => {
           mode: modeToSend, 
           selected_subject: selectedSubjectForRequest, 
           selected_semester: selectedSemesterForRequest,
+          response_mode: userSettings.defaultResponseMode || 'fast',
           session_id: sessionId,
-          active_tool: selectedTool,
+          active_tool: normalizeToolKey(selectedTool || '') || selectedTool,
           messages: trimmedMessages
         }),
         signal: controller.signal
@@ -3593,11 +3642,11 @@ const Dashboard = ({ onThemeOverride }) => {
           <LockIcon sx={{ fontSize: 18, color: NEON_CYAN }} />
           <Typography sx={{ fontSize: '14px' }}>Change Password</Typography>
         </MenuItem>
-        <MenuItem onClick={() => { setAdminMenuAnchor(null); alert('Clear chat history coming soon!'); }} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+        <MenuItem onClick={handleClearChatHistory} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <Delete sx={{ fontSize: 18, color: '#ff6b6b' }} />
           <Typography sx={{ fontSize: '14px' }}>Clear History</Typography>
         </MenuItem>
-        <MenuItem onClick={() => { setAdminMenuAnchor(null); alert('App settings coming soon!'); }} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+        <MenuItem onClick={handleOpenAppSettings} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <Settings sx={{ fontSize: 18, color: NEON_PURPLE }} />
           <Typography sx={{ fontSize: '14px' }}>App Settings</Typography>
         </MenuItem>
@@ -4083,7 +4132,7 @@ const Dashboard = ({ onThemeOverride }) => {
                   </Card>
                 )}
 
-                {( (normalizeToolKey(activeTool) !== 'exam predictor' || showExamAskInput)
+                {( userSettings.showQuickSuggestions && (normalizeToolKey(activeTool) !== 'exam predictor' || showExamAskInput)
                   && (normalizeToolKey(activeTool) !== 'study roadmap' || showRoadmapAskInput)
                 ) && <QuickSuggestionsChips />}
 

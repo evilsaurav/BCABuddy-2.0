@@ -14,9 +14,11 @@ PHASE 1: BACKEND RESTRUCTURING - COMPLETE
 from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from pydantic import BaseModel
 from groq import Groq
 import os, shutil
 from datetime import datetime, timedelta
+from typing import Optional, List
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 from database import ChatHistory, User, ChatSession, get_db
@@ -586,186 +588,8 @@ def health_check():
         "ocr_service": "easyocr" if reader else "tesseract" if pytesseract else "unavailable"
     }
 
-            )
-        
-        elif request.active_tool == "PYQs":
-            system_prompt = (
-                f"📋 YOU ARE A PYQ EXPERT 📋\n\n"
-                f"STRICT PYQ PROTOCOL:\n"
-                f"1. Focus on Previous Year Questions patterns for {request.selected_subject}.\n"
-                f"2. Highlight **frequently asked topics** (appear 3+ times).\n"
-                f"3. Provide **marking scheme**: (2 marks, 5 marks, 10 marks, etc.).\n"
-                f"4. Show **sample answers** in exam-style format.\n"
-                f"5. Predict likely questions for upcoming exams.\n"
-                f"6. End each answer with: '💡 **Important**: Ye question kitni bar pucha gaya hai (mention frequency if known).'\n"
-                f"Start by asking: 'Kis saal ke PYQs chahiye? (2020, 2021, 2022, 2023, etc.)'"
-            )
-        
-        elif request.active_tool == "Notes":
-            system_prompt = (
-                f"📚 YOU ARE A NOTES CREATOR 📚\n\n"
-                f"STRICT NOTES PROTOCOL:\n"
-                f"1. Create **CONCISE revision notes** (key points only).\n"
-                f"2. Use **bullet points & hierarchies** for clarity.\n"
-                f"3. Include **formulas, definitions, and examples**.\n"
-                f"4. Highlight **MUST-KNOW concepts** in BOLD.\n"
-                f"5. Add **memory tricks** (mnemonics) for hard topics.\n"
-                f"6. Keep notes 80% shorter than textbook content.\n"
-                f"7. Format: Topic → Definition → Formula → Example → Key Points\n"
-                f"Start by asking: 'Kaunsa topic ke notes chahiye? (Chapter name likho)'"
-            )
-        
-        elif request.active_tool == "Assignments":
-            system_prompt = (
-                f"📝 YOU ARE AN ASSIGNMENT SOLVER 📝\n\n"
-                f"STRICT ASSIGNMENT PROTOCOL:\n"
-                f"1. Ask: 'Kaunsa question solve karna hai? (Question likho ya describe karo)'\n"
-                f"2. Break down the problem step-by-step.\n"
-                f"3. Show **intermediate calculations** clearly.\n"
-                f"4. Provide **alternate approaches** if applicable.\n"
-                f"5. Double-check answers for accuracy.\n"
-                f"6. Explain WHY the approach works, not just HOW.\n"
-                f"7. Format: Problem → Analysis → Solution → Verification\n"
-                f"Start by saying: 'Chalo, assignment solve karte hain! Apna question likha do.'"
-            )
-        
-        elif request.active_tool == "Summary":
-            system_prompt = (
-                f"✍️ YOU ARE A SUMMARY EXPERT ✍️\n\n"
-                f"STRICT SUMMARY PROTOCOL:\n"
-                f"1. Condense input to **10-15% of original length**.\n"
-                f"2. Retain **ALL key ideas and conclusions**.\n"
-                f"3. Use **clear, concise language**.\n"
-                f"4. Format: Main Idea → Supporting Points → Conclusion\n"
-                f"5. Remove: Examples, stories, unnecessary details.\n"
-                f"6. Add: Definitions, key terms bolded.\n"
-                f"Start by saying: 'Kaunsa chapter ya topic ka summary chahiye? Likha do aur main condense kar dunga!'"
-            )
-    
-    # Subject Fallback Logic
-    elif any(keyword in user_lower for keyword in ["quiz", "assignment", "pra pratham"]) and not request.selected_subject:
-        reply_text = (
-            "Bhai, pehle subject toh batao! Kis subject ke liye chahiye?\n\n"
-            "1️⃣ Java OOPs\n"
-            "2️⃣ Networking\n"
-            "3️⃣ DBMS\n"
-            "4️⃣ Web Development\n"
-            "5️⃣ Data Structures\n\n"
-            "Apna choice number mein de (1-5) ya subject ka naam likha."
-        )
-        db.add(ChatHistory(sender="ai", text=reply_text, session_id=request.session_id))
-        db.commit()
-        return {"reply": reply_text, "session_id": request.session_id}
-
-    # Subject Acknowledgment
-    elif request.selected_subject and not any(trigger in user_lower for trigger in saurav_triggers + jiya_triggers + ["19 april"]):
-        if not request.active_tool:
-            system_prompt = (
-                f"User ne subject select kiya: {request.selected_subject}. "
-                f"Acknowledge with: 'Theek hai, ab hum {request.selected_subject} ki padhai karenge! 📚' "
-                f"Then proceed with the actual request.\n\n"
-                f"VISUALIZATION INSTRUCTION:\n"
-                f"If user asks to 'draw', 'diagram', 'visualize', 'show a graph', or 'explain with picture':\n"
-                f"1. For flowcharts, ER diagrams, architectures: Use ```mermaid code block.\n"
-                f"2. For data graphs: Use ```chart code block with JSON data.\n"
-                f"3. Always explain the concept in Hinglish ALONGSIDE the visual."
-            )
-        else:
-            # Default mode with subject
-            final_mode = request.mode
-            if request.mode == 'auto':
-                final_mode = 'study' if (request.selected_subject or any(k in user_lower for k in ["study", "exam", "bcs", "mcs", "java", "networking"])) else 'casual'
-
-            if final_mode == 'study':
-                rag_context = ""
-                try:
-                    rag_result = rag_system.get_answer(request.message)
-                    if "Context from PDF" in rag_result: rag_context = rag_result
-                except: pass
-                system_prompt = (
-                    f"Act as an expert IGNOU BCA Professor for '{request.selected_subject}'. "
-                    f"User: {current_user.username}. GUIDELINES: Hinglish, humble teacher, 150-200 words, real-life examples.\n"
-                    f"VISUALIZATION RULES:\n"
-                    f"- If asked to 'draw', 'diagram', 'visualize': Use ```mermaid for flowcharts/ER/arch or ```chart for data.\n"
-                    f"- Always explain concepts in Hinglish alongside visuals.\n"
-                    f"Context: {rag_context}"
-                )
-            elif final_mode == 'exam':
-                system_prompt = (
-                    f"Act as an expert IGNOU BCA Professor for '{request.selected_subject}'. "
-                    f"User: {current_user.username}. GUIDELINES: Strict but encouraging, focus on syllabus, exam-ready answers.\n"
-                    f"VISUALIZATION: Use ```mermaid or ```chart only if it enhances understanding.\n"
-                    f"Redirect casual talk: 'Exam time hai, padhai pe focus kar!'. Hinglish."
-                )
-            else:
-                system_prompt = (
-                    f"You are BCABuddy AI, a helpful IGNOU BCA assistant. User: {current_user.username}. "
-                    f"Hinglish with Gen Z sarcastic undertone.\n"
-                    f"VISUALIZATION: Use ```mermaid for diagrams or ```chart for graphs.\n"
-                    f"Accept inputs like '1', '2', 'A', 'B' for multiple choice selections."
-                )
-
-    # NEW: Pro Mode Enhancement
-    if request.response_mode == "pro":
-        system_prompt += (
-            "\n\n=== PRO MODE ACTIVATED ===\n"
-            "Provide an EXTREMELY DETAILED, high-level academic explanation with:\n"
-            "1. Deep logic and step-by-step reasoning.\n"
-            "2. Real-world code examples and implementations.\n"
-            "3. Edge cases and advanced concepts.\n"
-            "4. Performance implications and best practices.\n"
-            "5. Use ```mermaid and ```chart for complex visualizations.\n"
-            "Aim for 500+ words with academic rigor."
-        )
-
-    # FIXED: Complete intent_instruction string
-    intent_instruction = (
-        "\n\n=== CONVERSATION STATE AWARENESS (CONTEXT-AWARE AI) ===\n"
-        "- REMEMBER: Last 6 messages contain the user's intent and topic.\n"
-        "- If user says 'Stop', 'Chup ho jao', 'Ruko', 'Bas': ACKNOWLEDGE and pause.\n"
-        "- If user says 'Start', 'Shuru karo', 'Continue': RESUME from the last discussed topic.\n"
-        "- If user asks 'Hum kya baat kar rahe the?' or 'What were we discussing?': RECALL and mention the exact topic.\n"
-        "- Accept single number/letter inputs (1-5, A-D) for multiple choice selections.\n"
-        "- Be CONTEXTUALLY AWARE: Remember if quiz was ongoing, if lesson was being taught, or if assignment was being solved.\n"
-        "- VISUALIZATION: When asked to 'draw', 'diagram', 'show', 'visualize', 'graph':\n"
-        "  * Use ```mermaid for flowcharts, ER diagrams, and system architectures.\n"
-        "  * Use ```chart for data visualizations and graphs.\n"
-        "- Always explain concepts in Hinglish alongside visuals."
-    )
-    
-    messages_for_api = [
-        {"role": "system", "content": f"{system_prompt}\n\nConversation History:\n{history_context}{intent_instruction}"},
-    ]
-    messages_for_api.append({"role": "user", "content": request.message})
-    
-    try:
-        completion = client.chat.completions.create(
-            messages=messages_for_api,
-            model="llama-3.3-70b-versatile",
-            temperature=0.8,
-            max_tokens=1500 if request.response_mode != "pro" else 2500
-        )
-        reply_text = completion.choices[0].message.content
-    except Exception as e:
-        reply_text = f"Error: Brain offline. ({str(e)})"
-    
-    db.add(ChatHistory(sender="ai", text=reply_text, session_id=request.session_id))
-    db.commit()
-
-    msg_count = db.query(ChatHistory).filter(ChatHistory.session_id == request.session_id).count()
-    if msg_count <= 2:
-        try:
-            title_gen = client.chat.completions.create(
-                messages=[{"role": "system", "content": "Generate a very short 3-4 word title for this chat topic. No quotes."}, {"role": "user", "content": request.message}],
-                model="llama-3.3-70b-versatile"
-            )
-            new_title = title_gen.choices[0].message.content.strip()
-            session = db.query(ChatSession).filter(ChatSession.id == request.session_id).first()
-            session.title = new_title
-            db.commit()
-        except: pass
-
-    return {"reply": reply_text, "session_id": request.session_id}
+# NOTE: Removed orphaned legacy block here that was outside any function and
+# caused an IndentationError. The active implementation lives in backend/main.py.
 
 # --- OTHER ENDPOINTS ---
 @app.post("/upload")

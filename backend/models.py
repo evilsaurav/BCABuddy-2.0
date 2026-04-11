@@ -90,6 +90,11 @@ class UserProfile(BaseModel):
     bio: Optional[str] = None
     exam_date: Optional[str] = None
     exam_session: Optional[str] = None
+    default_response_mode: str = "fast"
+    enable_notifications: bool = True
+    auto_save_history: bool = True
+    show_quick_suggestions: bool = True
+    privacy_mode: bool = False
     profile_pic_url: Optional[str] = None   # ← FIX #1 added
     is_creator: bool = False
 
@@ -103,6 +108,11 @@ class UserProfileUpdate(BaseModel):
     bio: Optional[str] = None
     exam_date: Optional[str] = None
     exam_session: Optional[str] = None
+    default_response_mode: Optional[str] = None
+    enable_notifications: Optional[bool] = None
+    auto_save_history: Optional[bool] = None
+    show_quick_suggestions: Optional[bool] = None
+    privacy_mode: Optional[bool] = None
 
 class PasswordChange(BaseModel):
     old_password: str

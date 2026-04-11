@@ -32,6 +32,11 @@ class User(Base):
     bio = Column(Text, nullable=True)
     exam_date = Column(String, nullable=True)  # ISO date string: YYYY-MM-DD
     exam_session = Column(String, nullable=True)
+    default_response_mode = Column(String, nullable=False, default="fast")
+    enable_notifications = Column(Integer, nullable=False, default=1)
+    auto_save_history = Column(Integer, nullable=False, default=1)
+    show_quick_suggestions = Column(Integer, nullable=False, default=1)
+    privacy_mode = Column(Integer, nullable=False, default=0)
     profile_picture_url = Column(String, nullable=True)
     is_creator = Column(Integer, default=0)  # 0 = False, 1 = True (SQLite compatible)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -119,6 +124,11 @@ _sqlite_ensure_column("users", "enrollment_id", "enrollment_id VARCHAR")
 _sqlite_ensure_column("users", "bio", "bio TEXT")
 _sqlite_ensure_column("users", "exam_date", "exam_date VARCHAR")
 _sqlite_ensure_column("users", "exam_session", "exam_session VARCHAR")
+_sqlite_ensure_column("users", "default_response_mode", "default_response_mode VARCHAR DEFAULT 'fast'")
+_sqlite_ensure_column("users", "enable_notifications", "enable_notifications INTEGER DEFAULT 1")
+_sqlite_ensure_column("users", "auto_save_history", "auto_save_history INTEGER DEFAULT 1")
+_sqlite_ensure_column("users", "show_quick_suggestions", "show_quick_suggestions INTEGER DEFAULT 1")
+_sqlite_ensure_column("users", "privacy_mode", "privacy_mode INTEGER DEFAULT 0")
 
 def get_db():
     db = SessionLocal()

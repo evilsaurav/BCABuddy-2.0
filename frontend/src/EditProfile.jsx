@@ -11,7 +11,7 @@ import {
   Settings as SettingsIcon, Lock as LockIcon, Person as PersonIcon,
   GetApp as GetAppIcon, History as HistoryIcon
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import BackButton from './components/BackButton';
 import { API_BASE } from './utils/apiConfig';
@@ -23,6 +23,7 @@ const GLASS_BORDER = '1px solid rgba(255, 255, 255, 0.1)';
 
 const EditProfile = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { updateProfilePic } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -64,9 +65,17 @@ const EditProfile = () => {
 
   useEffect(() => {
     fetchUserProfile();
-    loadSettings();
     fetchChatHistory();
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search || '');
+    const requestedTab = String(params.get('tab') || '').toLowerCase();
+    if (requestedTab === 'profile') setActiveTab(0);
+    if (requestedTab === 'security') setActiveTab(1);
+    if (requestedTab === 'settings') setActiveTab(2);
+    if (requestedTab === 'export') setActiveTab(3);
+  }, [location.search]);
 
   const fetchUserProfile = async () => {
     try {
@@ -92,8 +101,17 @@ const EditProfile = () => {
         bio: data.bio || ''
       });
 
-      if (data.profile_picture_url) {
-        const url = data.profile_picture_url;
+      setSettings({
+        defaultResponseMode: data.default_response_mode || 'fast',
+        enableNotifications: data.enable_notifications ?? true,
+        autoSaveHistory: data.auto_save_history ?? true,
+        showQuickSuggestions: data.show_quick_suggestions ?? true,
+        privacyMode: data.privacy_mode ?? false,
+      });
+
+      const profilePicUrl = data.profile_picture_url || data.profile_pic_url;
+      if (profilePicUrl) {
+        const url = profilePicUrl;
         const resolved = url.startsWith('http') ? url : `${API_BASE}${url}`;
         setPreviewUrl(resolved);
         updateProfilePic(resolved);
@@ -242,18 +260,38 @@ const EditProfile = () => {
     }
   };
 
-  // Load user settings from localStorage
-  const loadSettings = () => {
-    const savedSettings = localStorage.getItem('userSettings');
-    if (savedSettings) {
-      setSettings(JSON.parse(savedSettings));
-    }
-  };
+  // Save settings to backend profile
+  const handleSaveSettings = async () => {
+    try {
+      setSaving(true);
+      setError('');
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE}/profile`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          default_response_mode: settings.defaultResponseMode,
+          enable_notifications: settings.enableNotifications,
+          auto_save_history: settings.autoSaveHistory,
+          show_quick_suggestions: settings.showQuickSuggestions,
+          privacy_mode: settings.privacyMode,
+        })
+      });
 
-  // Save settings to localStorage
-  const handleSaveSettings = () => {
-    localStorage.setItem('userSettings', JSON.stringify(settings));
-    showSnackbar('Settings saved successfully!');
+      if (!response.ok) {
+        const errText = await response.text().catch(() => '');
+        throw new Error(errText || 'Failed to save settings');
+      }
+
+      showSnackbar('Settings saved successfully!');
+    } catch (err) {
+      setError(err.message || 'Failed to save settings');
+    } finally {
+      setSaving(false);
+    }
   };
 
   // Fetch chat history for export

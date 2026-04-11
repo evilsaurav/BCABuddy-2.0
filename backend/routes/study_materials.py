@@ -11,7 +11,20 @@ router = APIRouter()
 # Azure Blob Storage Configuration
 AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
 BLOB_CONTAINER_NAME = "user-materials"
-LOCAL_LOCKER_DIR = Path(os.getenv("LOCAL_LOCKER_DIR", "uploads/locker")).resolve()
+_BACKEND_DIR = Path(__file__).resolve().parents[1]
+_locker_dir_env = os.getenv("LOCAL_LOCKER_DIR", "uploads/locker")
+_locker_dir_path = Path(_locker_dir_env)
+LOCAL_LOCKER_DIR = (
+    _locker_dir_path
+    if _locker_dir_path.is_absolute()
+    else (_BACKEND_DIR / _locker_dir_path)
+).resolve()
+MAX_UPLOAD_BYTES = int(os.getenv("LOCKER_MAX_UPLOAD_BYTES", str(25 * 1024 * 1024)))
+ALLOWED_EXTENSIONS = {
+    ".pdf", ".txt", ".md", ".doc", ".docx", ".ppt", ".pptx",
+    ".xls", ".xlsx", ".png", ".jpg", ".jpeg", ".webp", ".csv",
+    ".zip", ".py", ".java", ".c", ".cpp", ".json",
+}
 
 blob_service_client = None
 container_client = None
@@ -39,6 +52,19 @@ def _safe_username(user: User) -> str:
     base = str(getattr(user, "username", "user") or "user")
     return "".join(ch for ch in base if ch.isalnum() or ch in ("-", "_", ".")) or "user"
 
+
+def _validate_upload_filename(file_name: str) -> str:
+    safe_name = Path(file_name or "upload.bin").name.strip()
+    if not safe_name:
+        raise HTTPException(status_code=400, detail="Invalid file name")
+    ext = Path(safe_name).suffix.lower()
+    if ext and ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File type '{ext}' not allowed",
+        )
+    return safe_name
+
 @router.post("/api/upload-material")
 async def upload_material(file: UploadFile, current_user: User = Depends(get_current_user)):
     """
@@ -46,12 +72,20 @@ async def upload_material(file: UploadFile, current_user: User = Depends(get_cur
     """
     try:
         username = _safe_username(current_user)
-        safe_name = Path(file.filename or "upload.bin").name
+        safe_name = _validate_upload_filename(file.filename or "upload.bin")
+        content = await file.read()
+        if not content:
+            raise HTTPException(status_code=400, detail="Empty file upload is not allowed")
+        if len(content) > MAX_UPLOAD_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File too large. Max allowed size is {MAX_UPLOAD_BYTES // (1024 * 1024)} MB",
+            )
 
         if container_client is not None:
             blob_name = f"{username}/{safe_name}"
             blob_client = container_client.get_blob_client(blob_name)
-            blob_client.upload_blob(file.file, overwrite=True)
+            blob_client.upload_blob(content, overwrite=True)
             return {"message": "File uploaded successfully", "file_name": safe_name}
 
         user_dir = (LOCAL_LOCKER_DIR / username).resolve()
@@ -60,7 +94,6 @@ async def upload_material(file: UploadFile, current_user: User = Depends(get_cur
         if not str(destination).startswith(str(user_dir)):
             raise HTTPException(status_code=400, detail="Invalid file path")
 
-        content = await file.read()
         destination.write_bytes(content)
         return {"message": "File uploaded successfully", "file_name": safe_name}
     except HTTPException:
