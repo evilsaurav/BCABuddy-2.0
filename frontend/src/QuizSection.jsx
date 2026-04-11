@@ -14,6 +14,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { downloadResultPDF } from './utils/pdfExport';
 import { normalizeChoice, resolveCorrectAnswerText, isAnswerCorrect } from './utils/answerNormalization';
+import { computeBadgeTriggers, BADGE_CATALOG } from './utils/achievements';
 import BackButton from './components/BackButton';
 import { API_BASE as DEFAULT_API_BASE } from './utils/apiConfig';
 
@@ -344,6 +345,19 @@ const QuizSection = ({ onClose, API_BASE: apiBaseOverride, globalAbortRef = null
 
   if (quizCompleted) {
     const remarks = getRemarks();
+    const examAttempts = safeParse(localStorage.getItem('bcabuddy_exam_attempts'), []);
+    const studyActivity = safeParse(localStorage.getItem('bcabuddy_study_activity_v1'), {});
+    const reviewItems = safeParse(localStorage.getItem(REVIEW_STORAGE_KEY), []);
+    const triggerSet = new Set(
+      computeBadgeTriggers({
+        quizAttempts: safeParse(localStorage.getItem(QUIZ_ATTEMPTS_KEY), []),
+        examAttempts: Array.isArray(examAttempts) ? examAttempts : [],
+        studyActivity: studyActivity && typeof studyActivity === 'object' ? studyActivity : {},
+        roadmapPct: 0,
+        reviewItems: Array.isArray(reviewItems) ? reviewItems : [],
+      })
+    );
+    const quizReportBadges = BADGE_CATALOG.filter((badge) => triggerSet.has(badge.id)).slice(0, 4);
     
     // Review Mode - Show Answer Breakdown
     if (reviewMode) {
@@ -532,6 +546,32 @@ const QuizSection = ({ onClose, API_BASE: apiBaseOverride, globalAbortRef = null
           </Box>
 
           {/* Buttons */}
+          <Box sx={{ mt: 2.2, mb: 0.5, p: 1.2, borderRadius: '12px', bgcolor: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.26)' }}>
+            <Typography sx={{ color: '#d1fae5', fontSize: 12, fontWeight: 700, mb: 0.8 }}>
+              Achievement Mention
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 0.8, flexWrap: 'wrap', justifyContent: 'center' }}>
+              {quizReportBadges.map((badge) => (
+                <Chip
+                  key={`quiz-badge-${badge.id}`}
+                  size="small"
+                  label={`${badge.icon || '🏅'} ${badge.name}`}
+                  sx={{
+                    bgcolor: 'rgba(16,185,129,0.18)',
+                    color: '#d1fae5',
+                    border: '1px solid rgba(16,185,129,0.45)',
+                    fontWeight: 700,
+                  }}
+                />
+              ))}
+              {quizReportBadges.length === 0 && (
+                <Typography sx={{ color: '#E6EAF0', fontSize: 12 }}>
+                  No badges unlocked yet.
+                </Typography>
+              )}
+            </Box>
+          </Box>
+
           <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
             <Button startIcon={<Assignment />} onClick={() => setReviewMode(true)} sx={{ bgcolor: NEON_PURPLE, color: '#fff', fontWeight: 600 }}>
               Review Answers

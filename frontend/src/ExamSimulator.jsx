@@ -19,6 +19,7 @@ import { useNavigate } from 'react-router-dom';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Label } from 'recharts';
 import { downloadResultPDF } from './utils/pdfExport';
 import { normalizeChoice, resolveCorrectAnswerText, isAnswerCorrect } from './utils/answerNormalization';
+import { computeBadgeTriggers, BADGE_CATALOG } from './utils/achievements';
 import BackButton from './components/BackButton';
 import { API_BASE as DEFAULT_API_BASE } from './utils/apiConfig';
 
@@ -900,6 +901,33 @@ function ExamSimulator({
     const remark = getPerformanceRemarks(stats);
     const badgeLabel = getBadgeLabel(percentScore);
     const jiyaRemark = getJiyaRemark(percentScore);
+    const quizAttemptsForBadges = (() => {
+      try {
+        const raw = JSON.parse(localStorage.getItem('bcabuddy_quiz_attempts') || '[]');
+        return Array.isArray(raw) ? raw : [];
+      } catch {
+        return [];
+      }
+    })();
+    const reviewItemsForBadges = readReviewItems();
+    const studyActivityForBadges = (() => {
+      try {
+        const raw = JSON.parse(localStorage.getItem('bcabuddy_study_activity_v1') || '{}');
+        return raw && typeof raw === 'object' ? raw : {};
+      } catch {
+        return {};
+      }
+    })();
+    const unlockedInReport = new Set(
+      computeBadgeTriggers({
+        quizAttempts: quizAttemptsForBadges,
+        examAttempts: attempts,
+        studyActivity: studyActivityForBadges,
+        roadmapPct: 0,
+        reviewItems: reviewItemsForBadges,
+      })
+    );
+    const reportBadges = BADGE_CATALOG.filter((badge) => unlockedInReport.has(badge.id)).slice(0, 5);
 
     const candidateName = (() => {
       const displayName = String(localStorage.getItem('display_name') || '').trim();
@@ -1421,6 +1449,30 @@ function ExamSimulator({
                     <Typography sx={{ color: '#E6EAF0', fontSize: '13px' }}>
                       Score = (MCQ Correct / MCQ Total) x 100
                     </Typography>
+                    <Divider sx={{ my: 2, borderColor: 'rgba(255, 255, 255, 0.1)' }} />
+                    <Typography sx={{ color: NEON_CYAN, fontWeight: 600, mb: 1 }}>
+                      Achievement Mention
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                      {reportBadges.map((b) => (
+                        <Chip
+                          key={`exam-badge-${b.id}`}
+                          size="small"
+                          label={`${b.icon || '🏅'} ${b.name}`}
+                          sx={{
+                            bgcolor: 'rgba(16, 185, 129, 0.16)',
+                            color: '#d1fae5',
+                            border: '1px solid rgba(16, 185, 129, 0.42)',
+                            fontWeight: 700,
+                          }}
+                        />
+                      ))}
+                      {reportBadges.length === 0 && (
+                        <Typography sx={{ color: 'rgba(255,255,255,0.65)', fontSize: 12 }}>
+                          No unlocked badges yet. Keep attempting quizzes and exams.
+                        </Typography>
+                      )}
+                    </Box>
                   </Card>
                 </motion.div>
               </Grid>

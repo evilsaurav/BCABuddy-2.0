@@ -108,7 +108,7 @@ const AchievementsPage = () => {
               >
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1.2 }}>
                   <Box>
-                    <Typography sx={{ fontWeight: 800 }}>{badge.name}</Typography>
+                    <Typography sx={{ fontWeight: 800 }}>{`${badge.icon || '🏅'} ${badge.name}`}</Typography>
                     <Typography sx={{ color: 'var(--text-soft)', fontSize: 13 }}>{badge.hint}</Typography>
                     {unlockedAt && (
                       <Typography sx={{ mt: 0.4, color: 'var(--text-soft)', fontSize: 12 }}>
@@ -118,7 +118,7 @@ const AchievementsPage = () => {
                   </Box>
                   <Chip
                     size="small"
-                    label={unlocked ? 'Unlocked' : badge.rarity}
+                    label={`${badge.icon || '🏅'} ${unlocked ? 'Unlocked' : badge.rarity}`}
                     sx={{
                       textTransform: 'capitalize',
                       bgcolor: unlocked ? 'rgba(16,185,129,0.16)' : (rarityColor[badge.rarity] || 'var(--surface-soft-strong)'),

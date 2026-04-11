@@ -709,6 +709,7 @@ const Dashboard = ({ onThemeOverride }) => {
   const [achievements, setAchievements] = useState(() => normalizeAchievements({}));
   const [showAchievementModal, setShowAchievementModal] = useState(false);
   const [achievementToast, setAchievementToast] = useState('');
+  const [showAttemptRecordsModal, setShowAttemptRecordsModal] = useState(false);
 
   const {
     isSupported: voiceSupported,
@@ -739,6 +740,12 @@ const Dashboard = ({ onThemeOverride }) => {
   const navigate = useNavigate();
 
   const makeMessageId = () => `${Date.now()}-${messageIdRef.current++}`;
+
+  const formatRecordDate = (value) => {
+    const d = new Date(value || Date.now());
+    if (!Number.isFinite(d.getTime())) return 'Unknown';
+    return d.toLocaleString();
+  };
 
   const upsertMessage = (list, msg) => {
     const idx = list.findIndex(m => m.id === msg.id);
@@ -2822,6 +2829,34 @@ const Dashboard = ({ onThemeOverride }) => {
     const examMinutesTotal = Object.values(examMinutesByDay || {}).reduce((sum, v) => sum + Number(v || 0), 0);
     const quizAttemptsRaw = safeJsonParse(localStorage.getItem(QUIZ_ATTEMPTS_KEY), []);
     const quizAttempts = Array.isArray(quizAttemptsRaw) ? quizAttemptsRaw : [];
+    const unlockedBadgeSet = new Set(Array.isArray(achievements?.earned) ? achievements.earned : []);
+    const unlockedBadgePreview = BADGE_CATALOG.filter((b) => unlockedBadgeSet.has(b.id)).slice(0, 4);
+    const combinedRecords = [
+      ...attempts.map((entry) => ({
+        type: 'exam',
+        score: Number(entry?.percentTotal || 0),
+        subject: String(entry?.subject || ''),
+        semester: String(entry?.semester || ''),
+        time: entry?.at,
+        meta: `Correct ${Number(entry?.correct || 0)} • Wrong ${Number(entry?.incorrect || 0)} • Skipped ${Number(entry?.skipped || 0)}`,
+      })),
+      ...quizAttempts.map((entry) => ({
+        type: 'quiz',
+        score: Number(entry?.percent || 0),
+        subject: String(entry?.subject || ''),
+        semester: String(entry?.semester || ''),
+        time: entry?.at,
+        meta: `Score ${Number(entry?.score || 0)}/${Number(entry?.total || 0)}`,
+      })),
+    ]
+      .sort((a, b) => String(b.time || '').localeCompare(String(a.time || '')));
+    const recentCombined = combinedRecords.slice(0, 5);
+    const avgExamScore = attempts.length > 0
+      ? (attempts.reduce((sum, x) => sum + Number(x?.percentTotal || 0), 0) / attempts.length)
+      : 0;
+    const avgQuizScore = quizAttempts.length > 0
+      ? (quizAttempts.reduce((sum, x) => sum + Number(x?.percent || 0), 0) / quizAttempts.length)
+      : 0;
     const xp = Math.round((quizAttempts.length * 10) + (attempts.length * 50) + Number(activityTotals || 0) + Number(examMinutesTotal || 0));
     const level = Math.max(1, Math.floor(xp / 350) + 1);
     const levelBase = (level - 1) * 350;
@@ -2839,12 +2874,40 @@ const Dashboard = ({ onThemeOverride }) => {
 
     const containerVariants = {
       hidden: { opacity: 0 },
-      visible: { opacity: 1, transition: { staggerChildren: 0.15 } },
+      visible: { opacity: 1, transition: { staggerChildren: 0.08, delayChildren: 0.05 } },
     };
 
     const itemVariants = {
-      hidden: { opacity: 0, y: 30 },
-      visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
+      hidden: { opacity: 0, y: 22, scale: 0.985 },
+      visible: {
+        opacity: 1,
+        y: 0,
+        scale: 1,
+        transition: { type: 'spring', stiffness: 120, damping: 16, mass: 0.6 },
+      },
+    };
+
+    const cardHoverMotion = {
+      whileHover: { y: -6, scale: 1.01 },
+      transition: { type: 'spring', stiffness: 240, damping: 18, mass: 0.5 },
+    };
+
+    const chipContainerVariants = {
+      hidden: { opacity: 0.85 },
+      visible: {
+        opacity: 1,
+        transition: { staggerChildren: 0.08, delayChildren: 0.04 },
+      },
+    };
+
+    const chipItemVariants = {
+      hidden: { opacity: 0, y: 10, scale: 0.94 },
+      visible: {
+        opacity: 1,
+        y: 0,
+        scale: 1,
+        transition: { type: 'spring', stiffness: 210, damping: 15 },
+      },
     };
 
     const StatCard = ({ label, value, icon: IconComp, color, countTo = null, suffix = '', showActiveDot = false }) => (
@@ -2869,7 +2932,7 @@ const Dashboard = ({ onThemeOverride }) => {
               <Typography sx={{ color: '#E6EAF0', fontSize: 22, fontWeight: 900, mt: 0.4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {typeof countTo === 'number' ? (
                   <>
-                    <CountUp start={0} end={countTo} duration={2.5} />{suffix}
+                    <CountUp start={0} end={countTo} duration={2.1} decimals={suffix === 'h' ? 1 : 0} enableScrollSpy scrollSpyOnce scrollSpyDelay={120} />{suffix}
                   </>
                 ) : value}
                 {showActiveDot && (
@@ -2895,9 +2958,41 @@ const Dashboard = ({ onThemeOverride }) => {
     );
 
     return (
-      <Box sx={{ p: 3, overflowY: 'auto', height: '100%' }}>
+      <Box sx={{ p: 3, overflowY: 'auto', height: '100%', position: 'relative' }}>
+        <Box sx={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 0 }}>
+          <motion.div
+            aria-hidden
+            animate={{ x: [0, 38, -24, 0], y: [0, -22, 18, 0], scale: [1, 1.08, 0.96, 1] }}
+            transition={{ duration: 16, repeat: Infinity, ease: 'easeInOut' }}
+            style={{
+              position: 'absolute',
+              top: '-7%',
+              right: '-8%',
+              width: 280,
+              height: 280,
+              borderRadius: '999px',
+              background: 'radial-gradient(circle at center, rgba(3,218,198,0.18), rgba(3,218,198,0))',
+              filter: 'blur(8px)',
+            }}
+          />
+          <motion.div
+            aria-hidden
+            animate={{ x: [0, -34, 20, 0], y: [0, 16, -20, 0], scale: [1, 0.95, 1.05, 1] }}
+            transition={{ duration: 20, repeat: Infinity, ease: 'easeInOut' }}
+            style={{
+              position: 'absolute',
+              bottom: '-10%',
+              left: '-10%',
+              width: 320,
+              height: 320,
+              borderRadius: '999px',
+              background: 'radial-gradient(circle at center, rgba(187,134,252,0.16), rgba(187,134,252,0))',
+              filter: 'blur(12px)',
+            }}
+          />
+        </Box>
         <motion.div variants={containerVariants} initial="hidden" animate="visible">
-          <motion.div variants={itemVariants}>
+          <motion.div variants={itemVariants} {...cardHoverMotion}>
             <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '22px', p: 2.8, backdropFilter: 'blur(12px)' }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
                 <Box sx={{ minWidth: 260 }}>
@@ -3025,6 +3120,8 @@ const Dashboard = ({ onThemeOverride }) => {
               gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(3, minmax(0, 1fr))' },
               gap: 3,
               minWidth: 0,
+              position: 'relative',
+              zIndex: 1,
             }}
             variants={containerVariants}
             initial="hidden"
@@ -3032,7 +3129,7 @@ const Dashboard = ({ onThemeOverride }) => {
           >
             {/* LEFT COLUMN */}
             <motion.div variants={itemVariants} style={{ display: 'grid', gap: 24, minWidth: 0 }}>
-              <motion.div variants={itemVariants} className="h-[400px] flex flex-col" style={{ height: 400, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+              <motion.div variants={itemVariants} className="h-[400px] flex flex-col" style={{ height: 400, display: 'flex', flexDirection: 'column', minWidth: 0 }} {...cardHoverMotion}>
                 <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: 'blur(12px)', height: '100%', overflowY: 'auto' }}>
                   <Typography sx={{ color: NEON_CYAN, fontWeight: 900, letterSpacing: '0.06em', mb: 1.2 }}>Stats</Typography>
                   <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
@@ -3045,7 +3142,7 @@ const Dashboard = ({ onThemeOverride }) => {
                 </Card>
               </motion.div>
 
-              <motion.div variants={itemVariants} className="h-[400px] flex flex-col" style={{ height: 400, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+              <motion.div variants={itemVariants} className="h-[400px] flex flex-col" style={{ height: 400, display: 'flex', flexDirection: 'column', minWidth: 0 }} {...cardHoverMotion}>
                 <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: 'blur(12px)', height: '100%', overflow: 'hidden' }}>
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
                     <Box>
@@ -3090,7 +3187,7 @@ const Dashboard = ({ onThemeOverride }) => {
                 </Card>
               </motion.div>
 
-              <motion.div variants={itemVariants}>
+              <motion.div variants={itemVariants} {...cardHoverMotion}>
                 <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: 'blur(12px)' }}>
                   <Typography sx={{ color: NEON_CYAN, fontWeight: 900, letterSpacing: '0.06em' }}>Exam Performance Trend</Typography>
                   <Typography sx={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, mt: 0.5 }}>
@@ -3113,7 +3210,7 @@ const Dashboard = ({ onThemeOverride }) => {
 
             {/* MIDDLE COLUMN */}
             <motion.div variants={itemVariants} style={{ display: 'grid', gap: 24, minWidth: 0 }}>
-              <motion.div variants={itemVariants}>
+              <motion.div variants={itemVariants} {...cardHoverMotion}>
                 <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: 'blur(12px)', overflow: 'hidden' }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.4 }}>
                     <Typography sx={{ color: NEON_CYAN, fontWeight: 900, letterSpacing: '0.06em' }}>Study Widgets</Typography>
@@ -3196,7 +3293,7 @@ const Dashboard = ({ onThemeOverride }) => {
                 />
               </motion.div>
 
-              <motion.div variants={itemVariants}>
+              <motion.div variants={itemVariants} {...cardHoverMotion}>
                 <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: 'blur(12px)' }}>
                   <Typography sx={{ color: NEON_CYAN, fontWeight: 900, letterSpacing: '0.06em' }}>Roadmap History</Typography>
                   <Typography sx={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, mt: 0.5 }}>
@@ -3237,7 +3334,7 @@ const Dashboard = ({ onThemeOverride }) => {
                 </Card>
               </motion.div>
 
-              <motion.div variants={itemVariants}>
+              <motion.div variants={itemVariants} {...cardHoverMotion}>
                 <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: 'blur(12px)' }}>
                   <Typography sx={{ color: NEON_CYAN, fontWeight: 900, letterSpacing: '0.06em' }}>Recent Chats</Typography>
                   <Typography sx={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, mt: 0.5 }}>
@@ -3279,7 +3376,7 @@ const Dashboard = ({ onThemeOverride }) => {
                 </Card>
               </motion.div>
 
-              <motion.div variants={itemVariants}>
+              <motion.div variants={itemVariants} {...cardHoverMotion}>
                 <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: 'blur(12px)' }}>
                   <Typography sx={{ color: NEON_CYAN, fontWeight: 900, letterSpacing: '0.06em' }}>Results Snapshot</Typography>
                   <Box sx={{ mt: 1.5, display: 'grid', gap: 1.5 }}>
@@ -3452,6 +3549,111 @@ const Dashboard = ({ onThemeOverride }) => {
 
               <motion.div variants={itemVariants}>
                 <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: 'blur(12px)' }}>
+                  <Typography sx={{ color: NEON_CYAN, fontWeight: 900, letterSpacing: '0.06em' }}>Achievement Flex</Typography>
+                  <Typography sx={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, mt: 0.5 }}>
+                    Flaunt unlocked badges on your dashboard.
+                  </Typography>
+                  <Box component={motion.div} variants={chipContainerVariants} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.3 }} sx={{ mt: 1.4, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                    {unlockedBadgePreview.map((badge) => (
+                      <motion.div key={`badge-flex-${badge.id}`} variants={chipItemVariants} whileHover={{ y: -3, scale: 1.03 }} transition={{ type: 'spring', stiffness: 240, damping: 16 }}>
+                        <Chip
+                          label={`${badge.icon || '🏅'} ${badge.name}`}
+                          sx={{
+                            bgcolor: 'rgba(16,185,129,0.16)',
+                            color: '#d1fae5',
+                            border: '1px solid rgba(16,185,129,0.42)',
+                            fontWeight: 700,
+                          }}
+                        />
+                      </motion.div>
+                    ))}
+                    {unlockedBadgePreview.length === 0 && (
+                      <Typography sx={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>
+                        Start with your first quiz to unlock badges.
+                      </Typography>
+                    )}
+                  </Box>
+                  <Box sx={{ mt: 1.2, display: 'flex', justifyContent: 'flex-end' }}>
+                    <Button
+                      size="small"
+                      onClick={() => navigate('/achievements')}
+                      sx={{ color: NEON_CYAN, border: `1px solid ${NEON_CYAN}35`, borderRadius: '12px', fontWeight: 900 }}
+                    >
+                      View All
+                    </Button>
+                  </Box>
+                </Card>
+              </motion.div>
+
+              <motion.div variants={itemVariants}>
+                <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: 'blur(12px)' }}>
+                  <Typography sx={{ color: NEON_CYAN, fontWeight: 900, letterSpacing: '0.06em' }}>Attempt Snapshot</Typography>
+                  <Typography sx={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, mt: 0.5 }}>
+                    Exam + quiz performance summary in one place.
+                  </Typography>
+
+                  <Box sx={{ mt: 1.5, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.2 }}>
+                    <Box sx={{ p: 1.2, borderRadius: '12px', bgcolor: 'rgba(255,255,255,0.04)' }}>
+                      <Typography sx={{ color: 'rgba(255,255,255,0.65)', fontSize: 11 }}>Exam Attempts</Typography>
+                      <Typography sx={{ color: '#E6EAF0', fontWeight: 900, fontSize: 18 }}>{attempts.length}</Typography>
+                    </Box>
+                    <Box sx={{ p: 1.2, borderRadius: '12px', bgcolor: 'rgba(255,255,255,0.04)' }}>
+                      <Typography sx={{ color: 'rgba(255,255,255,0.65)', fontSize: 11 }}>Quiz Attempts</Typography>
+                      <Typography sx={{ color: '#E6EAF0', fontWeight: 900, fontSize: 18 }}>{quizAttempts.length}</Typography>
+                    </Box>
+                    <Box sx={{ p: 1.2, borderRadius: '12px', bgcolor: 'rgba(16,185,129,0.1)' }}>
+                      <Typography sx={{ color: 'rgba(255,255,255,0.65)', fontSize: 11 }}>Avg Exam</Typography>
+                      <Typography sx={{ color: '#34d399', fontWeight: 900, fontSize: 18 }}>{avgExamScore.toFixed(1)}%</Typography>
+                    </Box>
+                    <Box sx={{ p: 1.2, borderRadius: '12px', bgcolor: 'rgba(168,85,247,0.12)' }}>
+                      <Typography sx={{ color: 'rgba(255,255,255,0.65)', fontSize: 11 }}>Avg Quiz</Typography>
+                      <Typography sx={{ color: '#c4b5fd', fontWeight: 900, fontSize: 18 }}>{avgQuizScore.toFixed(1)}%</Typography>
+                    </Box>
+                  </Box>
+
+                  <Box sx={{ mt: 1.5, display: 'grid', gap: 0.8 }}>
+                    {recentCombined.slice(0, 3).map((row, idx) => (
+                      <motion.div
+                        key={`recent-row-${idx}-${row.time}`}
+                        initial={{ opacity: 0, x: -24 }}
+                        whileInView={{ opacity: 1, x: 0 }}
+                        viewport={{ once: true, amount: 0.45 }}
+                        transition={{ type: 'spring', stiffness: 150, damping: 16, delay: idx * 0.08 }}
+                      >
+                        <Box sx={{ p: 1, borderRadius: '10px', bgcolor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                          <Box sx={{ mt: 0.6, width: 9, height: 9, borderRadius: '999px', bgcolor: row.type === 'exam' ? '#34d399' : '#c4b5fd', boxShadow: row.type === 'exam' ? '0 0 10px rgba(52,211,153,0.7)' : '0 0 10px rgba(196,181,253,0.65)' }} />
+                          <Box sx={{ minWidth: 0 }}>
+                            <Typography sx={{ color: '#E6EAF0', fontSize: 12, fontWeight: 700 }}>
+                              {row.type.toUpperCase()} • {row.subject || 'General'} • {row.score.toFixed(0)}%
+                            </Typography>
+                            <Typography sx={{ color: 'rgba(255,255,255,0.58)', fontSize: 11 }}>
+                              {formatRecordDate(row.time)}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </motion.div>
+                    ))}
+                    {recentCombined.length === 0 && (
+                      <Typography sx={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>
+                        No records yet. Try quiz or exam to generate your history.
+                      </Typography>
+                    )}
+                  </Box>
+
+                  <Box sx={{ mt: 1.2, display: 'flex', justifyContent: 'flex-end' }}>
+                    <Button
+                      size="small"
+                      onClick={() => setShowAttemptRecordsModal(true)}
+                      sx={{ color: NEON_CYAN, border: `1px solid ${NEON_CYAN}35`, borderRadius: '12px', fontWeight: 900 }}
+                    >
+                      View Full Record
+                    </Button>
+                  </Box>
+                </Card>
+              </motion.div>
+
+              <motion.div variants={itemVariants}>
+                <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: 'blur(12px)' }}>
                   <Typography sx={{ color: NEON_CYAN, fontWeight: 900, letterSpacing: '0.06em' }}>Review Center</Typography>
                   <Typography sx={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, mt: 0.5 }}>
                     Past mistakes with Supreme Answers
@@ -3592,6 +3794,54 @@ const Dashboard = ({ onThemeOverride }) => {
                 {reviewItems.length === 0 && (
                   <Typography sx={{ color: 'rgba(255,255,255,0.6)' }}>
                     No review items yet.
+                  </Typography>
+                )}
+              </Box>
+            </Card>
+          </Box>
+        </Modal>
+
+        <Modal open={showAttemptRecordsModal} onClose={() => setShowAttemptRecordsModal(false)}>
+          <Box sx={{ p: 3, height: '100vh', overflowY: 'auto' }}>
+            <Card sx={{ maxWidth: 980, mx: 'auto', p: 3, bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', backdropFilter: 'blur(12px)' }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography sx={{ color: NEON_CYAN, fontWeight: 900, fontSize: 22 }}>
+                  Full Attempt Record
+                </Typography>
+                <Button onClick={() => setShowAttemptRecordsModal(false)} sx={{ color: NEON_PURPLE, fontWeight: 800 }}>
+                  Close
+                </Button>
+              </Box>
+
+              <Box sx={{ display: 'grid', gap: 1.1 }}>
+                {combinedRecords.map((row, idx) => (
+                  <Card key={`full-record-${idx}-${row.time}`} sx={{ bgcolor: 'rgba(255,255,255,0.04)', border: GLASS_BORDER, borderRadius: '12px', p: 1.5 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1.2, flexWrap: 'wrap' }}>
+                      <Typography sx={{ color: '#E6EAF0', fontWeight: 800, fontSize: 13 }}>
+                        {row.type.toUpperCase()} • {row.subject || 'General'} • {row.semester || '—'}
+                      </Typography>
+                      <Chip
+                        size="small"
+                        label={`${row.score.toFixed(0)}%`}
+                        sx={{
+                          bgcolor: row.type === 'exam' ? 'rgba(16,185,129,0.16)' : 'rgba(168,85,247,0.18)',
+                          color: row.type === 'exam' ? '#34d399' : '#c4b5fd',
+                          border: row.type === 'exam' ? '1px solid rgba(16,185,129,0.42)' : '1px solid rgba(168,85,247,0.45)',
+                          fontWeight: 800,
+                        }}
+                      />
+                    </Box>
+                    <Typography sx={{ color: 'rgba(255,255,255,0.62)', fontSize: 12, mt: 0.6 }}>
+                      {row.meta}
+                    </Typography>
+                    <Typography sx={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, mt: 0.45 }}>
+                      {formatRecordDate(row.time)}
+                    </Typography>
+                  </Card>
+                ))}
+                {combinedRecords.length === 0 && (
+                  <Typography sx={{ color: 'rgba(255,255,255,0.65)' }}>
+                    No attempts found yet.
                   </Typography>
                 )}
               </Box>
@@ -4601,7 +4851,7 @@ const Dashboard = ({ onThemeOverride }) => {
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1.4, alignItems: 'center' }}>
                     <Box sx={{ minWidth: 0 }}>
                       <Typography sx={{ color: 'var(--text-primary)', fontWeight: 800, fontSize: 14 }}>
-                        {badge.name}
+                        {(badge.icon || '🏅') + ' ' + badge.name}
                       </Typography>
                       <Typography sx={{ color: 'var(--text-soft)', fontSize: 12 }}>
                         {badge.hint}
@@ -4609,7 +4859,7 @@ const Dashboard = ({ onThemeOverride }) => {
                     </Box>
                     <Chip
                       size="small"
-                      label={unlocked ? 'Unlocked' : badge.rarity}
+                      label={`${badge.icon || '🏅'} ${unlocked ? 'Unlocked' : badge.rarity}`}
                       sx={{
                         textTransform: 'capitalize',
                         bgcolor: unlocked ? 'rgba(16, 185, 129, 0.18)' : 'var(--surface-soft-strong)',
