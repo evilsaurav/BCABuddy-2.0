@@ -742,6 +742,21 @@ const Dashboard = ({ onThemeOverride }) => {
 
   const makeMessageId = () => `${Date.now()}-${messageIdRef.current++}`;
 
+  const handleAddDailyGoal = () => {
+    const normalized = String(newGoalText || '').replace(/\s+/g, ' ').trim();
+    if (!normalized) return;
+    setDailyGoals((prev) => {
+      const exists = prev.some((g) => String(g?.text || '').trim().toLowerCase() === normalized.toLowerCase());
+      if (exists) return prev;
+      const next = [
+        { id: `g_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, text: normalized, done: false },
+        ...prev,
+      ];
+      return next.slice(0, 20);
+    });
+    setNewGoalText('');
+  };
+
   const formatRecordDate = (value) => {
     const d = new Date(value || Date.now());
     if (!Number.isFinite(d.getTime())) return 'Unknown';
@@ -3383,7 +3398,7 @@ const Dashboard = ({ onThemeOverride }) => {
                       </Box>
                     ))}
                     {(!recentChats || recentChats.length === 0) && (
-                      <Typography sx={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>
+                      <Typography sx={{ color: 'var(--text-soft)', fontSize: 13 }}>
                         No chat sessions yet.
                       </Typography>
                     )}
@@ -3396,13 +3411,13 @@ const Dashboard = ({ onThemeOverride }) => {
                   <Typography sx={{ color: NEON_CYAN, fontWeight: 900, letterSpacing: '0.06em' }}>Results Snapshot</Typography>
                   <Box sx={{ mt: 1.5, display: 'grid', gap: 1.5 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 2 }}>
-                      <Typography sx={{ color: 'rgba(255,255,255,0.65)', fontSize: 12, fontWeight: 800, letterSpacing: '0.12em' }}>LAST EXAM</Typography>
-                      <Typography sx={{ color: lastExamScore === null ? 'rgba(255,255,255,0.5)' : '#10B981', fontSize: 18, fontWeight: 900 }}>
+                      <Typography sx={{ color: 'var(--text-soft)', fontSize: 12, fontWeight: 800, letterSpacing: '0.12em' }}>LAST EXAM</Typography>
+                      <Typography sx={{ color: lastExamScore === null ? 'var(--text-muted)' : '#10B981', fontSize: 18, fontWeight: 900 }}>
                         {lastExamScore === null ? '—' : `${Math.round(lastExamScore)}%`}
                       </Typography>
                     </Box>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 2 }}>
-                      <Typography sx={{ color: 'rgba(255,255,255,0.65)', fontSize: 12, fontWeight: 800, letterSpacing: '0.12em' }}>AVG QUIZ</Typography>
+                      <Typography sx={{ color: 'var(--text-soft)', fontSize: 12, fontWeight: 800, letterSpacing: '0.12em' }}>AVG QUIZ</Typography>
                       <Typography sx={{ color: NEON_PURPLE, fontSize: 18, fontWeight: 900 }}>
                         {Number(dashboardStats.avg_quiz_score || 0).toFixed(0)}%
                       </Typography>
@@ -3418,7 +3433,7 @@ const Dashboard = ({ onThemeOverride }) => {
               <motion.div variants={itemVariants}>
                 <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: 'blur(12px)' }}>
                   <Typography sx={{ color: NEON_CYAN, fontWeight: 900, letterSpacing: '0.06em' }}>Daily Goals</Typography>
-                  <Typography sx={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, mt: 0.5 }}>
+                  <Typography sx={{ color: 'var(--text-soft)', fontSize: 12, mt: 0.5 }}>
                     Small wins, daily.
                   </Typography>
 
@@ -3433,7 +3448,7 @@ const Dashboard = ({ onThemeOverride }) => {
                             '&.Mui-checked': { color: NEON_CYAN },
                           }}
                         />
-                        <Typography sx={{ color: g.done ? 'rgba(255,255,255,0.55)' : '#E6EAF0', fontWeight: 700, fontSize: 13, textDecoration: g.done ? 'line-through' : 'none' }}>
+                        <Typography sx={{ color: g.done ? 'var(--text-muted)' : 'var(--text-primary)', fontWeight: 700, fontSize: 13, textDecoration: g.done ? 'line-through' : 'none' }}>
                           {String(g.text)}
                         </Typography>
                       </Box>
@@ -3444,36 +3459,49 @@ const Dashboard = ({ onThemeOverride }) => {
                     <TextField
                       value={newGoalText}
                       onChange={(e) => setNewGoalText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddDailyGoal();
+                        }
+                      }}
                       placeholder="Add a goal"
                       size="small"
                       sx={{
                         flex: 1,
                         '& .MuiOutlinedInput-root': {
-                          bgcolor: 'rgba(255,255,255,0.04)',
+                          bgcolor: 'var(--surface-soft)',
                           borderRadius: '12px',
-                          color: '#E6EAF0',
-                          '& fieldset': { borderColor: 'rgba(255,255,255,0.12)' },
+                          color: 'var(--text-primary)',
+                          '& fieldset': { borderColor: 'var(--card-border)' },
                           '&:hover fieldset': { borderColor: `${NEON_CYAN}35` },
                           '&.Mui-focused fieldset': { borderColor: `${NEON_CYAN}60` },
                         },
-                        '& .MuiOutlinedInput-input': { color: '#E6EAF0' },
+                        '& .MuiOutlinedInput-input': {
+                          color: 'var(--text-primary)',
+                          '&::placeholder': {
+                            color: 'var(--text-soft)',
+                            opacity: 1,
+                          }
+                        },
                       }}
                     />
                     <Button
-                      onClick={() => {
-                        const text = String(newGoalText || '').trim();
-                        if (!text) return;
-                        setDailyGoals(prev => [{ id: `g_${Date.now()}`, text, done: false }, ...prev]);
-                        setNewGoalText('');
-                      }}
+                      onClick={handleAddDailyGoal}
+                      disabled={!String(newGoalText || '').trim()}
                       sx={{
                         minWidth: 46,
                         borderRadius: '12px',
                         bgcolor: `${NEON_CYAN}18`,
                         border: `1px solid ${NEON_CYAN}35`,
-                        color: '#E6EAF0',
+                        color: 'var(--text-primary)',
                         fontWeight: 900,
-                        '&:hover': { bgcolor: `${NEON_CYAN}24`, boxShadow: `0 0 16px ${NEON_CYAN}25` }
+                        '&:hover': { bgcolor: `${NEON_CYAN}24`, boxShadow: `0 0 16px ${NEON_CYAN}25` },
+                        '&.Mui-disabled': {
+                          color: 'var(--text-muted)',
+                          borderColor: 'var(--card-border)',
+                          bgcolor: 'var(--surface-soft)'
+                        }
                       }}
                     >
                       <Add sx={{ fontSize: 18 }} />
@@ -3485,13 +3513,13 @@ const Dashboard = ({ onThemeOverride }) => {
               <motion.div variants={itemVariants}>
                 <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: 'blur(12px)' }}>
                   <Typography sx={{ color: NEON_CYAN, fontWeight: 900, letterSpacing: '0.06em' }}>Performance Summary</Typography>
-                  <Typography sx={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, mt: 0.5 }}>
+                  <Typography sx={{ color: 'var(--text-soft)', fontSize: 12, mt: 0.5 }}>
                     Latest analyzer highlights from APC
                   </Typography>
 
                   <Box sx={{ mt: 1.5, display: 'grid', gap: 1 }}>
                     {(performanceSummary?.highlights || []).slice(0, 4).map((item, idx) => (
-                      <Typography key={`perf-${idx}`} sx={{ color: 'rgba(255,255,255,0.78)', fontSize: 12, whiteSpace: 'pre-wrap' }}>
+                      <Typography key={`perf-${idx}`} sx={{ color: 'var(--text-primary)', fontSize: 12, whiteSpace: 'pre-wrap' }}>
                         • {String(item)}
                       </Typography>
                     ))}
@@ -4579,7 +4607,7 @@ const Dashboard = ({ onThemeOverride }) => {
                         </Select>
                       </FormControl>
 
-                      <TextField fullWidth placeholder={isAiThinking ? "AI is typing..." : "Ask your AI teacher..."} value={input} inputRef={inputRef} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !isAiThinking && handleSend()} disabled={isAiThinking} sx={{ '& .MuiOutlinedInput-root': { color: '#E6EAF0', fontSize: '15px', '& fieldset': { border: 'none' }, '&:hover fieldset': { border: 'none' }, '&.Mui-focused fieldset': { border: 'none' } }, '& .MuiOutlinedInput-input': { padding: '10px 0', '&::placeholder': { color: 'rgba(255, 255, 255, 0.4)', opacity: 1 } } }} size="small" variant="standard" />
+                      <TextField fullWidth placeholder={isAiThinking ? "AI is typing..." : "Ask your AI teacher..."} value={input} inputRef={inputRef} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !isAiThinking && handleSend()} disabled={isAiThinking} sx={{ '& .MuiOutlinedInput-root': { color: 'var(--text-primary)', fontSize: '15px', '& fieldset': { border: 'none' }, '&:hover fieldset': { border: 'none' }, '&.Mui-focused fieldset': { border: 'none' } }, '& .MuiOutlinedInput-input': { padding: '10px 0', '&::placeholder': { color: 'var(--text-soft)', opacity: 1 } } }} size="small" variant="standard" />
 
                       <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
                         <IconButton 
@@ -4935,31 +4963,6 @@ const Dashboard = ({ onThemeOverride }) => {
           ⏰ {tokenWarning}
         </Alert>
       </Snackbar>
-
-      {/* Global Footer Attribution */}
-      <Box sx={{
-        position: 'fixed',
-        bottom: 0,
-        left: { sm: drawerWidth },
-        right: 0,
-        bgcolor: 'var(--bg-overlay)',
-        backdropFilter: 'blur(12px)',
-        borderTop: '1px solid var(--card-border)',
-        py: 1,
-        px: 2,
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        zIndex: 1000,
-        fontSize: '12px',
-        color: 'var(--text-soft)',
-        fontWeight: 500
-      }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
-          <BrandLogo variant="compact" imgHeight={22} animated={false} />
-          IGNOU BCA AI Assistant
-        </Box>
-      </Box>
 
       <script async src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
     </Box>
