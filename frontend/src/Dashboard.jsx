@@ -47,6 +47,7 @@ import SidebarRecentHistory from './components/SidebarRecentHistory';
 import SidebarAcademicSetup from './components/SidebarAcademicSetup';
 import SidebarAssignments from './components/SidebarAssignments';
 import ThemeToggle from './components/ThemeToggle';
+import BrandLogo from './components/BrandLogo';
 import { useTheme } from './context/ThemeContext';
 import { getToken, setToken, clearToken, isTokenExpiringSoon, shouldForceLogout, getTokenRemainingMinutes, shouldWarnTokenExpiry } from './utils/tokenManager';
 import { useAuth } from './AuthContext';
@@ -2247,11 +2248,6 @@ const Dashboard = ({ onThemeOverride }) => {
     if (mobileOpen) setMobileOpen(false);
   };
 
-  const handleMyLockerClick = () => {
-    navigate('/my-locker');
-    if (mobileOpen) setMobileOpen(false);
-  };
-
   const saveExamDate = async () => {
     const value = String(examDateInput || '').trim();
     try {
@@ -2429,9 +2425,7 @@ const Dashboard = ({ onThemeOverride }) => {
       <Box sx={{ p: 2.5, pb: 1.5, flexShrink: 0 }}>
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-            <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '20px', letterSpacing: '-0.5px', bgClip: 'text', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundImage: `linear-gradient(135deg, ${NEON_PURPLE}, ${NEON_CYAN})` }}>
-              🚀 BCABuddy
-            </Typography>
+            <BrandLogo variant="compact" imgHeight={42} />
             {userProfile.is_creator && (
               <Box sx={{ 
                 display: 'inline-flex', 
@@ -2577,33 +2571,6 @@ const Dashboard = ({ onThemeOverride }) => {
                   </ListItemIcon>
                   <ListItemText
                     primary="🚀 Advanced Preparation Center"
-                    sx={{ '& .MuiListItemText-primary': { fontSize: '14px', fontWeight: 500 } }}
-                  />
-                </ListItem>
-              </motion.div>
-            </Tooltip>
-
-            <Tooltip title="My Locker for secure study material uploads">
-              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                <ListItem
-                  component="div"
-                  role="button"
-                  onClick={handleMyLockerClick}
-                  sx={{
-                    bgcolor: GLASS_BG,
-                    border: GLASS_BORDER,
-                    borderRadius: '12px',
-                    cursor: 'pointer',
-                    '&:hover': { backgroundColor: 'rgba(16, 185, 129, 0.2)', borderColor: 'rgba(16, 185, 129, 0.45)' },
-                    backdropFilter: 'blur(12px)',
-                    py: 1.2
-                  }}
-                >
-                  <ListItemIcon sx={{ color: '#10B981', minWidth: '36px' }}>
-                    <LockIcon sx={{ fontSize: '18px' }} />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="🔐 My Locker"
                     sx={{ '& .MuiListItemText-primary': { fontSize: '14px', fontWeight: 500 } }}
                   />
                 </ListItem>
@@ -3038,21 +3005,6 @@ const Dashboard = ({ onThemeOverride }) => {
                     }}
                   >
                     APC Center
-                  </Button>
-                  <Button
-                    onClick={handleMyLockerClick}
-                    startIcon={<LockIcon sx={{ fontSize: 18 }} />}
-                    sx={{
-                      bgcolor: 'rgba(16, 185, 129, 0.16)',
-                      color: '#E6EAF0',
-                      border: '1px solid rgba(16, 185, 129, 0.45)',
-                      borderRadius: '14px',
-                      fontWeight: 900,
-                      px: 2,
-                      '&:hover': { bgcolor: 'rgba(16, 185, 129, 0.24)', boxShadow: '0 0 18px rgba(16, 185, 129, 0.3)', borderColor: 'rgba(16, 185, 129, 0.75)' }
-                    }}
-                  >
-                    My Locker
                   </Button>
                   <Button
                     onClick={() => { setShowAdvancedTools(false); setShowQuizSection(true); }}
@@ -3938,9 +3890,9 @@ const Dashboard = ({ onThemeOverride }) => {
                 <Menu />
               </IconButton>
             </motion.div>
-            <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '18px', bgClip: 'text', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundImage: `linear-gradient(135deg, ${NEON_PURPLE}, ${NEON_CYAN})` }}>
-              🚀 BCABuddy
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 120 }}>
+              <BrandLogo variant="compact" imgHeight={34} />
+            </Box>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Typography variant="caption" sx={{ color: NEON_CYAN, fontWeight: 500 }}>
@@ -3962,6 +3914,7 @@ const Dashboard = ({ onThemeOverride }) => {
                 '& .MuiChip-icon': { color: '#f59e0b' },
               }}
             />
+
 
             <Chip
               size="small"
@@ -4749,10 +4702,13 @@ const Dashboard = ({ onThemeOverride }) => {
             p: { xs: 2, md: 3 },
           }}
         >
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography sx={{ color: NEON_CYAN, fontWeight: 900, fontSize: { xs: 20, md: 24 } }}>
-              🎓 About BCABuddy
-            </Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, gap: 1.5, flexWrap: 'wrap' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+              <BrandLogo variant="compact" imgHeight={36} />
+              <Typography sx={{ color: NEON_CYAN, fontWeight: 900, fontSize: { xs: 20, md: 24 } }}>
+                About
+              </Typography>
+            </Box>
             <Button
               onClick={() => setShowAboutModal(false)}
               sx={{ color: '#E6EAF0', border: '1px solid rgba(255,255,255,0.24)', borderRadius: '12px', fontWeight: 800 }}
@@ -4999,8 +4955,9 @@ const Dashboard = ({ onThemeOverride }) => {
         color: 'var(--text-soft)',
         fontWeight: 500
       }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          BCABuddy • IGNOU BCA AI Assistant
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+          <BrandLogo variant="compact" imgHeight={22} animated={false} />
+          IGNOU BCA AI Assistant
         </Box>
       </Box>
 

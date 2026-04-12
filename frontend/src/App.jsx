@@ -12,7 +12,6 @@ const Dashboard = lazy(() => import('./Dashboard'));
 const EditProfile = lazy(() => import('./EditProfile'));
 const APCPage = lazy(() => import('./pages/APCPage'));
 const ExamSimulationPage = lazy(() => import('./pages/ExamSimulationPage'));
-const MyLocker = lazy(() => import('./pages/MyLocker'));
 const AboutPage = lazy(() => import('./pages/About'));
 const AchievementsPage = lazy(() => import('./pages/Achievements'));
 
@@ -209,10 +208,6 @@ function App() {
                 <Route
                   path="/apc"
                   element={isAuthenticated ? <APCPage /> : <Navigate to="/" replace />}
-                />
-                <Route
-                  path="/my-locker"
-                  element={isAuthenticated ? <MyLocker /> : <Navigate to="/" replace />}
                 />
                 <Route
                   path="/achievements"

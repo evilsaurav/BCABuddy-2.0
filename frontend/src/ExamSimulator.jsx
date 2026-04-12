@@ -21,6 +21,7 @@ import { downloadResultPDF } from './utils/pdfExport';
 import { normalizeChoice, resolveCorrectAnswerText, isAnswerCorrect } from './utils/answerNormalization';
 import { computeBadgeTriggers, BADGE_CATALOG } from './utils/achievements';
 import BackButton from './components/BackButton';
+import BrandLogo from './components/BrandLogo';
 import { API_BASE as DEFAULT_API_BASE } from './utils/apiConfig';
 
 const NEON_PURPLE = '#bb86fc';
@@ -1347,9 +1348,12 @@ function ExamSimulator({
         <Box id="exam-results-dashboard" sx={{ position: 'relative', zIndex: 1, p: 4, flex: 1, overflowY: 'auto', minHeight: 0 }}>
           <motion.div variants={stagger} initial="hidden" animate="show">
             <motion.div variants={item}>
-              <Typography sx={{ color: NEON_CYAN, fontSize: '28px', fontWeight: 700 }}>
-                BCABuddy - Performance Report
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                <BrandLogo variant="compact" imgHeight={44} />
+                <Typography sx={{ color: NEON_CYAN, fontSize: '26px', fontWeight: 700 }}>
+                  Performance Report
+                </Typography>
+              </Box>
               <Typography sx={{ color: '#E6EAF0', fontSize: '14px' }}>
                 Candidate: {candidateName} • Subject: {subject}
               </Typography>
@@ -1605,9 +1609,12 @@ function ExamSimulator({
             </motion.div>
 
             <Box sx={{ position: 'relative', mt: 3 }}>
-              <Typography sx={{ color: 'rgba(255, 255, 255, 0.35)', position: 'absolute', right: 0, bottom: 0 }}>
-                BCABuddy Certified
-              </Typography>
+              <Box sx={{ position: 'absolute', right: 0, bottom: 0, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <BrandLogo variant="compact" imgHeight={24} />
+                <Typography sx={{ color: 'rgba(255, 255, 255, 0.42)' }}>
+                  Certified
+                </Typography>
+              </Box>
             </Box>
           </motion.div>
         </Box>

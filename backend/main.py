@@ -46,7 +46,6 @@ from config import get_settings
 from auth_utils import get_current_user
 from routes.auth import router as auth_router
 from routes.apc import router as apc_router
-from routes.study_materials import router as study_materials_router
 
 # Import modular components
 from models import (
@@ -506,7 +505,6 @@ app.mount("/profile_pics", StaticFiles(directory=PROFILE_PICS_DIR), name="profil
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 app.include_router(auth_router)
 app.include_router(apc_router)
-app.include_router(study_materials_router)
 
 
 @app.get("/health")

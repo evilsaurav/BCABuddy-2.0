@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
 import { API_BASE } from './utils/apiConfig';
+import BrandLogo from './components/BrandLogo';
 
 const C = {
   darkBg:      '#0d0f14',
@@ -110,13 +111,7 @@ const Signup = () => {
 
           {/* Logo */}
           <div style={{position:'relative',zIndex:1}}>
-            <div style={{display:'flex',alignItems:'center',gap:10}}>
-              <div style={{width:36,height:36,borderRadius:10,background:`linear-gradient(135deg,${C.accent},${C.purple})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:17,fontWeight:900,color:'#0d0f14',boxShadow:`0 0 16px rgba(3,218,198,0.35)`,flexShrink:0}}>B</div>
-              <div>
-                <div style={{fontWeight:800,fontSize:18,background:`linear-gradient(135deg,${C.accent},${C.purple})`,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>BCABuddy</div>
-                <div style={{fontSize:10,color:C.textDim,letterSpacing:'0.08em',textTransform:'uppercase'}}>IGNOU BCA · AI Learning Platform</div>
-              </div>
-            </div>
+            <BrandLogo imgHeight={64} showTagline />
           </div>
 
           {/* Hero */}
