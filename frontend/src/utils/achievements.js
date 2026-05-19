@@ -1,16 +1,16 @@
 export const ACHIEVEMENT_VERSION = 1;
 
 export const BADGE_CATALOG = [
-  { id: 'first_quiz', name: 'No Cap Starter', hint: 'Finish your first quiz.', rarity: 'common' },
-  { id: 'quiz_hat_trick', name: 'Quiz Demon', hint: 'Complete 3 quizzes.', rarity: 'common' },
-  { id: 'perfect_quiz', name: 'Clutch Performer', hint: 'Score 100% in a quiz.', rarity: 'rare' },
-  { id: 'first_exam', name: 'Boss Fight Loaded', hint: 'Finish your first exam simulator.', rarity: 'common' },
-  { id: 'exam_grinder', name: 'Locked In', hint: 'Complete 5 exam attempts.', rarity: 'rare' },
-  { id: 'weekly_streak_5', name: 'Sigma Streak', hint: 'Study 5 days in the last week.', rarity: 'epic' },
-  { id: 'roadmap_half', name: 'Main Character Arc', hint: 'Reach 50% roadmap completion.', rarity: 'rare' },
-  { id: 'roadmap_full', name: 'Aura++', hint: 'Complete 100% roadmap.', rarity: 'legendary' },
-  { id: 'review_hunter', name: 'Brainrot Resistant', hint: 'Collect 10 review items.', rarity: 'rare' },
-  { id: 'night_owl', name: 'Midnight Grinder', hint: 'Study after 11 PM in 3 sessions.', rarity: 'epic' },
+  { id: 'first_quiz', name: 'No Cap Starter', icon: '🧢', hint: 'Finish your first quiz.', rarity: 'common' },
+  { id: 'quiz_hat_trick', name: 'Quiz Demon', icon: '😈', hint: 'Complete 3 quizzes.', rarity: 'common' },
+  { id: 'perfect_quiz', name: 'Clutch Performer', icon: '🎯', hint: 'Score 100% in a quiz.', rarity: 'rare' },
+  { id: 'first_exam', name: 'Boss Fight Loaded', icon: '🕹️', hint: 'Finish your first exam simulator.', rarity: 'common' },
+  { id: 'exam_grinder', name: 'Locked In', icon: '🔒', hint: 'Complete 5 exam attempts.', rarity: 'rare' },
+  { id: 'weekly_streak_5', name: 'Sigma Streak', icon: '⚡', hint: 'Study 5 days in the last week.', rarity: 'epic' },
+  { id: 'roadmap_half', name: 'Main Character Arc', icon: '🎬', hint: 'Reach 50% roadmap completion.', rarity: 'rare' },
+  { id: 'roadmap_full', name: 'Aura++', icon: '👑', hint: 'Complete 100% roadmap.', rarity: 'legendary' },
+  { id: 'review_hunter', name: 'Brainrot Resistant', icon: '🧠', hint: 'Collect 10 review items.', rarity: 'rare' },
+  { id: 'night_owl', name: 'Midnight Grinder', icon: '🌙', hint: 'Study after 11 PM in 3 sessions.', rarity: 'epic' },
 ];
 
 const CATALOG_MAP = BADGE_CATALOG.reduce((acc, badge) => {

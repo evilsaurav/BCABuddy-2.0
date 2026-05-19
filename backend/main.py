@@ -609,6 +609,32 @@ def _clean_json_text(text: str) -> str:
         cleaned = cleaned.split("```")[1].split("```")[0].strip()
     return cleaned
 
+def _extract_json_candidate(text: str) -> str:
+    if not text:
+        return ""
+    start = None
+    for i, ch in enumerate(text):
+        if ch in "[{":
+            start = i
+            break
+    if start is None:
+        return ""
+
+    stack = []
+    for j in range(start, len(text)):
+        ch = text[j]
+        if ch in "[{":
+            stack.append(ch)
+        elif ch in "]}":
+            if not stack:
+                continue
+            last = stack.pop()
+            if (last == "[" and ch != "]") or (last == "{" and ch != "}"):
+                return ""
+            if not stack:
+                return text[start : j + 1]
+    return ""
+
 def _safe_json_loads(text: str):
     cleaned = _clean_json_text(text)
     if not cleaned:
@@ -617,22 +643,9 @@ def _safe_json_loads(text: str):
     try:
         return json.loads(cleaned)
     except Exception as e:
-        first_arr = cleaned.find("[")
-        first_obj = cleaned.find("{")
-        starts = [i for i in [first_arr, first_obj] if i != -1]
-        if not starts:
+        candidate = _extract_json_candidate(cleaned)
+        if not candidate:
             raise ValueError(f"Invalid JSON: {str(e)}")
-
-        start = min(starts)
-        if start == first_arr:
-            end = cleaned.rfind("]")
-        else:
-            end = cleaned.rfind("}")
-
-        if end == -1 or end <= start:
-            raise ValueError(f"Invalid JSON: {str(e)}")
-
-        candidate = cleaned[start : end + 1]
         try:
             return json.loads(candidate)
         except Exception as e2:
@@ -1907,7 +1920,8 @@ def generate_quiz(
     prompt = (
         f"Generate exactly {count} IGNOU BCA MCQs for semester {request.semester}, subject {request.subject}. "
         "Return ONLY valid JSON array with this schema: "
-        '[{"question":"...","options":["A","B","C","D"],"correct_answer":"..."}]'
+        '[{"question":"...","options":["A","B","C","D"],"correct_answer":"..."}] '\
+        "No markdown, no code fences, no extra keys, no prose."
     )
     try:
         completion = get_ai_response(
