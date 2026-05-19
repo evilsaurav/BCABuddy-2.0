@@ -651,6 +651,25 @@ def _safe_json_loads(text: str):
         except Exception as e2:
             raise ValueError(f"Invalid JSON: {str(e2)}")
 
+def _repair_json_with_ai(raw_text: str, schema_hint: str, max_tokens: int = 1400):
+    if not str(raw_text or "").strip():
+        raise ValueError("Empty JSON")
+    repair_prompt = (
+        "You are a JSON repair tool. Return ONLY valid JSON. "
+        "Do not add explanations, markdown, or extra keys. "
+        "Do not remove items unless absolutely required to make JSON valid.\n"
+        f"Schema: {schema_hint}\n"
+        "Input:\n"
+        f"{raw_text}"
+    )
+    completion = get_ai_response(
+        messages=[{"role": "user", "content": repair_prompt}],
+        temperature=0.0,
+        max_tokens=max_tokens,
+    )
+    repaired_text = str(getattr(completion.choices[0].message, "content", "") or "")
+    return _safe_json_loads(repaired_text)
+
 def _extract_answer_text(raw: Any) -> str:
     """Return clean markdown text even if model returns wrapped/stringified JSON."""
     if raw is None:
@@ -1930,7 +1949,14 @@ def generate_quiz(
             max_tokens=2200,
         )
         raw_text = str(getattr(completion.choices[0].message, "content", "") or "")
-        parsed = _safe_json_loads(raw_text)
+        try:
+            parsed = _safe_json_loads(raw_text)
+        except Exception:
+            parsed = _repair_json_with_ai(
+                raw_text,
+                '[{"question":"...","options":["A","B","C","D"],"correct_answer":"..."}]',
+                max_tokens=2200,
+            )
 
         if isinstance(parsed, dict):
             parsed = parsed.get("questions", [])
@@ -2010,7 +2036,14 @@ def generate_exam(
                 max_tokens=1800,
             )
             raw_text = str(getattr(completion.choices[0].message, "content", "") or "")
-            parsed = _safe_json_loads(raw_text)
+            try:
+                parsed = _safe_json_loads(raw_text)
+            except Exception:
+                parsed = _repair_json_with_ai(
+                    raw_text,
+                    '[{"question":"...","max_marks":10,"model_answer":"..."}]',
+                    max_tokens=1800,
+                )
             if isinstance(parsed, dict):
                 parsed = parsed.get("questions", [])
             if isinstance(parsed, list):
