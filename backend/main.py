@@ -670,6 +670,73 @@ def _repair_json_with_ai(raw_text: str, schema_hint: str, max_tokens: int = 1400
     repaired_text = str(getattr(completion.choices[0].message, "content", "") or "")
     return _safe_json_loads(repaired_text)
 
+def _normalize_quiz_items(parsed: Any, count: int) -> list[QuizQuestion]:
+    if isinstance(parsed, dict):
+        parsed = parsed.get("questions", parsed.get("items", []))
+    if not isinstance(parsed, list):
+        raise ValueError("Quiz payload is not a list")
+
+    normalized: list[QuizQuestion] = []
+    for item in parsed:
+        if not isinstance(item, dict):
+            continue
+        question = str(item.get("question", "") or item.get("q", "")).strip()
+        options = item.get("options", item.get("choices", []))
+        correct_answer = str(item.get("correct_answer", "") or item.get("answer", "")).strip()
+        if not question:
+            continue
+        if not isinstance(options, list):
+            options = []
+        option_values = [str(opt).strip() for opt in options if str(opt).strip()]
+        if len(option_values) < 2:
+            continue
+        if not correct_answer or correct_answer not in option_values:
+            correct_answer = option_values[0]
+
+        normalized.append(
+            QuizQuestion(
+                question=question,
+                options=option_values[:6],
+                correct_answer=correct_answer,
+            )
+        )
+
+        if len(normalized) >= count:
+            break
+
+    if not normalized:
+        raise ValueError("No valid quiz questions generated")
+
+    return normalized
+
+def _normalize_subjective_items(parsed: Any, limit: int, subject: str, semester: str) -> list[dict[str, Any]]:
+    if isinstance(parsed, dict):
+        parsed = parsed.get("questions", parsed.get("items", []))
+    if not isinstance(parsed, list):
+        return []
+
+    result: list[dict[str, Any]] = []
+    for item in parsed[:limit]:
+        if not isinstance(item, dict):
+            continue
+        question = str(item.get("question", "") or item.get("q", "")).strip()
+        if not question:
+            continue
+        max_marks = int(item.get("max_marks", 10) or 10)
+        model_answer = str(item.get("model_answer", "") or item.get("answer", "")).strip()
+        result.append(
+            {
+                "question": question,
+                "type": "subjective",
+                "max_marks": max(2, min(max_marks, 20)),
+                "model_answer": model_answer,
+                "subject": subject,
+                "semester": semester,
+            }
+        )
+
+    return result
+
 def _extract_answer_text(raw: Any) -> str:
     """Return clean markdown text even if model returns wrapped/stringified JSON."""
     if raw is None:
@@ -1957,40 +2024,7 @@ def generate_quiz(
                 '[{"question":"...","options":["A","B","C","D"],"correct_answer":"..."}]',
                 max_tokens=2200,
             )
-
-        if isinstance(parsed, dict):
-            parsed = parsed.get("questions", [])
-        if not isinstance(parsed, list):
-            raise ValueError("Quiz payload is not a list")
-
-        normalized: List[QuizQuestion] = []
-        for item in parsed:
-            if not isinstance(item, dict):
-                continue
-            question = str(item.get("question", "")).strip()
-            options = item.get("options", [])
-            correct_answer = str(item.get("correct_answer", "")).strip()
-            if not question:
-                continue
-            if not isinstance(options, list):
-                options = []
-            option_values = [str(opt).strip() for opt in options if str(opt).strip()]
-            if len(option_values) < 2:
-                continue
-            if not correct_answer:
-                correct_answer = option_values[0]
-            normalized.append(
-                QuizQuestion(
-                    question=question,
-                    options=option_values[:6],
-                    correct_answer=correct_answer,
-                )
-            )
-
-        if not normalized:
-            raise ValueError("No valid quiz questions generated")
-
-        return normalized[:count]
+        return _normalize_quiz_items(parsed, count)
     except ProviderRateLimitError as e:
         raise HTTPException(status_code=429, detail=e.message)
     except Exception as e:
@@ -2044,27 +2078,14 @@ def generate_exam(
                     '[{"question":"...","max_marks":10,"model_answer":"..."}]',
                     max_tokens=1800,
                 )
-            if isinstance(parsed, dict):
-                parsed = parsed.get("questions", [])
-            if isinstance(parsed, list):
-                for item in parsed[:subjective_count]:
-                    if not isinstance(item, dict):
-                        continue
-                    question = str(item.get("question", "")).strip()
-                    if not question:
-                        continue
-                    max_marks = int(item.get("max_marks", 10) or 10)
-                    model_answer = str(item.get("model_answer", "")).strip()
-                    result.append(
-                        {
-                            "question": question,
-                            "type": "subjective",
-                            "max_marks": max(2, min(max_marks, 20)),
-                            "model_answer": model_answer,
-                            "subject": request.subject,
-                            "semester": request.semester,
-                        }
-                    )
+            result.extend(
+                _normalize_subjective_items(
+                    parsed,
+                    subjective_count,
+                    request.subject,
+                    request.semester,
+                )
+            )
         except Exception:
             # Non-fatal: exam can still continue with MCQ-only set.
             pass
