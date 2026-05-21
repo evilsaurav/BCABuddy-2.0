@@ -197,6 +197,9 @@ def get_profile(current_user: User = Depends(get_current_user)):
         if profile_pic_val is not None
         else None,
         is_creator=is_creator_val,
+        total_xp=int(getattr(current_user_any, "total_xp", 0) or 0),
+        highest_exam_score=float(getattr(current_user_any, "highest_exam_score", 0.0) or 0.0),
+        current_streak=int(getattr(current_user_any, "current_streak", 0) or 0),
     )
 
 

@@ -40,6 +40,7 @@ import {
 } from 'recharts';
 import ExamSimulator from './ExamSimulator';
 import AssessmentCenter from './AssessmentCenter';
+import Leaderboard from './Leaderboard';
 import AdvancedTools from './pages/AdvancedTools';import StudyRoadmapCard from './StudyRoadmapCard';
 import ExamCountdown from './components/ExamCountdown';
 import ChatArea from './components/ChatArea';
@@ -2174,8 +2175,14 @@ const Dashboard = ({ onThemeOverride }) => {
             </AccordionSummary>
             <AccordionDetails sx={{ display: 'flex', flexDirection: 'column', gap: 1, p: 1 }}>
               <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                <ListItem component="div" role="button" onClick={() => { setActiveView('dashboard'); setMobileOpen(false); }} sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '12px', '&:hover': { backgroundColor: 'rgba(187, 134, 252, 0.1)', borderColor: `${NEON_PURPLE}40` }, backdropFilter: 'blur(12px)', cursor: 'pointer' }}>
+                <ListItem component="div" role="button" onClick={() => { setActiveView('dashboard'); setMobileOpen(false); }} sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '12px', '&:hover': { backgroundColor: 'rgba(187, 134, 252, 0.1)', borderColor: `${NEON_PURPLE}40` }, backdropFilter: 'blur(12px)', cursor: 'pointer', mb: 1 }}>
                   <ListItemText primary="View Stats" secondary={`${dashboardStats.total_sessions} sessions`} sx={{ '& .MuiListItemText-secondary': { color: 'rgba(255, 255, 255, 0.5)' } }} />
+                </ListItem>
+              </motion.div>
+              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                <ListItem component="div" role="button" onClick={() => { setActiveView('leaderboard'); setMobileOpen(false); }} sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '12px', '&:hover': { backgroundColor: 'rgba(251, 191, 36, 0.1)', borderColor: '#FBBF24' }, backdropFilter: 'blur(12px)', cursor: 'pointer' }}>
+                  <ListItemIcon sx={{ minWidth: 40, color: '#FBBF24' }}><EmojiEvents /></ListItemIcon>
+                  <ListItemText primary="Global Leaderboard" secondary="Top students & streaks" sx={{ '& .MuiListItemText-secondary': { color: 'rgba(255, 255, 255, 0.5)' } }} />
                 </ListItem>
               </motion.div>
             </AccordionDetails>
@@ -3906,6 +3913,10 @@ const Dashboard = ({ onThemeOverride }) => {
           activeView === 'dashboard' ? (
             <Box sx={{ flex: 1, overflow: 'auto', pb: 2 }}>
               <DashboardView />
+            </Box>
+          ) : activeView === 'leaderboard' ? (
+            <Box sx={{ flex: 1, overflow: 'auto', pb: 2, height: '100%' }}>
+              <Leaderboard />
             </Box>
           ) : (
             normalizeToolKey(activeTool) === 'performance analytics' ? (

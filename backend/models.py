@@ -95,8 +95,11 @@ class UserProfile(BaseModel):
     auto_save_history: bool = True
     show_quick_suggestions: bool = True
     privacy_mode: bool = False
-    profile_pic_url: Optional[str] = None   # ← FIX #1 added
+    profile_pic_url: Optional[str] = None
     is_creator: bool = False
+    total_xp: int = 0
+    highest_exam_score: float = 0.0
+    current_streak: int = 0
 
 class UserProfileUpdate(BaseModel):
     display_name: Optional[str] = None

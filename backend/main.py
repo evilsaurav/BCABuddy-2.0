@@ -17,6 +17,7 @@ from routes.chat import router as chat_sessions_router
 from routes.rag import router as rag_router
 from routes.dashboard import router as dashboard_router
 from routes.quiz import router as quiz_router
+from routes.leaderboard import router as leaderboard_router
 
 settings = get_settings()
 
@@ -48,6 +49,7 @@ app.include_router(chat_sessions_router)
 app.include_router(rag_router)
 app.include_router(dashboard_router)
 app.include_router(quiz_router)
+app.include_router(leaderboard_router, prefix="/api/leaderboard", tags=["leaderboard"])
 
 @app.get("/health")
 def health_check():

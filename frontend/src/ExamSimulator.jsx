@@ -518,6 +518,22 @@ function ExamSimulator({
     saveAttempt(stats);
     recordExamMistakes(responses, examRunIdRef.current);
 
+    // Sync XP with backend
+    const token = localStorage.getItem('token');
+    if (token) {
+      fetch(`${API_BASE}/leaderboard/submit`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          activity_type: 'full_exam',
+          score_percentage: stats.percentTotal
+        })
+      }).catch(err => console.error('Failed to sync XP:', err));
+    }
+
     // Fire-and-forget subjective grading (results will appear as they arrive)
     gradeSubjectiveAnswers(quizData, responses);
   };

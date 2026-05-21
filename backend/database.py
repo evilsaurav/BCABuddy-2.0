@@ -41,6 +41,10 @@ class User(Base):
     achievements_json = Column(Text, nullable=True)
     profile_picture_url = Column(String, nullable=True)
     is_creator = Column(Integer, default=0)  # 0 = False, 1 = True (SQLite compatible)
+    total_xp = Column(Integer, default=0)
+    highest_exam_score = Column(Float, default=0.0)
+    current_streak = Column(Integer, default=0)
+    last_active_date = Column(String, nullable=True)  # YYYY-MM-DD
     created_at = Column(DateTime, default=datetime.utcnow)
     
     sessions = relationship("ChatSession", back_populates="user")

@@ -219,6 +219,22 @@ const QuizSection = ({ onClose, API_BASE: apiBaseOverride, globalAbortRef = null
     const attempts = Array.isArray(existing) ? existing : [];
     localStorage.setItem(QUIZ_ATTEMPTS_KEY, JSON.stringify([...attempts, attempt]));
 
+    // Sync XP with backend
+    const token = localStorage.getItem('token');
+    if (token) {
+      fetch(`${API_BASE}/leaderboard/submit`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          activity_type: 'quick_quiz',
+          score_percentage: attempt.percent
+        })
+      }).catch(err => console.error('Failed to sync XP:', err));
+    }
+
     const runId = `quiz_${Date.now()}`;
     quizData.forEach((question, idx) => {
       const userAnswer = userAnswers[idx];
