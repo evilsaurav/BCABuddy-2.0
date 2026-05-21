@@ -79,35 +79,47 @@ async def websocket_endpoint(websocket: WebSocket, token: str):
     await manager.connect(websocket, username)
     
     try:
-        # Matchmaking logic
-        if manager.matchmaking_queue:
-            opponent = manager.matchmaking_queue.pop(0)
-            if opponent != username:
-                game_id = str(uuid.uuid4())
-                manager.active_games[game_id] = {
-                    "players": [username, opponent],
-                    "scores": {username: 0, opponent: 0}
-                }
-                
-                # Notify players
-                await manager.send_personal_message({"type": "matched", "opponent": opponent, "game_id": game_id}, username)
-                await manager.send_personal_message({"type": "matched", "opponent": username, "game_id": game_id}, opponent)
-                
-                # Start game loop in background
-                asyncio.create_task(start_game(game_id))
-            else:
-                manager.matchmaking_queue.append(username)
-                await manager.send_personal_message({"type": "waiting", "message": "Waiting for opponent..."}, username)
-        else:
-            manager.matchmaking_queue.append(username)
-            await manager.send_personal_message({"type": "waiting", "message": "Waiting for opponent..."}, username)
-            
         # Message loop
         while True:
             data = await websocket.receive_text()
             payload = json.loads(data)
             
-            if payload.get("type") == "answer":
+            if payload.get("type") == "join_queue":
+                target = payload.get("target")
+                if target:
+                    # Challenge specific user
+                    if target in manager.active_connections:
+                        game_id = str(uuid.uuid4())
+                        manager.active_games[game_id] = {
+                            "players": [username, target],
+                            "scores": {username: 0, target: 0}
+                        }
+                        await manager.send_personal_message({"type": "matched", "opponent": target, "game_id": game_id}, username)
+                        await manager.send_personal_message({"type": "matched", "opponent": username, "game_id": game_id}, target)
+                        asyncio.create_task(start_game(game_id))
+                    else:
+                        await manager.send_personal_message({"type": "error", "message": "User is not online"}, username)
+                else:
+                    # Random Matchmaking
+                    if manager.matchmaking_queue:
+                        opponent = manager.matchmaking_queue.pop(0)
+                        if opponent != username:
+                            game_id = str(uuid.uuid4())
+                            manager.active_games[game_id] = {
+                                "players": [username, opponent],
+                                "scores": {username: 0, opponent: 0}
+                            }
+                            await manager.send_personal_message({"type": "matched", "opponent": opponent, "game_id": game_id}, username)
+                            await manager.send_personal_message({"type": "matched", "opponent": username, "game_id": game_id}, opponent)
+                            asyncio.create_task(start_game(game_id))
+                        else:
+                            manager.matchmaking_queue.append(username)
+                            await manager.send_personal_message({"type": "waiting", "message": "Waiting for opponent..."}, username)
+                    else:
+                        manager.matchmaking_queue.append(username)
+                        await manager.send_personal_message({"type": "waiting", "message": "Waiting for opponent..."}, username)
+            
+            elif payload.get("type") == "answer":
                 game_id = payload.get("game_id")
                 question_idx = payload.get("question_index")
                 answer = payload.get("answer")
@@ -123,4 +135,4 @@ async def websocket_endpoint(websocket: WebSocket, token: str):
                         })
 
     except WebSocketDisconnect:
-        manager.disconnect(username)
+        await manager.disconnect(username)

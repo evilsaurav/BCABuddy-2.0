@@ -15,12 +15,14 @@ class ConnectionManager:
     async def connect(self, websocket: WebSocket, username: str):
         await websocket.accept()
         self.active_connections[username] = websocket
+        await self.broadcast_global({"type": "online_count", "count": len(self.active_connections)})
 
-    def disconnect(self, username: str):
+    async def disconnect(self, username: str):
         if username in self.active_connections:
             del self.active_connections[username]
         if username in self.matchmaking_queue:
             self.matchmaking_queue.remove(username)
+        await self.broadcast_global({"type": "online_count", "count": len(self.active_connections)})
 
     async def send_personal_message(self, message: dict, username: str):
         websocket = self.active_connections.get(username)
@@ -28,7 +30,7 @@ class ConnectionManager:
             try:
                 await websocket.send_text(json.dumps(message))
             except Exception:
-                self.disconnect(username)
+                await self.disconnect(username)
 
     async def broadcast_to_game(self, game_id: str, message: dict):
         game = self.active_games.get(game_id)
@@ -36,5 +38,9 @@ class ConnectionManager:
             return
         for player in game["players"]:
             await self.send_personal_message(message, player)
+
+    async def broadcast_global(self, message: dict):
+        for username in list(self.active_connections.keys()):
+            await self.send_personal_message(message, username)
 
 manager = ConnectionManager()

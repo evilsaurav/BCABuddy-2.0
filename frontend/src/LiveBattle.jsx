@@ -11,25 +11,30 @@ export default function LiveBattle() {
   const [winner, setWinner] = useState(null);
   const [selectedOption, setSelectedOption] = useState(null);
   const [resultMsg, setResultMsg] = useState("");
+  const [onlineCount, setOnlineCount] = useState(0);
+  const [challengeTarget, setChallengeTarget] = useState("");
   const gameIdRef = useRef(null);
 
   const username = localStorage.getItem("username");
 
   const connectWebSocket = () => {
+    if (ws) return; // Prevent double connection
     const token = localStorage.getItem("token");
     if (!token) return alert("Please login first.");
 
     const socket = new WebSocket(`ws://localhost:8000/ws/battle?token=${token}`);
     
     socket.onopen = () => {
-      setGameState("waiting");
+      // Passive lobby connection, wait for user action
     };
 
     socket.onmessage = (event) => {
       const data = JSON.parse(event.data);
       console.log("WS Data:", data);
 
-      if (data.type === "waiting") {
+      if (data.type === "online_count") {
+        setOnlineCount(data.count);
+      } else if (data.type === "waiting") {
         setGameState("waiting");
       } else if (data.type === "matched") {
         setOpponent(data.opponent);
@@ -54,6 +59,9 @@ export default function LiveBattle() {
         setWinner(data.winner);
         setScores(data.final_scores);
         setGameState("game_over");
+      } else if (data.type === "error") {
+        alert(data.message);
+        setGameState("idle");
       }
     };
 
@@ -63,6 +71,13 @@ export default function LiveBattle() {
 
     setWs(socket);
   };
+
+  useEffect(() => {
+    connectWebSocket();
+    return () => {
+      if (ws) ws.close();
+    };
+  }, []);
 
   const handleAnswer = (option) => {
     setSelectedOption(option);
@@ -102,12 +117,49 @@ export default function LiveBattle() {
           <p style={{ color: "#9CA3AF", fontSize: "1.2rem", marginBottom: "2rem" }}>
             Challenge other BCABuddy users to a real-time quiz battle!
           </p>
-          <button 
-            onClick={connectWebSocket}
-            style={{ padding: "1rem 3rem", fontSize: "1.2rem", fontWeight: "bold", background: "#EF4444", color: "white", border: "none", borderRadius: "50px", cursor: "pointer", boxShadow: "0 0 20px rgba(239, 68, 68, 0.4)" }}
-          >
-            Find Opponent
-          </button>
+          <div style={{ color: "#4CAF50", marginBottom: "2rem", fontWeight: "bold" }}>
+            🟢 {onlineCount} Players Online
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "1rem", alignItems: "center" }}>
+            <button 
+              onClick={() => {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                  ws.send(JSON.stringify({ type: "join_queue" }));
+                } else {
+                  connectWebSocket();
+                  setTimeout(() => ws?.send(JSON.stringify({ type: "join_queue" })), 500);
+                }
+                setGameState("waiting");
+              }}
+              style={{ padding: "1rem 3rem", fontSize: "1.2rem", fontWeight: "bold", background: "#EF4444", color: "white", border: "none", borderRadius: "50px", cursor: "pointer", boxShadow: "0 0 20px rgba(239, 68, 68, 0.4)", width: "300px" }}
+            >
+              Random Matchmaking
+            </button>
+            <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}>
+              <input
+                type="text"
+                placeholder="Friend's Username..."
+                value={challengeTarget}
+                onChange={(e) => setChallengeTarget(e.target.value)}
+                style={{ padding: "0.8rem", borderRadius: "10px", border: "1px solid #4B5563", background: "rgba(0,0,0,0.3)", color: "white", width: "200px" }}
+              />
+              <button 
+                onClick={() => {
+                  if (!challengeTarget.trim()) return alert("Enter a username!");
+                  if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type: "join_queue", target: challengeTarget.trim() }));
+                  } else {
+                    connectWebSocket();
+                    setTimeout(() => ws?.send(JSON.stringify({ type: "join_queue", target: challengeTarget.trim() })), 500);
+                  }
+                  setGameState("waiting");
+                }}
+                style={{ padding: "0.8rem 1.5rem", fontWeight: "bold", background: "#3B82F6", color: "white", border: "none", borderRadius: "10px", cursor: "pointer" }}
+              >
+                Challenge 1v1
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
