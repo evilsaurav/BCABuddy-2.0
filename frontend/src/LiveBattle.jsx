@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Swords, User, Zap, Trophy, Loader2 } from "lucide-react";
+import { Swords, User, Zap, Trophy, Loader2, Frown } from "lucide-react";
+import Confetti from "react-confetti";
+import { useWindowSize } from "react-use";
 
 export default function LiveBattle() {
   const [ws, setWs] = useState(null);
@@ -14,6 +16,7 @@ export default function LiveBattle() {
   const [onlineCount, setOnlineCount] = useState(0);
   const [challengeTarget, setChallengeTarget] = useState("");
   const gameIdRef = useRef(null);
+  const { width, height } = useWindowSize();
 
   const username = localStorage.getItem("username");
 
@@ -186,23 +189,33 @@ export default function LiveBattle() {
           </div>
 
           <div style={{ textAlign: "center", color: "#FBBF24", fontWeight: "bold", fontSize: "1.2rem", minHeight: "2rem" }}>
-            {resultMsg}
+            <motion.div
+              key={resultMsg}
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ type: "spring", stiffness: 300, damping: 20 }}
+            >
+              {resultMsg}
+            </motion.div>
           </div>
 
           {currentQuestion ? (
             <AnimatePresence mode="wait">
               <motion.div 
                 key={currentQuestion.index}
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                style={{ background: "rgba(255,255,255,0.05)", padding: "2rem", borderRadius: "20px", border: "1px solid rgba(255,255,255,0.1)" }}
+                initial={{ opacity: 0, x: 50, scale: 0.95 }}
+                animate={{ opacity: 1, x: 0, scale: 1 }}
+                exit={{ opacity: 0, x: -50, scale: 0.95 }}
+                transition={{ type: "spring", stiffness: 200, damping: 20 }}
+                style={{ background: "rgba(255,255,255,0.05)", padding: "2rem", borderRadius: "20px", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 10px 30px rgba(0,0,0,0.5)" }}
               >
                 <h2 style={{ marginBottom: "2rem", fontSize: "1.5rem" }}>{currentQuestion.question}</h2>
                 <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                   {currentQuestion.options.map((opt, i) => (
-                    <button 
+                    <motion.button 
                       key={i}
+                      whileHover={!selectedOption ? { scale: 1.02, backgroundColor: "rgba(255,255,255,0.1)" } : {}}
+                      whileTap={!selectedOption ? { scale: 0.98 } : {}}
                       onClick={() => handleAnswer(opt)}
                       disabled={!!selectedOption}
                       style={{ 
@@ -211,14 +224,14 @@ export default function LiveBattle() {
                         textAlign: "left", 
                         background: selectedOption === opt ? "rgba(96, 165, 250, 0.2)" : "rgba(0,0,0,0.3)", 
                         color: selectedOption === opt ? "#60A5FA" : "white",
-                        border: `1px solid ${selectedOption === opt ? "#60A5FA" : "rgba(255,255,255,0.1)"}`,
-                        borderRadius: "10px", 
+                        border: `2px solid ${selectedOption === opt ? "#60A5FA" : "rgba(255,255,255,0.1)"}`,
+                        borderRadius: "12px", 
                         cursor: selectedOption ? "default" : "pointer",
                         transition: "all 0.2s"
                       }}
                     >
                       {opt}
-                    </button>
+                    </motion.button>
                   ))}
                 </div>
               </motion.div>
@@ -232,25 +245,38 @@ export default function LiveBattle() {
       )}
 
       {gameState === "game_over" && (
-        <motion.div 
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          style={{ textAlign: "center", background: "rgba(0,0,0,0.5)", padding: "3rem", borderRadius: "20px", border: "1px solid rgba(255,255,255,0.1)", marginTop: "5vh" }}
-        >
-          <Trophy size={80} color="#FBBF24" style={{ margin: "0 auto", marginBottom: "1rem" }} />
-          <h1 style={{ fontSize: "3rem", color: winner === username ? "#4CAF50" : "#F87171" }}>
-            {winner === username ? "Victory!" : "Defeat!"}
-          </h1>
-          <p style={{ fontSize: "1.5rem", color: "#9CA3AF", marginTop: "1rem" }}>
-            Final Score: {scores[username]} - {scores[opponent]}
-          </p>
-          <button 
-            onClick={quitGame}
-            style={{ marginTop: "2rem", padding: "1rem 3rem", fontSize: "1.2rem", fontWeight: "bold", background: "#3B82F6", color: "white", border: "none", borderRadius: "50px", cursor: "pointer" }}
+        <>
+          {winner === username && <Confetti width={width} height={height} recycle={false} numberOfPieces={500} />}
+          <motion.div 
+            initial={{ scale: 0.5, opacity: 0, rotate: -10 }}
+            animate={{ scale: 1, opacity: 1, rotate: 0 }}
+            transition={{ type: "spring", bounce: 0.5 }}
+            style={{ textAlign: "center", background: "rgba(0,0,0,0.6)", padding: "3rem", borderRadius: "20px", border: "2px solid rgba(255,255,255,0.1)", marginTop: "5vh", boxShadow: "0 20px 50px rgba(0,0,0,0.8)" }}
           >
-            Return to Lobby
-          </button>
-        </motion.div>
+            {winner === username ? (
+              <motion.div animate={{ y: [0, -20, 0] }} transition={{ repeat: Infinity, duration: 2 }}>
+                <Trophy size={100} color="#FBBF24" style={{ margin: "0 auto", marginBottom: "1rem", filter: "drop-shadow(0 0 20px rgba(251, 191, 36, 0.8))" }} />
+              </motion.div>
+            ) : (
+              <Frown size={100} color="#9CA3AF" style={{ margin: "0 auto", marginBottom: "1rem" }} />
+            )}
+            
+            <h1 style={{ fontSize: "3.5rem", fontWeight: "900", color: winner === username ? "#4CAF50" : "#F87171", textShadow: "0 0 20px rgba(0,0,0,0.5)" }}>
+              {winner === username ? "VICTORY!" : "DEFEAT"}
+            </h1>
+            <p style={{ fontSize: "1.8rem", color: "#E5E7EB", marginTop: "1rem", fontWeight: "bold" }}>
+              Final Score: {scores[username]} - {scores[opponent]}
+            </p>
+            <motion.button 
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={quitGame}
+              style={{ marginTop: "2rem", padding: "1rem 3rem", fontSize: "1.2rem", fontWeight: "bold", background: "linear-gradient(135deg, #3B82F6, #2563EB)", color: "white", border: "none", borderRadius: "50px", cursor: "pointer", boxShadow: "0 10px 20px rgba(37, 99, 235, 0.4)" }}
+            >
+              Return to Lobby
+            </motion.button>
+          </motion.div>
+        </>
       )}
 
       <style>
