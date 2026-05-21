@@ -32,7 +32,8 @@
     "recharts": "^3.7.0",
     "remark-gfm": "^4.0.1",
     "swiper": "^12.1.2",
-    "tsparticles": "^3.9.1"
+    "tsparticles": "^3.9.1",
+    "zustand": "^5.0.13"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

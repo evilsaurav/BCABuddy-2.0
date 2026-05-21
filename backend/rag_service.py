@@ -1,63 +1,87 @@
 import os
+import asyncio
 from groq import Groq
 from langchain_community.document_loaders import PyPDFLoader
-# 👇 YE LINE CHANGE HUYI HAI (New Import)
 from langchain_text_splitters import RecursiveCharacterTextSplitter 
 from langchain_community.vectorstores import FAISS
-from langchain_huggingface import HuggingFaceEmbeddings
+
+# Global Singleton for Embeddings (Lazy Loaded)
+_EMBEDDINGS_INSTANCE = None
+
+def get_embeddings_singleton():
+    global _EMBEDDINGS_INSTANCE
+    if _EMBEDDINGS_INSTANCE is None:
+        from langchain_huggingface import HuggingFaceEmbeddings
+        print("RAG: Initializing HuggingFaceEmbeddings model (Lazy Load)...")
+        _EMBEDDINGS_INSTANCE = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    return _EMBEDDINGS_INSTANCE
 
 class RAGService:
-    def __init__(self, groq_api_key, embeddings=None):
+    def __init__(self, groq_api_key):
         self.client = Groq(api_key=groq_api_key)
         self.documents = []
-        # Reuse a shared embeddings instance if provided to avoid loading the model twice
-        if embeddings is not None:
-            self.embeddings = embeddings
-        else:
-            self.embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
         self.vector_store = None
         self.db_path = "faiss_index"
-        self._load_existing_index()
+        self._index_loaded = False
 
-    def _load_existing_index(self):
+    def _lazy_load_index(self):
+        if self._index_loaded:
+            return
+            
+        embeddings = get_embeddings_singleton()
         if os.path.exists(self.db_path):
             try:
-                # 'allow_dangerous_deserialization=True' is needed for local files now
-                self.vector_store = FAISS.load_local(self.db_path, self.embeddings, allow_dangerous_deserialization=True)
+                self.vector_store = FAISS.load_local(
+                    self.db_path, 
+                    embeddings, 
+                    allow_dangerous_deserialization=True
+                )
                 print("RAG: Loaded existing FAISS index.")
             except Exception as e:
                 print(f"RAG: Could not load index: {e}")
+        self._index_loaded = True
 
-    def upload_pdf(self, file_path):
+    async def upload_pdf(self, file_path):
         """Index a PDF file into the FAISS vector store. Returns chunk count."""
-        try:
+        def _process():
+            self._lazy_load_index()
             loader = PyPDFLoader(file_path)
             docs = loader.load()
             splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
             chunks = splitter.split_documents(docs)
             if not chunks:
                 return 0
+            
+            embeddings = get_embeddings_singleton()
             if self.vector_store is None:
-                self.vector_store = FAISS.from_documents(chunks, self.embeddings)
+                self.vector_store = FAISS.from_documents(chunks, embeddings)
             else:
                 self.vector_store.add_documents(chunks)
+            
             self.vector_store.save_local(self.db_path)
             self.documents.append(file_path)
             return len(chunks)
-        except Exception as e:
-            raise Exception(f"Error processing PDF: {str(e)}")
+            
+        return await asyncio.to_thread(_process)
 
-    def query(self, user_query: str, k: int = 3) -> str:
-        """Retrieve relevant chunks from user-uploaded documents."""
-        if self.vector_store is None or not str(user_query or "").strip():
+    async def query(self, user_query: str, k: int = 3) -> str:
+        """Retrieve relevant chunks asynchronously from user-uploaded documents."""
+        if not str(user_query or "").strip():
             return ""
-        try:
-            docs = self.vector_store.similarity_search(user_query, k=k)
-            chunks = [str(getattr(d, "page_content", "")).strip() for d in docs if str(getattr(d, "page_content", "")).strip()]
-            return "\n\n---\n\n".join(chunks[:k]).strip()
-        except Exception:
-            return ""
+            
+        def _search():
+            self._lazy_load_index()
+            if self.vector_store is None:
+                return ""
+            try:
+                docs = self.vector_store.similarity_search(user_query, k=k)
+                chunks = [str(getattr(d, "page_content", "")).strip() for d in docs if str(getattr(d, "page_content", "")).strip()]
+                return "\n\n---\n\n".join(chunks[:k]).strip()
+            except Exception:
+                return ""
+                
+        return await asyncio.to_thread(_search)
 
-    def get_answer(self, query: str) -> str:
+    async def get_answer(self, query: str) -> str:
         """Alias for query() — kept for backward compatibility."""
-        return self.query(query)
+        return await self.query(query)

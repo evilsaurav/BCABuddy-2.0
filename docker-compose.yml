@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  backend:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: bcabuddy_backend
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - GROQ_API_KEY=${GROQ_API_KEY}
+    volumes:
+      # Persist SQLite databases
+      - ./backend/bcabuddy.db:/app/bcabuddy.db
+      - ./backend/chats.db:/app/chats.db
+      # Persist uploaded files and generated assets
+      - ./backend/uploads:/app/uploads
+      - ./backend/profile_pics:/app/profile_pics
+      # Persist the FAISS vector store
+      - ./backend/vectorstore:/app/vectorstore
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: bcabuddy_frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    restart: unless-stopped

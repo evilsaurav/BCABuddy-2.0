@@ -10,9 +10,10 @@ except ImportError:
     from sqlalchemy.orm import sessionmaker, relationship
     Base = declarative_base()
 
+import os
 from datetime import datetime
 
-DATABASE_URL = "sqlite:///./bcabuddy.db"
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./bcabuddy.db")
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

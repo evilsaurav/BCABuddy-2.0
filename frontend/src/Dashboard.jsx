@@ -7,7 +7,9 @@
 
 import { cacheAiResponse, getLatestAiResponses, cacheSubjectTopics } from './utils/offlineStorage';
 import { normalizeHinglishTranscript } from './utils/hinglishTranslate';
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useChatStore } from './store/chatStore';
+import { useDashboardStore } from './store/dashboardStore';
 import {
   Box, Typography, Drawer, List, ListItem, ListItemIcon,
   ListItemText, IconButton, AppBar, Toolbar, Avatar, Divider,
@@ -55,6 +57,7 @@ import { API_BASE } from './utils/apiConfig';
 import useHinglishVoice from './hooks/useHinglishVoice';
 import { getExamTrackerSummary } from './utils/examSchedule';
 import { BADGE_CATALOG, normalizeAchievements, computeBadgeTriggers, mergeAchievements, getBadgeById } from './utils/achievements';
+import { TypewriterText, ChartRenderer, SafeMermaidViewer, markdownComponents } from './components/MarkdownRenderer';
 
 const drawerWidth = 280;
 const NEON_PURPLE = '#bb86fc';
@@ -270,329 +273,7 @@ const TypingIndicator = () => (
   </Box>
 );
 
-// Helper function to detect and render Recharts data
-const ChartRenderer = ({ dataString }) => {
-  try {
-    const data = JSON.parse(dataString);
-    if (Array.isArray(data) && data.length > 0) {
-      const firstItem = data[0];
-      const keys = Object.keys(firstItem);
-      
-      if (keys.length === 2) {
-        // Simple bar/line chart
-        return (
-          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.3 }}>
-            <Box sx={{ my: 2, bgcolor: GLASS_BG, border: GLASS_BORDER, p: 2, borderRadius: '16px', overflow: 'auto', backdropFilter: 'blur(12px)' }}>
-              <ResponsiveContainer width="100%" height={300}>
-                <RechartsBarChart data={data}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={`${NEON_CYAN}20`} />
-                  <XAxis dataKey={keys[0]} stroke={NEON_CYAN} />
-                  <YAxis stroke={NEON_CYAN} />
-                  <RechartsTooltip contentStyle={{ bgcolor: GLASS_BG, border: `1px solid ${NEON_CYAN}` }} />
-                  <Bar dataKey={keys[1]} fill={NEON_PURPLE} radius={8} />
-                </RechartsBarChart>
-              </ResponsiveContainer>
-            </Box>
-          </motion.div>
-        );
-      }
-    }
-  } catch (e) {
-    // Not JSON data, render normally
-  }
-  return null;
-};
 
-// ─────────────────────────────────────────────────────────────────
-// SafeMermaidViewer — mermaid v10.x compatible
-//
-// v10 breaking changes vs v9:
-//   • mermaid.render(id, code) creates a hidden <div id="..."> in body
-//     temporarily — if that ID already exists, it throws immediately.
-//   • startOnLoad:true + manual render() = double-processing = crash.
-//   • re-initializing mermaid mid-session resets internal state badly.
-//
-// This component handles all of that cleanly.
-// ─────────────────────────────────────────────────────────────────
-
-const SafeMermaidViewer = ({ chartCode }) => {
-  const containerRef = useRef(null);
-  const [renderState, setRenderState] = useState('loading');
-  const [errorMsg, setErrorMsg] = useState('');
-  const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    if (!chartCode || !containerRef.current) return;
-
-    setRenderState('loading');
-    setErrorMsg('');
-
-    let clean = chartCode
-      .trim()
-      .replace(/^```[a-zA-Z]*\n?/, '')
-      .replace(/\n?```$/, '')
-      .replace(/\r\n/g, '\n')
-      .replace(/\r/g, '\n')
-      .trim();
-
-    clean = clean
-      .split('\n')
-      .map((line) => {
-        if (!line.includes('-->|') && !line.includes('->|')) return line;
-        line = line.replace(/(^|[^-])->\|/g, '$1-->|');
-        line = line.replace(/\|>/g, '|');
-        return line.replace(/-->\|([^|]*)\|/g, (_m, label) => `-->|${label.replace(/[()]/g, '')}|`);
-      })
-      .join('\n');
-
-    clean = clean.replace(/\[([^\]]*)\]/g, (_m, inner) => `[${inner.replace(/[<>]/g, '')}]`);
-
-    const uid = `mmd${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
-    let cancelled = false;
-
-    const runRender = async () => {
-      try {
-        const mermaid = await loadMermaidModule();
-        if (cancelled) return;
-
-        const { svg } = await mermaid.render(uid, clean);
-        const ghost = document.getElementById(uid);
-        if (ghost) ghost.remove();
-
-        if (!cancelled && containerRef.current) {
-          containerRef.current.innerHTML = svg;
-          const svgEl = containerRef.current.querySelector('svg');
-          if (svgEl) {
-            svgEl.style.maxWidth = '100%';
-            svgEl.style.height = 'auto';
-            svgEl.removeAttribute('height');
-          }
-          setRenderState('done');
-        }
-      } catch (err) {
-        const ghost = document.getElementById(uid);
-        if (ghost) ghost.remove();
-        if (!cancelled) {
-          setErrorMsg(err?.message || err?.str || String(err) || 'Unknown render error');
-          setRenderState('error');
-        }
-      }
-    };
-
-    runRender();
-
-    return () => {
-      cancelled = true;
-      const ghost = document.getElementById(uid);
-      if (ghost) ghost.remove();
-    };
-  }, [chartCode]);
-
-  const handleCopyCode = () => {
-    const clean = chartCode.trim().replace(/^```[a-zA-Z]*\n?/, '').replace(/\n?```$/, '').trim();
-    navigator.clipboard.writeText(clean).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1200);
-    });
-  };
-
-  return (
-    <div
-      style={{
-        width: '100%',
-        backgroundColor: 'var(--bg-secondary)',
-        padding: '16px',
-        borderRadius: '12px',
-        overflowX: 'auto',
-        marginTop: '12px',
-        border: '1px solid rgba(3, 218, 198, 0.25)'
-      }}
-    >
-      {renderState === 'loading' && (
-        <div style={{ color: '#03dac6', fontSize: '13px', textAlign: 'center', padding: '20px 0' }}>
-          Building diagram...
-        </div>
-      )}
-
-      <div ref={containerRef} style={{ width: '100%' }} />
-
-      {renderState === 'error' && (
-        <div style={{ marginTop: '8px' }}>
-          <div
-            style={{
-              color: '#ff6b6b',
-              fontSize: '12px',
-              padding: '8px 12px',
-              background: 'rgba(255,107,107,0.08)',
-              borderRadius: '8px',
-              border: '1px solid rgba(255,107,107,0.25)',
-              marginBottom: '10px'
-            }}
-          >
-            Diagram render failed.
-            {errorMsg && (
-              <>
-                <br />
-                <span style={{ opacity: 0.6, fontSize: '11px' }}>{errorMsg}</span>
-              </>
-            )}
-          </div>
-          <div style={{ position: 'relative' }}>
-            <pre
-              style={{
-                background: 'var(--bg-tertiary)',
-                color: 'var(--text-primary)',
-                fontSize: '12px',
-                borderRadius: '8px',
-                padding: '10px 42px 10px 12px',
-                overflowX: 'auto',
-                border: '1px solid #30363d',
-                margin: 0,
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word'
-              }}
-            >
-              {chartCode.trim().replace(/^```[a-zA-Z]*\n?/, '').replace(/\n?```$/, '').trim()}
-            </pre>
-            <button
-              onClick={handleCopyCode}
-              style={{
-                position: 'absolute',
-                top: 7,
-                right: 7,
-                background: '#03dac6',
-                color: '#111',
-                border: 'none',
-                borderRadius: 5,
-                padding: '2px 9px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                fontSize: 11
-              }}
-            >
-              {copied ? 'Copied!' : 'Copy'}
-            </button>
-          </div>
-          <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: '11px', marginTop: '6px' }}>
-            Paste at{' '}
-            <a href="https://mermaid.live" target="_blank" rel="noopener noreferrer" style={{ color: '#03dac6' }}>
-              mermaid.live
-            </a>{' '}
-            to debug the syntax.
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// 2. Tumhara Original Enhanced Markdown Renderer (Safe version ke sath)
-const TypewriterText = ({ text, speed = 25, onProgress, onComplete, isInterrupted }) => {
-  const [displayedText, setDisplayedText] = useState('');
-  const indexRef = useRef(0);
-  const timerRef = useRef(null);
-
-  useEffect(() => {
-    if (isInterrupted) {
-      if (timerRef.current) clearTimeout(timerRef.current);
-      return undefined;
-    }
-
-    const typeNext = () => {
-      if (isInterrupted) return;
-
-      if (indexRef.current < text.length) {
-        setDisplayedText(text.substring(0, indexRef.current + 1));
-        indexRef.current += 1;
-
-        if (onProgress) onProgress();
-
-        const jitter = Math.random() * 0.8 + 0.6;
-        timerRef.current = setTimeout(typeNext, speed * jitter);
-      } else if (onComplete) {
-        onComplete();
-      }
-    };
-
-    if (indexRef.current < text.length) {
-      timerRef.current = setTimeout(typeNext, speed);
-    } else if (indexRef.current >= text.length && text.length > 0 && onComplete) {
-      onComplete();
-    }
-
-    return () => clearTimeout(timerRef.current);
-  }, [text, speed, isInterrupted, onProgress, onComplete]);
-
-  return <ReactMarkdown children={displayedText} remarkPlugins={[remarkGfm]} components={markdownComponents} />;
-};
-
-const enhancedCodeComponents = ({ inline, className, children, ...props }) => {
-  const match = /language-(\w+)/.exec(className || '');
-  const codeString = String(children).replace(/\n$/, '');
-
-  const [copied, setCopied] = useState(false);
-  const handleCopy = () => {
-    navigator.clipboard.writeText(codeString);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1200);
-  };
-  if (match && match[1] === 'mermaid') {
-    return (
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-        <Box sx={{ my: 2, bgcolor: GLASS_BG, border: GLASS_BORDER, p: 2, borderRadius: '16px', overflow: 'auto', backdropFilter: 'blur(12px)', position: 'relative' }}>
-          <SafeMermaidViewer chartCode={codeString} />
-          <button
-            onClick={handleCopy}
-            style={{ position: 'absolute', top: 12, right: 16, background: NEON_CYAN, color: '#222', border: 'none', borderRadius: 6, padding: '4px 10px', fontWeight: 600, cursor: 'pointer', fontSize: 13, zIndex: 2 }}
-            title="Copy diagram code"
-          >{copied ? 'Copied!' : 'Copy'}</button>
-        </Box>
-      </motion.div>
-    );
-  }
-
-  if (!inline && match) {
-    return (
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-        <Box sx={{ borderRadius: '12px', overflow: 'hidden', my: 2, position: 'relative' }}>
-          <SyntaxHighlighter children={codeString} style={dracula} language={match[1]} PreTag="div" wrapLongLines />
-          <button
-            onClick={handleCopy}
-            style={{ position: 'absolute', top: 12, right: 16, background: NEON_CYAN, color: '#222', border: 'none', borderRadius: 6, padding: '4px 10px', fontWeight: 600, cursor: 'pointer', fontSize: 13, zIndex: 2 }}
-            title="Copy code"
-          >{copied ? 'Copied!' : 'Copy'}</button>
-        </Box>
-      </motion.div>
-    );
-  }
-
-  return <code style={{ color: NEON_CYAN, fontSize: '14px' }} {...props}>{children}</code>;
-};
-
-const markdownComponents = {
-  code: enhancedCodeComponents,
-  p: ({ children }) => {
-    const childStr = String(children);
-    if (childStr.startsWith('[{') && childStr.endsWith('}]')) {
-      const chart = <ChartRenderer dataString={childStr} />;
-      if (chart) return chart;
-    }
-    return <p style={{ color: 'var(--chat-ai-text)', margin: 0 }}>{children}</p>;
-  },
-  strong: ({ children }) => <strong style={{ color: 'var(--chat-ai-text)', fontWeight: 600 }}>{children}</strong>,
-  em: ({ children }) => <em style={{ color: 'var(--chat-ai-text)', fontStyle: 'italic' }}>{children}</em>,
-  h1: ({ children }) => <h1 style={{ color: 'var(--chat-ai-text)', marginBottom: '8px', marginTop: '12px', fontSize: '24px', fontWeight: 700 }}>{children}</h1>,
-  h2: ({ children }) => <h2 style={{ color: 'var(--chat-ai-text)', marginBottom: '8px', marginTop: '10px', fontSize: '20px', fontWeight: 600 }}>{children}</h2>,
-  h3: ({ children }) => <h3 style={{ color: 'var(--chat-ai-text)', marginBottom: '6px', marginTop: '8px', fontSize: '16px', fontWeight: 600 }}>{children}</h3>,
-  li: ({ children }) => <li style={{ color: 'var(--chat-ai-text)', marginBottom: '4px' }}>{children}</li>,
-  blockquote: ({ children }) => <blockquote style={{ color: 'var(--chat-ai-text)', borderLeft: `3px solid ${NEON_CYAN}`, paddingLeft: '12px', marginLeft: 0, marginTop: '8px', marginBottom: '8px', fontStyle: 'italic' }}>{children}</blockquote>,
-  a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: NEON_CYAN, textDecoration: 'underline', cursor: 'pointer' }}>{children}</a>,
-  ul: ({ children }) => <ul style={{ color: 'var(--chat-ai-text)', marginLeft: '20px', marginTop: '8px' }}>{children}</ul>,
-  ol: ({ children }) => <ol style={{ color: 'var(--chat-ai-text)', marginLeft: '20px', marginTop: '8px' }}>{children}</ol>,
-  table: ({ children }) => <table style={{ color: 'var(--chat-ai-text)', borderCollapse: 'collapse', marginTop: '8px', marginBottom: '8px', width: '100%' }}>{children}</table>,
-  td: ({ children }) => <td style={{ border: `1px solid ${NEON_CYAN}20`, padding: '8px', textAlign: 'left' }}>{children}</td>,
-  th: ({ children }) => <th style={{ border: `1px solid ${NEON_CYAN}40`, padding: '8px', textAlign: 'left', backgroundColor: `${NEON_PURPLE}20`, fontWeight: 600 }}>{children}</th>,
-};
 
 const getJiyaRemarkText = (score, candidateName) => {
   const pct = Number.isFinite(Number(score)) ? Number(score) : null;
@@ -622,28 +303,22 @@ const JiyaRemark = ({ score, candidateName }) => {
 
 const Dashboard = ({ onThemeOverride }) => {
   const { isDark } = useTheme();
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [activeView, setActiveView] = useState('chat');
-  const [semester, setSemester] = useState('');
-  const [subject, setSubject] = useState('');
-  const [mode, setMode] = useState('auto');
-  const [isOffline, setIsOffline] = useState(
-    typeof navigator !== 'undefined' ? !navigator.onLine : false
-  );
-  const [messages, setMessages] = useState([]);
-  const [currentAnswer, setCurrentAnswer] = useState('');
-  const [input, setInput] = useState('');
-  const [isAiThinking, setIsAiThinking] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const { 
+    messages, setMessages, input, setInput, currentAnswer, setCurrentAnswer,
+    isAiThinking, setIsAiThinking, isGenerating, setIsGenerating,
+    sessionId, setSessionId, sessions, setSessions, recentChats, setRecentChats,
+    activeTool, setActiveTool, chatSuggestions, setChatSuggestions, hideSuggestions, setHideSuggestions,
+    speakingId, setSpeakingId 
+  } = useChatStore();
+
+  const {
+    mobileOpen, setMobileOpen, activeView, setActiveView, semester, setSemester, subject, setSubject,
+    mode, setMode, isOffline, setIsOffline, quizModalOpen, setQuizModalOpen, showExamSimulator, setShowExamSimulator,
+    showQuizSection, setShowQuizSection, showAdvancedTools, setShowAdvancedTools, dashboardStats, setDashboardStats,
+    syllabusProgress, setSyllabusProgress, toolLoadingState, setToolLoadingState, scanningImage, setScanningImage
+  } = useDashboardStore();
+
   const [isUploading, setIsUploading] = useState(false);
-  const [chatSuggestions, setChatSuggestions] = useState(QUICK_SUGGESTIONS);
-  const [hideSuggestions, setHideSuggestions] = useState(false);
-  const [sessions, setSessions] = useState([]);
-  const [recentChats, setRecentChats] = useState([]);
-  const [sessionId, setSessionId] = useState(null);
-  const [speakingId, setSpeakingId] = useState(null);
-  const [dashboardStats, setDashboardStats] = useState({ total_sessions: 0, last_subject: 'N/A', study_hours: 0, avg_quiz_score: 85 });
-  const [syllabusProgress, setSyllabusProgress] = useState({ subject: null, total_topics: 0, covered_topics: [], covered_count: 0, completion_pct: 0 });
   const [exportMenuAnchor, setExportMenuAnchor] = useState(null);
   const [userMenuAnchor, setUserMenuAnchor] = useState(null);
   const [adminMenuAnchor, setAdminMenuAnchor] = useState(null);
@@ -651,19 +326,12 @@ const Dashboard = ({ onThemeOverride }) => {
   const [chatMenuSessionId, setChatMenuSessionId] = useState(null);
   const [userProfile, setUserProfile] = useState({ username: 'User', display_name: 'User' });
   const { profilePic, updateProfilePic } = useAuth();
-  const [activeTool, setActiveTool] = useState(null);
-  const [quizModalOpen, setQuizModalOpen] = useState(false);
   const [quizQuestions, setQuizQuestions] = useState([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [quizScore, setQuizScore] = useState(0);
   const [quizCompleted, setQuizCompleted] = useState(false);
   const [selectedAnswer, setSelectedAnswer] = useState('');
   const [loadingQuiz, setLoadingQuiz] = useState(false);
-  const [scanningImage, setScanningImage] = useState(false);
-  const [toolLoadingState, setToolLoadingState] = useState(null); // Track which tool is "loading"
-  const [showExamSimulator, setShowExamSimulator] = useState(false); // Phase 4: Exam Simulator
-  const [showQuizSection, setShowQuizSection] = useState(false); // PHASE 3: Quiz Section
-  const [showAdvancedTools, setShowAdvancedTools] = useState(false);
   const [tokenWarning, setTokenWarning] = useState(null); // Token expiry warning
   const [showTokenWarning, setShowTokenWarning] = useState(false); // Show warning snackbar
   const [userSettings, setUserSettings] = useState({
