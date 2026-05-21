@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from typing import List, Optional
+import re
 from database import get_db, User
 from auth_utils import get_current_user
 from models import (
@@ -162,11 +163,42 @@ def generate_quiz(
         try:
             parsed = _safe_json_loads(raw_text)
         except Exception:
-            parsed = _repair_json_with_ai(
-                raw_text,
-                '{"questions": [{"question":"...","options":["A","B","C","D"],"correct_answer":"..."}]}',
-                max_tokens=8000,
-            )
+            try:
+                parsed = _repair_json_with_ai(
+                    raw_text,
+                    '{"questions": [{"question":"...","options":["A","B","C","D"],"correct_answer":"..."}]}',
+                    max_tokens=8000,
+                )
+            except Exception:
+                # Ultimate Regex Fallback if AI repair fails
+                parsed = {"questions": []}
+                # Simple extraction for question, options, correct_answer
+                q_blocks = re.split(r'["\']?question["\']?\s*:\s*["\']', raw_text)[1:]
+                for block in q_blocks:
+                    try:
+                        q_match = re.split(r'["\']\s*,', block, 1)[0]
+                        
+                        opts = []
+                        opt_match = re.search(r'["\']?options["\']?\s*:\s*\[(.*?)\]', block, re.DOTALL)
+                        if opt_match:
+                            opt_str = opt_match.group(1)
+                            opts = [re.sub(r'^["\']|["\']$', '', o.strip()) for o in re.split(r',\s*(?=(?:[^"]*"[^"]*")*[^"]*$)', opt_str) if o.strip()]
+                            opts = [o.strip('"\' ') for o in opts]
+                        
+                        ans = ""
+                        ans_match = re.search(r'["\']?correct_answer["\']?\s*:\s*["\'](.*?)["\']', block)
+                        if ans_match:
+                            ans = ans_match.group(1)
+                            
+                        if q_match and len(opts) >= 2:
+                            parsed["questions"].append({
+                                "question": q_match.strip().replace('\\"', '"'),
+                                "options": opts[:6],
+                                "correct_answer": ans.strip().replace('\\"', '"')
+                            })
+                    except Exception:
+                        continue
+                        
         return _normalize_quiz_items(parsed, count)
     except ProviderRateLimitError as e:
         raise HTTPException(status_code=429, detail=e.message)
@@ -221,11 +253,28 @@ def generate_exam(
             try:
                 parsed = _safe_json_loads(raw_text)
             except Exception:
-                parsed = _repair_json_with_ai(
-                    raw_text,
-                    '{"items": [{"question":"...","max_marks":10,"model_answer":"..."}]}',
-                    max_tokens=8000,
-                )
+                try:
+                    parsed = _repair_json_with_ai(
+                        raw_text,
+                        '{"items": [{"question":"...","max_marks":10,"model_answer":"..."}]}',
+                        max_tokens=8000,
+                    )
+                except Exception:
+                    # Ultimate Regex Fallback for Subjective
+                    parsed = {"items": []}
+                    q_blocks = re.split(r'["\']?question["\']?\s*:\s*["\']', raw_text)[1:]
+                    for block in q_blocks:
+                        try:
+                            q_match = re.split(r'["\']\s*,', block, 1)[0]
+                            ans_match = re.search(r'["\']?model_answer["\']?\s*:\s*["\'](.*?)(?:["\']\s*\}|["\']\s*,)', block, re.DOTALL)
+                            if q_match and ans_match:
+                                parsed["items"].append({
+                                    "question": q_match.strip().replace('\\"', '"'),
+                                    "max_marks": 10,
+                                    "model_answer": ans_match.group(1).strip().replace('\\"', '"')
+                                })
+                        except Exception:
+                            continue
             result.extend(
                 _normalize_subjective_items(
                     parsed,
