@@ -119,13 +119,13 @@ def _safe_json_loads(text: str):
         raise ValueError("Empty JSON")
 
     try:
-        return json.loads(cleaned)
+        return json.loads(cleaned, strict=False)
     except Exception as e:
         candidate = _extract_json_candidate(cleaned)
         if not candidate:
             raise ValueError(f"Invalid JSON: {str(e)}")
         try:
-            return json.loads(candidate)
+            return json.loads(candidate, strict=False)
         except Exception as e2:
             raise ValueError(f"Invalid JSON: {str(e2)}")
 

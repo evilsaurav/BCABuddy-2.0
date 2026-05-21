@@ -39,9 +39,8 @@ import {
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar
 } from 'recharts';
 import ExamSimulator from './ExamSimulator';
-import QuizSection from './QuizSection';
-import AdvancedTools from './pages/AdvancedTools';
-import StudyRoadmapCard from './StudyRoadmapCard';
+import AssessmentCenter from './AssessmentCenter';
+import AdvancedTools from './pages/AdvancedTools';import StudyRoadmapCard from './StudyRoadmapCard';
 import ExamCountdown from './components/ExamCountdown';
 import ChatArea from './components/ChatArea';
 import SidebarNewChatButton from './components/SidebarNewChatButton';
@@ -2260,35 +2259,43 @@ const Dashboard = ({ onThemeOverride }) => {
               </motion.div>
             </Tooltip>
 
-            <Tooltip title="Quick 10-question practice with instant feedback">
-              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+            <Tooltip title={!subject || !semester ? "Please select a subject and semester first" : "Quick practice quizzes and full 45-minute exams"} placement="right">
+              <span>
                 <ListItem
                   component="div"
                   role="button"
                   onClick={() => {
+                    if (!subject || !semester) {
+                      alert("Please select a subject and semester first.");
+                      return;
+                    }
                     setShowAdvancedTools(false);
-                    setShowQuizSection(true);
+                    setShowQuizSection(true); // Triggers AssessmentCenter with 'quiz' default tab
+                    setShowExamSimulator(false);
+                    setActiveView('chat');
                     if (mobileOpen) setMobileOpen(false);
                   }}
+                  disabled={!subject || !semester}
                   sx={{
                     bgcolor: GLASS_BG,
                     border: GLASS_BORDER,
                     borderRadius: '12px',
-                    cursor: 'pointer',
-                    '&:hover': { backgroundColor: `${NEON_PURPLE}20`, borderColor: `${NEON_PURPLE}40` },
+                    cursor: !subject || !semester ? 'not-allowed' : 'pointer',
+                    '&:hover': { backgroundColor: !subject || !semester ? GLASS_BG : `${NEON_PURPLE}20`, borderColor: !subject || !semester ? GLASS_BORDER : `${NEON_PURPLE}40` },
                     backdropFilter: 'blur(12px)',
-                    py: 1.2
+                    py: 1.2,
+                    opacity: !subject || !semester ? 0.5 : 1
                   }}
                 >
-                  <ListItemIcon sx={{ color: NEON_PURPLE, minWidth: '36px' }}>
+                  <ListItemIcon sx={{ color: !subject || !semester ? 'rgba(187, 134, 252, 0.4)' : NEON_PURPLE, minWidth: '36px' }}>
                     <Quiz sx={{ fontSize: '18px' }} />
                   </ListItemIcon>
                   <ListItemText
-                    primary="📚 Practice Quiz"
+                    primary="📚 Assessments & Quizzes"
                     sx={{ '& .MuiListItemText-primary': { fontSize: '14px', fontWeight: 500 } }}
                   />
                 </ListItem>
-              </motion.div>
+              </span>
             </Tooltip>
 
             <Tooltip title="Open Advanced Tools workspace">
@@ -2321,50 +2328,6 @@ const Dashboard = ({ onThemeOverride }) => {
                   />
                 </ListItem>
               </motion.div>
-            </Tooltip>
-
-            {ENABLE_LEGACY_QUICK_QUIZ && (
-              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                <ListItem component="div" role="button" onClick={loadQuickQuiz} sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '12px', '&:hover': { backgroundColor: 'rgba(3, 218, 198, 0.1)', borderColor: `${NEON_CYAN}40` }, backdropFilter: 'blur(12px)', cursor: 'pointer', opacity: loadingQuiz ? 0.7 : 1 }}>
-                  <ListItemIcon sx={{ color: NEON_CYAN, minWidth: '36px' }}><Quiz sx={{ fontSize: '18px' }} /></ListItemIcon>
-                  <ListItemText primary="Quick Quiz" sx={{ '& .MuiListItemText-primary': { fontSize: '14px', fontWeight: 500 } }} />
-                </ListItem>
-              </motion.div>
-            )}
-
-            <Tooltip title={!subject || !semester ? "Please select a subject and semester first" : "Full 45-minute exam with 20 questions"} placement="right">
-              <span>
-                <ListItem
-                  component="div"
-                  role="button"
-                  onClick={() => {
-                    if (!subject || !semester) {
-                      alert("Please select a subject and semester first.");
-                      return;
-                    }
-                    setShowAdvancedTools(false);
-                    setShowExamSimulator(true);
-                    setActiveView('chat');
-                    if (mobileOpen) setMobileOpen(false);
-                  }}
-                  disabled={!subject || !semester}
-                  sx={{
-                    bgcolor: GLASS_BG,
-                    border: GLASS_BORDER,
-                    borderRadius: '12px',
-                    cursor: !subject || !semester ? 'not-allowed' : 'pointer',
-                    '&:hover': {
-                      backgroundColor: !subject || !semester ? GLASS_BG : `${NEON_CYAN}20`,
-                      borderColor: !subject || !semester ? GLASS_BORDER : `${NEON_CYAN}40`
-                    },
-                    backdropFilter: 'blur(12px)',
-                    opacity: !subject || !semester ? 0.5 : 1
-                  }}
-                >
-                  <ListItemIcon sx={{ color: !subject || !semester ? 'rgba(3, 218, 198, 0.4)' : NEON_CYAN, minWidth: '36px' }}><Timer sx={{ fontSize: '18px' }} /></ListItemIcon>
-                  <ListItemText primary="Exam Simulator" sx={{ '& .MuiListItemText-primary': { fontSize: '14px', fontWeight: 500 } }} />
-                </ListItem>
-              </span>
             </Tooltip>
           </AccordionDetails>
         </Accordion>
@@ -3846,22 +3809,17 @@ const Dashboard = ({ onThemeOverride }) => {
               setActiveView('chat');
             }}
           />
-        ) : showQuizSection ? (
-          // PHASE 3: Quiz Section
+        ) : (showQuizSection || showExamSimulator) ? (
+          // Phase 7: Unified Assessment Center
           <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-            <QuizSection 
-              onClose={() => setShowQuizSection(false)} 
-              API_BASE={API_BASE}
-              globalAbortRef={globalAbortRef}
-            />
-          </Box>
-        ) : showExamSimulator ? (
-          // Phase 4: Exam Simulator
-          <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-            <ExamSimulator 
-              semester={semester} 
-              subject={subject} 
-              onClose={() => setShowExamSimulator(false)}
+            <AssessmentCenter 
+              defaultTab={showQuizSection ? 'quiz' : 'exam'}
+              semester={semester}
+              subject={subject}
+              onClose={() => {
+                setShowQuizSection(false);
+                setShowExamSimulator(false);
+              }} 
               API_BASE={API_BASE}
               globalAbortRef={globalAbortRef}
             />
