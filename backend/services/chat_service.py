@@ -488,6 +488,7 @@ def _extract_score_percent(text: str) -> Optional[int]:
     except Exception:
         return None
 
+
 def _short_words(text: str, min_words: int = 2, max_words: int = 4) -> str:
     tokens = [t for t in re.split(r"\s+", str(text or "").strip()) if t]
     if not tokens:
@@ -666,10 +667,10 @@ def get_ai_response(prompt=None, messages=None, models=None, session_state=None,
                 if user_prompt:
                     break
 
-    kwargs["max_tokens"] = min(
-        int(kwargs.get("max_tokens") or MAX_TOKENS),
-        _choose_completion_budget(user_prompt, cast(Optional[list[dict[str, Any]]], safe_messages))
-    )
+    if "max_tokens" not in kwargs:
+        kwargs["max_tokens"] = _choose_completion_budget(user_prompt, cast(Optional[list[dict[str, Any]]], safe_messages))
+    else:
+        kwargs["max_tokens"] = min(int(kwargs["max_tokens"]), MAX_TOKENS)
 
     full_response = ""
     current_prompt = user_prompt
@@ -711,8 +712,8 @@ def get_ai_response(prompt=None, messages=None, models=None, session_state=None,
 
     # Forceful cleanup before returning final response
     clean_response = full_response.split("Next suggestions:")[0].strip()
-    if clean_response.startswith('{') and '"answer":' in clean_response:
-        clean_response = clean_response.split('"answer":')[1].strip().strip('}').strip('"')
+    
+    # Removed destructive .split('"answer":') logic to prevent breaking valid JSON payloads
 
     if last_response is not None:
         cast(Any, last_response).choices[0].message.content = clean_response

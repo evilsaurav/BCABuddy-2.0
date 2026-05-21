@@ -350,6 +350,13 @@ def _check_rate_limit(bucket: str, user_id: Optional[int], limit_per_minute: int
         return
     now = time.time()
     window = 60.0
+    
+    # Garbage collection to prevent memory leak
+    if len(_RATE_BUCKETS) > 1000:
+        stale_keys = [k for k, v in _RATE_BUCKETS.items() if now >= v.get("reset", 0)]
+        for k in stale_keys:
+            _RATE_BUCKETS.pop(k, None)
+            
     key = f"{bucket}:{user_id}"
     bucket_state = _RATE_BUCKETS.get(key)
     if not bucket_state or now >= bucket_state.get("reset", 0):

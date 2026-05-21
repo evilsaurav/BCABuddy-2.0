@@ -28,6 +28,7 @@ def grade_subjective(
             messages=[{"role": "user", "content": prompt}],
             temperature=0.25,
             max_tokens=1100,
+            response_format={"type": "json_object"},
         )
         raw_text = str(getattr(completion.choices[0].message, "content", "") or "")
         parsed = _safe_json_loads(raw_text)
@@ -72,6 +73,7 @@ async def generate_study_plan(request: StudyPlanRequest):
             messages=[{"role": "user", "content": prompt}],
             temperature=0.5,
             max_tokens=1000,
+            response_format={"type": "json_object"},
         )
         raw_text = str(getattr(response.choices[0].message, "content", "") or "")
         parsed = _safe_json_loads(raw_text)

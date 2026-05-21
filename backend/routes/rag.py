@@ -28,13 +28,15 @@ async def upload_notes_ocr(
 
         prompt = (
             "Extract concise revision key points from the following OCR text. "
-            "Return ONLY valid JSON array of short strings, max 12 items.\n\n"
+            "Return ONLY a valid JSON object with the key 'points' containing an array of short strings, max 12 items.\n"
+            "Example: {\"points\": [\"point 1\"]}\n\n"
             f"OCR_TEXT:\n{extracted[:9000]}"
         )
         completion = get_ai_response(
             messages=[{"role": "user", "content": prompt}],
             temperature=0.25,
             max_tokens=700,
+            response_format={"type": "json_object"},
         )
         raw_text = str(getattr(completion.choices[0].message, "content", "") or "")
         parsed = _safe_json_loads(raw_text)
@@ -142,15 +144,16 @@ def generate_quiz(
     count = max(1, min(int(request.count or 15), 50))
     prompt = (
         f"Generate exactly {count} IGNOU BCA MCQs for semester {request.semester}, subject {request.subject}. "
-        "Return ONLY valid JSON array with this schema: "
-        '[{"question":"...","options":["A","B","C","D"],"correct_answer":"..."}] '\
-        "No markdown, no code fences, no extra keys, no prose."
+        "Return ONLY a valid JSON object containing a 'questions' array with this schema: "
+        '{"questions": [{"question":"...","options":["A","B","C","D"],"correct_answer":"..."}]} '\
+        "No markdown, no extra keys, no prose."
     )
     try:
         completion = get_ai_response(
             messages=[{"role": "user", "content": prompt}],
             temperature=0.5,
             max_tokens=2200,
+            response_format={"type": "json_object"},
         )
         raw_text = str(getattr(completion.choices[0].message, "content", "") or "")
         try:
@@ -158,7 +161,7 @@ def generate_quiz(
         except Exception:
             parsed = _repair_json_with_ai(
                 raw_text,
-                '[{"question":"...","options":["A","B","C","D"],"correct_answer":"..."}]',
+                '{"questions": [{"question":"...","options":["A","B","C","D"],"correct_answer":"..."}]}',
                 max_tokens=2200,
             )
         return _normalize_quiz_items(parsed, count)
@@ -197,14 +200,15 @@ def generate_exam(
     if subjective_count > 0:
         prompt = (
             f"Generate exactly {subjective_count} IGNOU BCA subjective questions for semester {request.semester}, "
-            f"subject {request.subject}. Return ONLY valid JSON array with schema: "
-            '[{"question":"...","max_marks":10,"model_answer":"..."}]'
+            f"subject {request.subject}. Return ONLY a valid JSON object containing an 'items' array with schema: "
+            '{"items": [{"question":"...","max_marks":10,"model_answer":"..."}]}'
         )
         try:
             completion = get_ai_response(
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.45,
                 max_tokens=1800,
+                response_format={"type": "json_object"},
             )
             raw_text = str(getattr(completion.choices[0].message, "content", "") or "")
             try:
@@ -212,7 +216,7 @@ def generate_exam(
             except Exception:
                 parsed = _repair_json_with_ai(
                     raw_text,
-                    '[{"question":"...","max_marks":10,"model_answer":"..."}]',
+                    '{"items": [{"question":"...","max_marks":10,"model_answer":"..."}]}',
                     max_tokens=1800,
                 )
             result.extend(
