@@ -18,6 +18,8 @@ from routes.rag import router as rag_router
 from routes.dashboard import router as dashboard_router
 from routes.quiz import router as quiz_router
 from routes.leaderboard import router as leaderboard_router
+from routes.multiplayer import router as multiplayer_router
+import redis
 
 settings = get_settings()
 
@@ -50,6 +52,7 @@ app.include_router(rag_router)
 app.include_router(dashboard_router)
 app.include_router(quiz_router)
 app.include_router(leaderboard_router, prefix="/api/leaderboard", tags=["leaderboard"])
+app.include_router(multiplayer_router, tags=["multiplayer"])
 
 @app.get("/health")
 def health_check():
@@ -58,3 +61,13 @@ def health_check():
 @app.get("/")
 def read_root():
     return {"message": "Welcome to BCABuddy Ultimate API"}
+
+# Setup Redis Client
+redis_client = None
+try:
+    redis_client = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
+    redis_client.ping()
+    print("✅ Successfully connected to Redis for Rate Limiting")
+except redis.ConnectionError:
+    print("⚠️ Redis not found. Please start Redis server for full performance hardening.")
+    redis_client = None

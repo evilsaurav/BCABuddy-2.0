@@ -24,7 +24,7 @@ import {
   Person, AttachFile, Delete, Assignment, HistoryEdu,
   Note, Mic, Science, Summarize, Add, Download, Settings,
   ExpandMore, Dashboard as DashboardIcon, BarChart, Bolt, Book,
-  Info, Edit as EditIcon, Lock as LockIcon, LogoutRounded, MoreVert, Timer, Assessment, Stop, WorkspacePremium, VolumeUp, EmojiEvents
+  Info, Edit as EditIcon, Lock as LockIcon, LogoutRounded, MoreVert, Timer, Assessment, Stop, WorkspacePremium, VolumeUp, EmojiEvents, Gamepad
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
@@ -41,6 +41,7 @@ import {
 import ExamSimulator from './ExamSimulator';
 import AssessmentCenter from './AssessmentCenter';
 import Leaderboard from './Leaderboard';
+import LiveBattle from './LiveBattle';
 import AdvancedTools from './pages/AdvancedTools';import StudyRoadmapCard from './StudyRoadmapCard';
 import ExamCountdown from './components/ExamCountdown';
 import ChatArea from './components/ChatArea';
@@ -2180,9 +2181,15 @@ const Dashboard = ({ onThemeOverride }) => {
                 </ListItem>
               </motion.div>
               <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                <ListItem component="div" role="button" onClick={() => { setActiveView('leaderboard'); setMobileOpen(false); }} sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '12px', '&:hover': { backgroundColor: 'rgba(251, 191, 36, 0.1)', borderColor: '#FBBF24' }, backdropFilter: 'blur(12px)', cursor: 'pointer' }}>
+                <ListItem component="div" role="button" onClick={() => { setActiveView('leaderboard'); setMobileOpen(false); }} sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '12px', '&:hover': { backgroundColor: 'rgba(251, 191, 36, 0.1)', borderColor: '#FBBF24' }, backdropFilter: 'blur(12px)', cursor: 'pointer', mb: 1 }}>
                   <ListItemIcon sx={{ minWidth: 40, color: '#FBBF24' }}><EmojiEvents /></ListItemIcon>
                   <ListItemText primary="Global Leaderboard" secondary="Top students & streaks" sx={{ '& .MuiListItemText-secondary': { color: 'rgba(255, 255, 255, 0.5)' } }} />
+                </ListItem>
+              </motion.div>
+              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                <ListItem component="div" role="button" onClick={() => { setActiveView('livebattle'); setMobileOpen(false); }} sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '12px', '&:hover': { backgroundColor: 'rgba(248, 113, 113, 0.1)', borderColor: '#F87171' }, backdropFilter: 'blur(12px)', cursor: 'pointer' }}>
+                  <ListItemIcon sx={{ minWidth: 40, color: '#F87171' }}><Gamepad /></ListItemIcon>
+                  <ListItemText primary="Live Battle" secondary="1v1 Multiplayer Quizzes" sx={{ '& .MuiListItemText-secondary': { color: 'rgba(255, 255, 255, 0.5)' } }} />
                 </ListItem>
               </motion.div>
             </AccordionDetails>
@@ -3917,6 +3924,10 @@ const Dashboard = ({ onThemeOverride }) => {
           ) : activeView === 'leaderboard' ? (
             <Box sx={{ flex: 1, overflow: 'auto', pb: 2, height: '100%' }}>
               <Leaderboard />
+            </Box>
+          ) : activeView === 'livebattle' ? (
+            <Box sx={{ flex: 1, overflow: 'auto', pb: 2, height: '100%' }}>
+              <LiveBattle />
             </Box>
           ) : (
             normalizeToolKey(activeTool) === 'performance analytics' ? (

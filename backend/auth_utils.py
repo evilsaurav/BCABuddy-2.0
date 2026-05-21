@@ -59,6 +59,29 @@ async def get_current_user(
         raise HTTPException(status_code=401)
     return user
 
+from database import SessionLocal
+async def get_current_user_ws(token: str) -> User | None:
+    try:
+        payload = jwt.decode(
+            token, settings.secret_key, algorithms=[settings.algorithm]
+        )
+        username = payload.get("sub")
+        if not username:
+            return None
+    except JWTError:
+        return None
+
+    db = SessionLocal()
+    try:
+        user: Any = (
+            db.query(User)
+            .filter(User.username == username)  # type: ignore[arg-type]
+            .first()
+        )
+        return user
+    finally:
+        db.close()
+
 
 def create_reset_token(username: str, expires_in_minutes: int = 15) -> str:
     """Create a password reset token with 15-minute expiry (shorter than access token)"""
