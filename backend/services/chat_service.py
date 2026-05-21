@@ -1,5 +1,5 @@
 from core.dependencies import *
-
+import json_repair
 # --- SYLLABUS MAPPING (STRICT) ---
 with open(os.path.join(os.path.dirname(__file__), "..", "syllabus.json"), "r", encoding="utf-8") as f:
     SUBJECT_TITLES = json.load(f)
@@ -121,11 +121,18 @@ def _safe_json_loads(text: str):
     try:
         return json.loads(cleaned, strict=False)
     except Exception as e:
-        candidate = _extract_json_candidate(cleaned)
-        if not candidate:
-            raise ValueError(f"Invalid JSON: {str(e)}")
         try:
-            return json.loads(candidate, strict=False)
+            repaired = json_repair.repair_json(cleaned, return_objects=True)
+            if repaired is not None and not isinstance(repaired, str):
+                return repaired
+                
+            candidate = _extract_json_candidate(cleaned)
+            if candidate:
+                repaired_candidate = json_repair.repair_json(candidate, return_objects=True)
+                if repaired_candidate is not None and not isinstance(repaired_candidate, str):
+                    return repaired_candidate
+            
+            raise ValueError(f"Repair returned invalid object. Original error: {str(e)}")
         except Exception as e2:
             raise ValueError(f"Invalid JSON: {str(e2)}")
 
