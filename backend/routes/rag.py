@@ -152,7 +152,7 @@ def generate_quiz(
         completion = get_ai_response(
             messages=[{"role": "user", "content": prompt}],
             temperature=0.5,
-            max_tokens=2200,
+            max_tokens=4000,
             response_format={"type": "json_object"},
         )
         raw_text = str(getattr(completion.choices[0].message, "content", "") or "")
@@ -162,7 +162,7 @@ def generate_quiz(
             parsed = _repair_json_with_ai(
                 raw_text,
                 '{"questions": [{"question":"...","options":["A","B","C","D"],"correct_answer":"..."}]}',
-                max_tokens=2200,
+                max_tokens=4000,
             )
         return _normalize_quiz_items(parsed, count)
     except ProviderRateLimitError as e:
@@ -207,7 +207,7 @@ def generate_exam(
             completion = get_ai_response(
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.45,
-                max_tokens=1800,
+                max_tokens=6000,
                 response_format={"type": "json_object"},
             )
             raw_text = str(getattr(completion.choices[0].message, "content", "") or "")
@@ -217,7 +217,7 @@ def generate_exam(
                 parsed = _repair_json_with_ai(
                     raw_text,
                     '{"items": [{"question":"...","max_marks":10,"model_answer":"..."}]}',
-                    max_tokens=1800,
+                    max_tokens=6000,
                 )
             result.extend(
                 _normalize_subjective_items(
