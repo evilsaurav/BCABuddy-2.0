@@ -145,14 +145,17 @@ def generate_quiz(
     prompt = (
         f"Generate exactly {count} IGNOU BCA MCQs for semester {request.semester}, subject {request.subject}. "
         "Return ONLY a valid JSON object containing a 'questions' array with this schema: "
-        '{"questions": [{"question":"...","options":["A","B","C","D"],"correct_answer":"..."}]} '\
-        "No markdown, no extra keys, no prose."
+        '{"questions": [{"question":"...","options":["A","B","C","D"],"correct_answer":"..."}]} '
+        "CRITICAL RULES:\n"
+        "1. Do not use unescaped quotes or unescaped newlines inside strings.\n"
+        "2. Ensure the JSON is completely valid and properly closed.\n"
+        "3. Output ONLY JSON. No markdown wrappers (like ```json), no intro text, no outro text."
     )
     try:
         completion = get_ai_response(
             messages=[{"role": "user", "content": prompt}],
             temperature=0.5,
-            max_tokens=4000,
+            max_tokens=8000,
             response_format={"type": "json_object"},
         )
         raw_text = str(getattr(completion.choices[0].message, "content", "") or "")
@@ -162,7 +165,7 @@ def generate_quiz(
             parsed = _repair_json_with_ai(
                 raw_text,
                 '{"questions": [{"question":"...","options":["A","B","C","D"],"correct_answer":"..."}]}',
-                max_tokens=4000,
+                max_tokens=8000,
             )
         return _normalize_quiz_items(parsed, count)
     except ProviderRateLimitError as e:
@@ -201,13 +204,17 @@ def generate_exam(
         prompt = (
             f"Generate exactly {subjective_count} IGNOU BCA subjective questions for semester {request.semester}, "
             f"subject {request.subject}. Return ONLY a valid JSON object containing an 'items' array with schema: "
-            '{"items": [{"question":"...","max_marks":10,"model_answer":"..."}]}'
+            '{"items": [{"question":"...","max_marks":10,"model_answer":"..."}]}\n'
+            "CRITICAL RULES:\n"
+            "1. Do not use unescaped quotes or unescaped newlines inside strings.\n"
+            "2. Ensure the JSON is completely valid and properly closed.\n"
+            "3. Output ONLY JSON. No markdown wrappers, no extra text."
         )
         try:
             completion = get_ai_response(
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.45,
-                max_tokens=6000,
+                max_tokens=8000,
                 response_format={"type": "json_object"},
             )
             raw_text = str(getattr(completion.choices[0].message, "content", "") or "")
@@ -217,7 +224,7 @@ def generate_exam(
                 parsed = _repair_json_with_ai(
                     raw_text,
                     '{"items": [{"question":"...","max_marks":10,"model_answer":"..."}]}',
-                    max_tokens=6000,
+                    max_tokens=8000,
                 )
             result.extend(
                 _normalize_subjective_items(
