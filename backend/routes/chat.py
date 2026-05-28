@@ -126,9 +126,22 @@ def get_history(
     chats = list(reversed(chats_desc))
     return [{"id": c.id, "text": c.text, "sender": c.sender, "session_id": c.session_id} for c in chats]
 
-
 from core.dependencies import *
+from core.dependencies import (
+    _normalize_tool_key, 
+    _resolve_study_tool_prompt_name, 
+    _retrieve_exam_predictor_pyq_context, 
+    _retrieve_study_material
+)
 from services.chat_service import *
+from services.chat_service import (
+    _generate_short_chat_title, 
+    _detect_frenzy_reset, 
+    _build_response_payload,
+    _finalize_reply_payload, 
+    _detect_frenzy_trigger, 
+    _is_easter_egg_allowed
+)
 
 @router.post("/chat")
 def chat_endpoint(request: ChatRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
