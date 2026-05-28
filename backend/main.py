@@ -67,7 +67,16 @@ redis_client = None
 try:
     redis_client = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
     redis_client.ping()
-    print("✅ Successfully connected to Redis for Rate Limiting")
+    print("[SUCCESS] Successfully connected to Redis for Rate Limiting")
 except redis.ConnectionError:
-    print("⚠️ Redis not found. Please start Redis server for full performance hardening.")
+    print("[WARNING] Redis not found. Please start Redis server for full performance hardening.")
     redis_client = None
+
+if __name__ == "__main__":
+    # Read PORT from env (Azure: WEBSITES_PORT, local: PORT, or default 8000)
+    port = int(os.getenv("PORT") or os.getenv("WEBSITES_PORT") or 8000)
+    host = "0.0.0.0"
+    print(f"[BCABuddy] Starting FastAPI on {host}:{port}")
+    print(f"[BCABuddy] Swagger UI: http://{host}:{port}/docs")
+    print(f"[BCABuddy] OpenAPI: http://{host}:{port}/openapi.json")
+    uvicorn.run("main:app", host=host, port=port, log_level="info")
