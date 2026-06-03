@@ -5,6 +5,7 @@ from database import get_db, User
 from auth_utils import get_current_user
 from core.dependencies import *
 from services.chat_service import *
+from services.chat_service import _safe_json_loads
 
 router = APIRouter(tags=['quiz'])
 

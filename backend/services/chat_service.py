@@ -1,4 +1,10 @@
 from core.dependencies import *
+from core.dependencies import (
+    _looks_like_provider_rate_limit,
+    _hard_chop_next_suggestions,
+    _build_provider_rate_limit_message,
+    _choose_completion_budget
+)
 import json_repair
 # --- SYLLABUS MAPPING (STRICT) ---
 with open(os.path.join(os.path.dirname(__file__), "..", "syllabus.json"), "r", encoding="utf-8") as f:

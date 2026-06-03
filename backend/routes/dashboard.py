@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from database import get_db, User, ChatSession
 from auth_utils import get_current_user
 from core.dependencies import *
+from core.dependencies import _persist_study_roadmap
 from services.chat_service import *
 
 router = APIRouter(tags=['dashboard'])
