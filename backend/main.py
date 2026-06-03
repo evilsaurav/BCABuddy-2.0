@@ -65,11 +65,11 @@ def read_root():
 # Setup Redis Client
 redis_client = None
 try:
-    redis_client = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
+    redis_client = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True, socket_connect_timeout=1, socket_timeout=1)
     redis_client.ping()
     print("[SUCCESS] Successfully connected to Redis for Rate Limiting")
-except redis.ConnectionError:
-    print("[WARNING] Redis not found. Please start Redis server for full performance hardening.")
+except Exception as e:
+    print(f"[WARNING] Redis not found or error ({type(e).__name__}). Please start Redis server for full performance hardening.")
     redis_client = None
 
 if __name__ == "__main__":
