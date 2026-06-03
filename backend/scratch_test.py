@@ -1,39 +1,9 @@
 import requests
-import json
-import time
-
-API_URL = "http://localhost:8000"
-
-def test_exam_generation():
-    # Login
-    print("Logging in...")
-    login_resp = requests.post(f"{API_URL}/login", data={"username": "testuser1", "password": "password123"})
-    if login_resp.status_code != 200:
-        print("Login failed, assuming backend is running without auth or we need to register. Registering...")
-        requests.post(f"{API_URL}/register", json={"username": "testuser1", "password": "password123", "full_name": "Test User", "semester": "2"})
-        login_resp = requests.post(f"{API_URL}/login", data={"username": "testuser1", "password": "password123"})
-
-    if login_resp.status_code != 200:
-        print("Login completely failed:", login_resp.text)
-        return
-
-    token = login_resp.json()["access_token"]
-    
-    print("Testing generate-exam...")
-    start_time = time.time()
-    resp = requests.post(
-        f"{API_URL}/generate-exam",
-        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-        json={"subject": "Operating Systems", "semester": 2, "mcq_count": 40, "subjective_count": 2}
-    )
-    
-    print(f"Time taken: {time.time() - start_time:.2f}s")
-    if resp.status_code == 200:
-        data = resp.json()
-        print(f"Success! Generated {len(data)} questions.")
-    else:
-        print(f"Failed! Status: {resp.status_code}")
-        print(resp.text)
-
-if __name__ == "__main__":
-    test_exam_generation()
+s = requests.Session()
+url = 'https://bcabuddy-web-f5dfgtb2b0dmc8aq.centralindia-01.azurewebsites.net'
+r1 = s.post(f"{url}/login", data={'username':'saurav','password':'1234'}, headers={'Origin': 'https://kind-sea-0b41fb700.2.azurestaticapps.net'})
+if r1.status_code == 200:
+    token = r1.json().get("access_token")
+    r2 = s.get(f"{url}/dashboard-stats", headers={'Authorization': f'Bearer {token}', 'Origin': 'https://kind-sea-0b41fb700.2.azurestaticapps.net'})
+    print("Dashboard status:", r2.status_code)
+    print("Dashboard text:", r2.text)
