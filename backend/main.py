@@ -54,6 +54,17 @@ app.include_router(quiz_router)
 app.include_router(leaderboard_router, prefix="/api/leaderboard", tags=["leaderboard"])
 app.include_router(multiplayer_router, tags=["multiplayer"])
 
+from fastapi.responses import JSONResponse
+from fastapi import Request
+import traceback
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Global Unhandled Error: {str(exc)}\n{traceback.format_exc()}"}
+    )
+
 @app.get("/health")
 def health_check():
     return {"status": "ok", "version": "1.0.0"}
