@@ -1,0 +1,13 @@
+name: Keep Azure Backend Awake
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'  # Runs every 10 minutes
+  workflow_dispatch:
+
+jobs:
+  ping-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Health Endpoint
+        run: curl -sSf https://bcabuddy-web-f5dfgtb2b0dmc8aq.centralindia-01.azurewebsites.net/health || exit 0
