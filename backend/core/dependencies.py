@@ -346,21 +346,25 @@ class ProviderRateLimitError(Exception):
 
 def _check_rate_limit(bucket: str, user_id: Optional[int], limit_per_minute: int) -> None:
     """Very lightweight per-user fixed-window limiter. Best-effort only."""
+    global _RATE_BUCKETS
+    if '_RATE_BUCKETS' not in globals():
+        globals()['_RATE_BUCKETS'] = {}
+        
     if not user_id or limit_per_minute <= 0:
         return
     now = time.time()
     window = 60.0
     
     # Garbage collection to prevent memory leak
-    if len(_RATE_BUCKETS) > 1000:
-        stale_keys = [k for k, v in _RATE_BUCKETS.items() if now >= v.get("reset", 0)]
+    if len(globals()['_RATE_BUCKETS']) > 1000:
+        stale_keys = [k for k, v in globals()['_RATE_BUCKETS'].items() if now >= v.get("reset", 0)]
         for k in stale_keys:
-            _RATE_BUCKETS.pop(k, None)
+            globals()['_RATE_BUCKETS'].pop(k, None)
             
     key = f"{bucket}:{user_id}"
-    bucket_state = _RATE_BUCKETS.get(key)
+    bucket_state = globals()['_RATE_BUCKETS'].get(key)
     if not bucket_state or now >= bucket_state.get("reset", 0):
-        _RATE_BUCKETS[key] = {"count": 1.0, "reset": now + window}
+        globals()['_RATE_BUCKETS'][key] = {"count": 1.0, "reset": now + window}
         return
     count = bucket_state.get("count", 0.0) + 1.0
     if count > float(limit_per_minute):
