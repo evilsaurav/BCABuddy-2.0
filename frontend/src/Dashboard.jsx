@@ -53,7 +53,6 @@ import ThemeToggle from './components/ThemeToggle';
 import BrandLogo from './components/BrandLogo';
 import ParticlesBackground from './ParticlesBackground';
 import EditProfile from './EditProfile';
-import EasterEggBCA from './EasterEggBCA';
 import { useTheme } from './context/ThemeContext';
 import { getToken, setToken, clearToken, isTokenExpiringSoon, shouldForceLogout, getTokenRemainingMinutes, shouldWarnTokenExpiry } from './utils/tokenManager';
 import { useAuth } from './AuthContext';
@@ -3544,8 +3543,10 @@ const Dashboard = ({ onThemeOverride }) => {
   };
 
   return (
-    <Box
-      sx={{
+    <>
+      <ParticlesBackground />
+      <Box
+        sx={{
         height: '100vh',
         width: '100%',
         display: 'flex',
@@ -4617,6 +4618,7 @@ const Dashboard = ({ onThemeOverride }) => {
 
       <script async src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
     </Box>
+    </>
   );
 };
 
