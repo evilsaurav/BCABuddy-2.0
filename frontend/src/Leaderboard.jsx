@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Trophy, Star, Flame, User, AlertCircle, Medal } from "lucide-react";
+import { API_BASE } from './utils/apiConfig';
 
 export default function Leaderboard() {
   const [leaderboardData, setLeaderboardData] = useState({
@@ -17,13 +18,11 @@ export default function Leaderboard() {
   }, []);
 
   const fetchLeaderboard = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const token = localStorage.getItem("token");
-      const res = await fetch("http://localhost:8000/api/leaderboard", {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
+      // Use dynamic API_BASE to prevent hardcoded localhost errors in production
+      const res = await fetch(`${API_BASE}/leaderboard`, {
+        headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
       });
       if (!res.ok) throw new Error("Failed to fetch leaderboard");
       const data = await res.json();
@@ -132,7 +131,7 @@ export default function Leaderboard() {
                         </div>
                         <div style={{ width: "50px", height: "50px", borderRadius: "50%", background: "rgba(255,255,255,0.1)", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
                           {user.profile_pic_url ? (
-                            <img src={user.profile_pic_url.startsWith('http') ? user.profile_pic_url : `http://localhost:8000${user.profile_pic_url}`} alt="Avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                            <img src={user.profile_pic_url.startsWith('http') ? user.profile_pic_url : `${API_BASE}${user.profile_pic_url}`} alt="Avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                           ) : (
                             <User size={24} color="#9ca3af" />
                           )}

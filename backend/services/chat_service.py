@@ -663,10 +663,27 @@ def _is_easter_egg_allowed(conversation_history, window: int = 15) -> bool:
             return True
     return True
 
+# --- Cost Management: Semantic Cache ---
+# In a real environment, replace this with Upstash Redis. For now, an in-memory dict saves tokens for identical queries.
+_SEMANTIC_CACHE = {}
+import hashlib
+import json
+
+def _get_cache_key(messages: list) -> str:
+    # Hash the last 3 messages to create a deterministic cache key for the context
+    context = json.dumps(messages[-3:] if len(messages) >= 3 else messages, sort_keys=True)
+    return hashlib.md5(context.encode()).hexdigest()
+
 def get_ai_response(prompt=None, messages=None, models=None, session_state=None, session_id=None, **kwargs):
     """Groq single-model completion with strict auto-resume stitching."""
     if messages is None:
         messages = [{"role": "user", "content": str(prompt) if prompt is not None else ""}]
+
+    # Semantic Cache Check
+    cache_key = _get_cache_key(messages)
+    if cache_key in _SEMANTIC_CACHE:
+        print(f"[COST SAVER] Serving identical query from Semantic Cache! Token cost: $0")
+        return _SEMANTIC_CACHE[cache_key]
 
     if session_id is not None and session_state is not None:
         SESSION_STATE[str(session_id)] = session_state
@@ -730,6 +747,10 @@ def get_ai_response(prompt=None, messages=None, models=None, session_state=None,
 
     if last_response is not None:
         cast(Any, last_response).choices[0].message.content = clean_response
+        
+        # Save to Semantic Cache to prevent token burn on identical follow-up requests
+        _SEMANTIC_CACHE[_get_cache_key(messages)] = last_response
+        
         return last_response
     raise RuntimeError("AI response failed without a specific error.")
 

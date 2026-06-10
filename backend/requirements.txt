@@ -10,6 +10,10 @@ langchain-community==0.4.1
 langchain-text-splitters==1.1.0
 sentence-transformers==3.3.1
 faiss-cpu==1.13.2
+pillow==10.4.0
+easyocr==1.7.1
+redis==5.0.1
+libsql-experimental==0.0.39
 
 # Used by backend/rag_service.py
 langchain-huggingface==1.2.0

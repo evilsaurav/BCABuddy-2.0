@@ -1,4 +1,5 @@
 from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, ForeignKey, Float
+from sqlalchemy import event
 try:
     # SQLAlchemy 2.x preferred import
     from sqlalchemy.orm import DeclarativeBase, sessionmaker, relationship
@@ -15,7 +16,18 @@ from datetime import datetime
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./bcabuddy.db")
 
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+# Add timeout for Azure App Service file locking issues
+engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False, "timeout": 15})
+
+# Enable WAL mode for high concurrency
+@event.listens_for(engine, "connect")
+def set_sqlite_pragma(dbapi_connection, connection_record):
+    if "sqlite" in DATABASE_URL:
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA synchronous=NORMAL")
+        cursor.close()
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 class User(Base):

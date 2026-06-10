@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Swords, User, Zap, Trophy, Loader2, Frown } from "lucide-react";
 import Confetti from "react-confetti";
 import { useWindowSize } from "react-use";
+import { API_BASE } from './utils/apiConfig';
 
 export default function LiveBattle() {
   const [ws, setWs] = useState(null);
@@ -25,7 +26,9 @@ export default function LiveBattle() {
     const token = localStorage.getItem("token");
     if (!token) return alert("Please login first.");
 
-    const socket = new WebSocket(`ws://localhost:8000/ws/battle?token=${token}`);
+    // Convert http/https from API_BASE to ws/wss
+    const wsBase = API_BASE.replace(/^http/, 'ws');
+    const socket = new WebSocket(`${wsBase}/ws/battle?token=${token}`);
     
     socket.onopen = () => {
       // Passive lobby connection, wait for user action
