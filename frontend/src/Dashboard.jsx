@@ -3813,16 +3813,28 @@ const Dashboard = ({ onThemeOverride }) => {
               setExamPredictions([]);
               setRoadmapDraftText('');
               if (normalizedTool === 'performance analytics') {
-                setInput('');
+                setTimeout(() => {
+                  setMessages(prev => [...prev, { id: Date.now(), text: 'Welcome to Performance Analytics! Please click "Generate Performance Report" above to scan your history.', sender: 'ai', isTypingComplete: true }]);
+                }, 100);
               } else if (normalizedTool === 'ai code architect') {
-                setInput('Welcome! Do you want to fix an existing code or write a new one?');
+                setTimeout(() => {
+                  setMessages(prev => [...prev, { id: Date.now(), text: 'Welcome! Do you want to fix an existing code or write a new one?', sender: 'ai', isTypingComplete: true }]);
+                }, 100);
+              } else if (normalizedTool === 'ai viva mentor') {
+                setTimeout(() => {
+                  setMessages(prev => [...prev, { id: Date.now(), text: '🎤 Welcome to the AI Viva Mentor! Please tell me which topic or chapter you want to be tested on, and we will begin.', sender: 'ai', isTypingComplete: true }]);
+                }, 100);
               } else if (normalizedTool === 'study roadmap' || normalizedTool === 'exam predictor') {
                 setApcSemesterInput(prev => prev || normalizeSemesterNumber(semester) || '1');
                 setApcSubjectInput(prev => prev || String(subject || '').trim());
-                setInput('');
+                setTimeout(() => {
+                  sendMessage(`Generate ${toolLabel} for ${subject || 'my current subject'}`, 'fast');
+                }, 200);
               } else {
                 const subjectLabel = subject || apcSubjectInput || 'current subject';
-                setInput(`${toolLabel} for ${subjectLabel}`);
+                setTimeout(() => {
+                  sendMessage(`Help me with ${toolLabel} for ${subjectLabel}`, 'fast');
+                }, 200);
               }
               setActiveView('chat');
             }}

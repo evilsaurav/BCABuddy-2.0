@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Box, Typography, Card, Grid, Button, Avatar, Chip, Divider,
+  Box, Typography, Card, Grid, Button, Avatar, Chip, Divider, Tabs, Tab
 } from '@mui/material';
 import {
   BugReport, QueryStats, Route, RecordVoiceOver, Quiz, Analytics,
   ArrowBack, Bolt, AutoAwesome, School, Assessment, TrendingUp,
   PlayArrow, ChevronRight, EmojiObjects, Star,
 } from '@mui/icons-material';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import BackButton from '../components/BackButton';
 
 // ── Design tokens ────────────────────────────────────────────────────────────
@@ -15,17 +15,17 @@ const C = {
   bg:          'rgba(10, 14, 26, 0.98)',
   surface:     'rgba(18, 26, 46, 0.80)',
   border:      'rgba(255,255,255,0.08)',
-  cyan:        '#03dac6',
-  cyanDim:     'rgba(3,218,198,0.10)',
-  purple:      '#bb86fc',
-  purpleDim:   'rgba(187,134,252,0.10)',
-  green:       '#39FF14',
-  greenDim:    'rgba(57,255,20,0.09)',
-  gold:        '#FFD700',
-  goldDim:     'rgba(255,215,0,0.10)',
-  text:        '#E6EAF0',
-  textMuted:   'rgba(230,234,240,0.55)',
-  textDim:     'rgba(230,234,240,0.30)',
+  cyan:        '#00F0FF',
+  cyanDim:     'rgba(0, 240, 255, 0.10)',
+  purple:      '#8B5CF6',
+  purpleDim:   'rgba(139, 92, 246, 0.10)',
+  green:       '#10B981',
+  greenDim:    'rgba(16, 185, 129, 0.10)',
+  gold:        '#FBBF24',
+  goldDim:     'rgba(251, 191, 36, 0.10)',
+  text:        '#FFFFFF',
+  textMuted:   '#9CA3AF',
+  textDim:     'rgba(156, 163, 175, 0.30)',
 };
 
 // ── Tool catalogue ───────────────────────────────────────────────────────────
@@ -148,10 +148,11 @@ function ToolCard({ tool, onSelectTool, index }) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 14 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.26, delay: index * 0.04 }}
-      whileHover={{ y: -4 }}
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ duration: 0.3, delay: index * 0.05, type: 'spring' }}
+      whileHover={{ y: -6, scale: 1.02 }}
       onHoverStart={() => setHovered(true)}
       onHoverEnd={() => setHovered(false)}
       style={{ height: '100%' }}
@@ -164,13 +165,13 @@ function ToolCard({ tool, onSelectTool, index }) {
           flexDirection: 'column',
           justifyContent: 'space-between',
           p: 2.5,
-          borderRadius: '18px',
+          borderRadius: '24px',
           bgcolor: C.surface,
-          border: `1px solid ${hovered ? tool.accent + '50' : C.border}`,
+          border: `1px solid ${hovered ? tool.accent + '80' : C.border}`,
           backdropFilter: 'blur(14px)',
           cursor: 'pointer',
-          transition: 'border-color 0.2s, box-shadow 0.2s',
-          boxShadow: hovered ? `0 0 24px ${tool.accent}20` : 'none',
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          boxShadow: hovered ? `0 0 30px ${tool.accent}40` : 'none',
           position: 'relative',
           overflow: 'hidden',
         }}
@@ -178,11 +179,11 @@ function ToolCard({ tool, onSelectTool, index }) {
         {/* Hover glow */}
         <Box sx={{
           position: 'absolute', top: -50, right: -50,
-          width: 120, height: 120, borderRadius: '50%',
+          width: 150, height: 150, borderRadius: '50%',
           background: tool.accentDim,
-          filter: 'blur(35px)',
+          filter: 'blur(40px)',
           opacity: hovered ? 1 : 0,
-          transition: 'opacity 0.3s',
+          transition: 'opacity 0.4s',
           pointerEvents: 'none',
         }} />
 
@@ -190,99 +191,60 @@ function ToolCard({ tool, onSelectTool, index }) {
         <Box>
           <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 1.8 }}>
             <Box sx={{
-              p: 1.1, borderRadius: '12px',
+              p: 1.2, borderRadius: '14px',
               bgcolor: tool.accentDim,
-              border: `1px solid ${tool.accent}28`,
+              border: `1px solid ${tool.accent}40`,
               display: 'flex',
             }}>
-              <Icon sx={{ color: tool.accent, fontSize: '21px' }} />
+              <motion.div animate={hovered ? { rotate: [0, -10, 10, 0] } : {}} transition={{ duration: 0.4 }}>
+                <Icon sx={{ color: tool.accent, fontSize: '24px' }} />
+              </motion.div>
             </Box>
             <Chip
               label={tool.badge}
               size="small"
               sx={{
-                height: 20, fontSize: '10px', fontWeight: 700,
+                height: 22, fontSize: '11px', fontWeight: 800,
                 bgcolor: tool.accentDim, color: tool.accent,
-                border: `1px solid ${tool.accent}28`,
-                '& .MuiChip-label': { px: 1 },
+                border: `1px solid ${tool.accent}40`,
+                '& .MuiChip-label': { px: 1.2 },
               }}
             />
           </Box>
 
-          <Typography sx={{ color: C.text, fontWeight: 700, fontSize: '14.5px', mb: 0.3 }}>
+          <Typography sx={{ color: C.text, fontWeight: 800, fontSize: '16px', mb: 0.3 }}>
             {tool.title}
           </Typography>
-          <Typography sx={{ color: tool.accent, fontSize: '11px', fontWeight: 600, mb: 1.2, opacity: 0.85 }}>
+          <Typography sx={{ color: tool.accent, fontSize: '12px', fontWeight: 700, mb: 1.5, opacity: 0.9 }}>
             {tool.subtitle}
           </Typography>
-          <Typography sx={{ color: C.textMuted, fontSize: '12px', lineHeight: 1.65 }}>
+          <Typography sx={{ color: C.textMuted, fontSize: '13px', lineHeight: 1.6 }}>
             {tool.description}
           </Typography>
         </Box>
 
         {/* CTA */}
-        <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Box sx={{ mt: 2.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Button
             size="small"
-            endIcon={<PlayArrow sx={{ fontSize: '13px !important' }} />}
+            endIcon={<PlayArrow sx={{ fontSize: '14px !important' }} />}
             onClick={(e) => { e.stopPropagation(); onSelectTool(tool); }}
             sx={{
               color: tool.accent,
               bgcolor: tool.accentDim,
-              border: `1px solid ${tool.accent}38`,
-              fontWeight: 700, fontSize: '11.5px',
-              borderRadius: '999px', px: 1.8, py: 0.5,
-              '&:hover': { bgcolor: tool.accentDim, filter: 'brightness(1.3)', boxShadow: `0 0 10px ${tool.accent}35` },
+              border: `1px solid ${tool.accent}50`,
+              fontWeight: 800, fontSize: '12px',
+              borderRadius: '999px', px: 2, py: 0.6,
+              '&:hover': { bgcolor: tool.accentDim, filter: 'brightness(1.3)' },
             }}
           >
-            Open Tool
+            Launch
           </Button>
-          <ChevronRight sx={{ color: C.textDim, fontSize: '17px' }} />
+          <motion.div animate={hovered ? { x: 5 } : { x: 0 }}>
+            <ChevronRight sx={{ color: hovered ? tool.accent : C.textDim, fontSize: '20px', transition: 'color 0.3s' }} />
+          </motion.div>
         </Box>
       </Card>
-    </motion.div>
-  );
-}
-
-// ── Category Section ─────────────────────────────────────────────────────────
-function CategorySection({ category, onSelectTool, sectionIndex }) {
-  const CatIcon = category.icon;
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 18 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: sectionIndex * 0.08 }}
-    >
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-        <Box sx={{
-          p: 0.85, borderRadius: '10px',
-          bgcolor: category.accentDim,
-          border: `1px solid ${category.accent}28`,
-          display: 'flex',
-        }}>
-          <CatIcon sx={{ color: category.accent, fontSize: '17px' }} />
-        </Box>
-        <Box>
-          <Typography sx={{ color: C.text, fontWeight: 800, fontSize: '14.5px' }}>
-            {category.label}
-          </Typography>
-          <Typography sx={{ color: C.textMuted, fontSize: '11.5px' }}>
-            {category.description}
-          </Typography>
-        </Box>
-      </Box>
-
-      <Grid container spacing={2}>
-        {category.tools.map((tool, i) => (
-          <Grid item xs={12} sm={6} md={4} key={tool.toolId}>
-            <ToolCard
-              tool={tool}
-              onSelectTool={onSelectTool}
-              index={sectionIndex * 4 + i}
-            />
-          </Grid>
-        ))}
-      </Grid>
     </motion.div>
   );
 }
@@ -292,79 +254,75 @@ function ProChatCard({ onSelectTool, avatarUrl, displayName }) {
   const quickStart = ALL_TOOLS.find(t => t.toolId === 'study_roadmap') || ALL_TOOLS[0];
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.97 }}
+      initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.32 }}
+      transition={{ duration: 0.4 }}
     >
       <Card sx={{
-        mb: 3.5, p: { xs: 2, md: 2.6 },
-        borderRadius: '22px',
-        background: `linear-gradient(135deg, rgba(3,218,198,0.09) 0%, rgba(57,255,20,0.05) 100%)`,
-        border: `1px solid ${C.cyan}30`,
-        backdropFilter: 'blur(16px)',
+        mb: 4, p: { xs: 2.5, md: 3 },
+        borderRadius: '24px',
+        background: `linear-gradient(135deg, rgba(0,240,255,0.1) 0%, rgba(139,92,246,0.1) 100%)`,
+        border: `1px solid ${C.cyan}40`,
+        backdropFilter: 'blur(20px)',
         position: 'relative', overflow: 'hidden',
       }}>
-        {/* BG orbs */}
-        <Box sx={{ position:'absolute', top:-60, right:-60, width:180, height:180, borderRadius:'50%', background:'radial-gradient(circle, rgba(3,218,198,0.10), transparent 70%)', pointerEvents:'none' }} />
-        <Box sx={{ position:'absolute', bottom:-40, left:-40, width:140, height:140, borderRadius:'50%', background:'radial-gradient(circle, rgba(57,255,20,0.07), transparent 70%)', pointerEvents:'none' }} />
+        <Box sx={{ position:'absolute', top:-60, right:-60, width:200, height:200, borderRadius:'50%', background:'radial-gradient(circle, rgba(0,240,255,0.15), transparent 70%)', pointerEvents:'none' }} />
+        <Box sx={{ position:'absolute', bottom:-40, left:-40, width:150, height:150, borderRadius:'50%', background:'radial-gradient(circle, rgba(139,92,246,0.15), transparent 70%)', pointerEvents:'none' }} />
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, position: 'relative' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5, position: 'relative' }}>
           {/* Avatar */}
           <Box sx={{ position: 'relative', flexShrink: 0 }}>
             <Avatar
               src={avatarUrl || undefined}
               alt={displayName || 'Student'}
-              sx={{ width: 54, height: 54, border: `2px solid ${C.cyan}`, boxShadow: `0 0 14px ${C.cyan}40` }}
+              sx={{ width: 60, height: 60, border: `2px solid ${C.cyan}`, boxShadow: `0 0 20px ${C.cyan}50` }}
             >
               {String(displayName || 'S').slice(0, 1).toUpperCase()}
             </Avatar>
-            {/* Online dot */}
-            <Box sx={{ position:'absolute', bottom:2, right:2, width:11, height:11, borderRadius:'50%', bgcolor: C.green, border:`2px solid rgba(10,14,26,0.98)`, boxShadow:`0 0 5px ${C.green}` }} />
+            <Box sx={{ position:'absolute', bottom:2, right:2, width:12, height:12, borderRadius:'50%', bgcolor: C.green, border:`2px solid ${C.bg}`, boxShadow:`0 0 8px ${C.green}` }} />
           </Box>
 
           {/* Info */}
           <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 0.3 }}>
-              <Typography sx={{ color: C.text, fontWeight: 800, fontSize: { xs:'15px', md:'18px' } }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', mb: 0.5 }}>
+              <Typography sx={{ color: C.text, fontWeight: 900, fontSize: { xs:'18px', md:'22px' } }}>
                 APC Pro-Chat
               </Typography>
               <Chip
-                icon={<AutoAwesome sx={{ fontSize:'10px !important', color:`${C.cyan} !important` }} />}
+                icon={<AutoAwesome sx={{ fontSize:'12px !important', color:`${C.cyan} !important` }} />}
                 label="EXAM MODE ON"
                 size="small"
-                sx={{ height:18, fontSize:'9px', fontWeight:800, bgcolor:C.cyanDim, color:C.cyan, border:`1px solid ${C.cyan}35`, '& .MuiChip-label':{ px:0.8 } }}
+                sx={{ height:20, fontSize:'10px', fontWeight:800, bgcolor:C.cyanDim, color:C.cyan, border:`1px solid ${C.cyan}50`, '& .MuiChip-label':{ px:1 } }}
               />
             </Box>
-            <Typography sx={{ color: C.textMuted, fontSize:'12px' }}>
+            <Typography sx={{ color: C.textMuted, fontSize:'13px', fontWeight: 500 }}>
               All 7 tools active · Fast structured responses · Focused study mode
             </Typography>
           </Box>
 
-          {/* Start button — desktop */}
           <Button
             onClick={() => onSelectTool(quickStart)}
-            startIcon={<PlayArrow sx={{ fontSize:'15px' }} />}
+            startIcon={<PlayArrow sx={{ fontSize:'16px' }} />}
             sx={{
               flexShrink:0, display:{ xs:'none', sm:'flex' },
-              color: C.green, border:`1px solid ${C.green}55`,
-              bgcolor: C.greenDim, fontWeight:900, fontSize:'12px',
-              borderRadius:'999px', px:2, py:0.8,
-              '&:hover':{ bgcolor:C.greenDim, filter:'brightness(1.25)', boxShadow:`0 0 12px ${C.green}35` },
+              color: C.green, border:`1px solid ${C.green}60`,
+              bgcolor: C.greenDim, fontWeight:900, fontSize:'13px',
+              borderRadius:'999px', px:3, py:1,
+              '&:hover':{ bgcolor:C.greenDim, filter:'brightness(1.3)', boxShadow:`0 0 20px ${C.green}40` },
             }}
           >
             Start Now
           </Button>
         </Box>
 
-        {/* Start button — mobile */}
         <Button
           fullWidth onClick={() => onSelectTool(quickStart)}
           startIcon={<PlayArrow />}
           sx={{
-            mt:2, display:{ xs:'flex', sm:'none' },
-            color:C.green, border:`1px solid ${C.green}55`,
-            bgcolor:C.greenDim, fontWeight:900, borderRadius:'999px',
-            '&:hover':{ bgcolor:C.greenDim, filter:'brightness(1.25)' },
+            mt:2.5, display:{ xs:'flex', sm:'none' },
+            color:C.green, border:`1px solid ${C.green}60`,
+            bgcolor:C.greenDim, fontWeight:900, borderRadius:'999px', py:1,
+            '&:hover':{ bgcolor:C.greenDim, filter:'brightness(1.3)' },
           }}
         >
           Start Pro-Chat
@@ -376,6 +334,7 @@ function ProChatCard({ onSelectTool, avatarUrl, displayName }) {
 
 // ── Main export ──────────────────────────────────────────────────────────────
 const AdvancedTools = ({ onBack, onSelectTool, avatarUrl, displayName, globalAbortRef = null }) => {
+  const [activeTab, setActiveTab] = useState(0);
 
   useEffect(() => {
     document.body.classList.add('exam-mode-active');
@@ -387,60 +346,61 @@ const AdvancedTools = ({ onBack, onSelectTool, avatarUrl, displayName, globalAbo
     onBack?.();
   };
 
+  const currentCategory = CATEGORIES[activeTab];
+
   return (
     <Box sx={{
       flex: 1, overflowY: 'auto',
       minHeight: '100vh',
-      background: `
-        radial-gradient(ellipse at 15% 0%,  rgba(3,218,198,0.08)  0%, transparent 50%),
-        radial-gradient(ellipse at 85% 5%,  rgba(57,255,20,0.06)  0%, transparent 45%),
-        radial-gradient(ellipse at 50% 85%, rgba(187,134,252,0.04) 0%, transparent 50%),
-        ${C.bg}
-      `,
+      bgcolor: C.bg,
+      backgroundImage: `
+        radial-gradient(circle at 15% 0%, ${C.cyan}15 0%, transparent 40%),
+        radial-gradient(circle at 85% 20%, ${C.purple}15 0%, transparent 40%)
+      `
     }}>
-      <BackButton />
-      <Box sx={{ maxWidth: 1080, mx: 'auto', p: { xs: 2, md: 3 } }}>
+      <BackButton onClick={handleBack} />
+      <Box sx={{ maxWidth: 1100, mx: 'auto', p: { xs: 2, md: 4 } }}>
 
         {/* ── Top bar ── */}
-        <Box sx={{ display:'flex', alignItems:'center', justifyContent:'space-between', mb:3 }}>
+        <Box sx={{ display:'flex', alignItems:'center', justifyContent:'space-between', mb:4 }}>
           <Button
             onClick={handleBack}
             startIcon={<ArrowBack />}
             sx={{
-              color:C.green, border:`1px solid ${C.green}40`,
-              bgcolor:C.greenDim, borderRadius:'999px',
-              fontWeight:700, fontSize:'13px',
-              '&:hover':{ bgcolor:C.greenDim, filter:'brightness(1.2)' },
+              color:C.text, border:`1px solid ${C.border}`,
+              bgcolor:C.surface, borderRadius:'999px',
+              fontWeight:700, fontSize:'13px', px: 2,
+              '&:hover':{ bgcolor:C.border },
             }}
           >
             Dashboard
           </Button>
 
-          <Box sx={{ display:'flex', gap:1, flexWrap:'wrap', justifyContent:'flex-end' }}>
+          <Box sx={{ display:'flex', gap:1.5, flexWrap:'wrap', justifyContent:'flex-end' }}>
             {[
               { icon: EmojiObjects, label: '7 AI Tools', color: C.cyan },
               { icon: Star,         label: 'Exam Mode',  color: C.gold },
             ].map(({ icon: Icon, label, color }) => (
               <Box key={label} sx={{
-                display:'flex', alignItems:'center', gap:0.7,
-                px:1.3, py:0.45, borderRadius:'999px',
-                bgcolor:`${color}10`, border:`1px solid ${color}28`,
+                display:'flex', alignItems:'center', gap:1,
+                px:1.5, py:0.6, borderRadius:'999px',
+                bgcolor:`${color}15`, border:`1px solid ${color}30`,
               }}>
-                <Icon sx={{ color, fontSize:'12px' }} />
-                <Typography sx={{ color, fontSize:'10.5px', fontWeight:700 }}>{label}</Typography>
+                <Icon sx={{ color, fontSize:'14px' }} />
+                <Typography sx={{ color, fontSize:'11px', fontWeight:800 }}>{label}</Typography>
               </Box>
             ))}
           </Box>
         </Box>
 
         {/* ── Page title ── */}
-        <motion.div initial={{ opacity:0, y:-8 }} animate={{ opacity:1, y:0 }} transition={{ duration:0.3 }}>
-          <Box sx={{ mb:3 }}>
-            <Typography sx={{ color:C.text, fontWeight:900, fontSize:{ xs:'21px', md:'27px' }, lineHeight:1.2, mb:0.5 }}>
+        <motion.div initial={{ opacity:0, y:-10 }} animate={{ opacity:1, y:0 }} transition={{ duration:0.4 }}>
+          <Box sx={{ mb:4 }}>
+            <Typography sx={{ color:C.text, fontWeight:900, fontSize:{ xs:'24px', md:'32px' }, mb:1 }}>
               Advanced Preparation Center
             </Typography>
-            <Typography sx={{ color:C.textMuted, fontSize:'13px' }}>
-              7 AI-powered tools designed to help IGNOU BCA students study smarter, not harder.
+            <Typography sx={{ color:C.textMuted, fontSize:'15px', maxWidth: 600 }}>
+              AI-powered tools designed to help IGNOU BCA students study smarter, test faster, and score higher.
             </Typography>
           </Box>
         </motion.div>
@@ -448,44 +408,53 @@ const AdvancedTools = ({ onBack, onSelectTool, avatarUrl, displayName, globalAbo
         {/* ── Pro-Chat card ── */}
         <ProChatCard onSelectTool={onSelectTool} avatarUrl={avatarUrl} displayName={displayName} />
 
-        {/* ── Divider ── */}
-        <Box sx={{ display:'flex', alignItems:'center', gap:2, mb:3.5 }}>
-          <Divider sx={{ flex:1, borderColor:C.border }} />
-          <Typography sx={{ color:C.textDim, fontSize:'10.5px', fontWeight:700, whiteSpace:'nowrap', letterSpacing:1.5 }}>
-            CHOOSE A TOOL
-          </Typography>
-          <Divider sx={{ flex:1, borderColor:C.border }} />
+        {/* ── Systematic Tabs ── */}
+        <Box sx={{ borderBottom: 1, borderColor: C.border, mb: 4 }}>
+          <Tabs 
+            value={activeTab} 
+            onChange={(_, nv) => setActiveTab(nv)}
+            variant="scrollable"
+            scrollButtons="auto"
+            sx={{
+              '& .MuiTabs-indicator': { backgroundColor: CATEGORIES[activeTab].accent, height: 3, borderRadius: '3px 3px 0 0' },
+              '& .MuiTab-root': { color: C.textMuted, fontWeight: 700, fontSize: '14px', textTransform: 'none', minWidth: 120 },
+              '& .Mui-selected': { color: `${CATEGORIES[activeTab].accent} !important` }
+            }}
+          >
+            {CATEGORIES.map((cat, i) => (
+              <Tab 
+                key={cat.id} 
+                icon={<cat.icon sx={{ fontSize: '20px', mb: '4px !important' }} />} 
+                label={cat.label} 
+              />
+            ))}
+          </Tabs>
         </Box>
 
-        {/* ── Categories ── */}
-        <Box sx={{ display:'flex', flexDirection:'column', gap:4 }}>
-          {CATEGORIES.map((cat, i) => (
-            <CategorySection
-              key={cat.id}
-              category={cat}
-              onSelectTool={onSelectTool}
-              sectionIndex={i}
-            />
-          ))}
+        {/* ── Category Tools Grid ── */}
+        <Box sx={{ minHeight: 400 }}>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <Grid container spacing={3}>
+                {currentCategory.tools.map((tool, i) => (
+                  <Grid item xs={12} sm={6} md={4} key={tool.toolId}>
+                    <ToolCard
+                      tool={tool}
+                      onSelectTool={onSelectTool}
+                      index={i}
+                    />
+                  </Grid>
+                ))}
+              </Grid>
+            </motion.div>
+          </AnimatePresence>
         </Box>
-
-        {/* ── Pro tip footer ── */}
-        <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} transition={{ delay:0.5 }}>
-          <Box sx={{
-            mt:4, mb:2, p:2, borderRadius:'14px',
-            bgcolor:C.purpleDim, border:`1px solid ${C.purple}22`,
-            display:'flex', alignItems:'flex-start', gap:1.5,
-          }}>
-            <AutoAwesome sx={{ color:C.purple, fontSize:'17px', flexShrink:0, mt:0.2 }} />
-            <Typography sx={{ color:C.textMuted, fontSize:'12px', lineHeight:1.65 }}>
-              <b style={{ color:C.purple }}>Recommended flow:</b>{' '}
-              Start with <b style={{ color:C.text }}>Study Roadmap</b> to build your schedule →
-              use <b style={{ color:C.text }}>Cheat Mode</b> for quick revision →
-              test yourself with <b style={{ color:C.text }}>Quiz Master</b> →
-              and finish with <b style={{ color:C.text }}>Exam Predictor</b> right before the exam.
-            </Typography>
-          </Box>
-        </motion.div>
 
       </Box>
     </Box>
