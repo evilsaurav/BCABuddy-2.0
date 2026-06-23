@@ -123,15 +123,17 @@ const QuizSection = ({ onClose, API_BASE: apiBaseOverride, globalAbortRef = null
 
   const loadQuiz = async () => {
     if (!semester || !subject) {
-      alert('Please select semester and subject');
-      return;
+      // Don't alert, just use fallback values to allow the user to play around!
     }
 
     let controller = null;
     setLoading(true);
+    setLoadError('');
     try {
-      // Convert "Sem 1" to 1, "Sem 2" to 2, etc. using regex
-      const semesterInt = parseInt(semester.replace(/\D/g, ''), 10);
+      const semStr = String(semester || '1');
+      const semesterInt = parseInt(semStr.replace(/[^0-9]/g, ''), 10) || 1;
+      const validSubject = subject || "General BCA";
+      
       controller = new AbortController();
       if (globalAbortRef) {
         globalAbortRef.current = controller;
@@ -143,7 +145,7 @@ const QuizSection = ({ onClose, API_BASE: apiBaseOverride, globalAbortRef = null
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ semester: semesterInt, subject, count: 10 }),
+        body: JSON.stringify({ semester: semesterInt, subject: validSubject, count: 10 }),
         signal: controller.signal,
       });
 

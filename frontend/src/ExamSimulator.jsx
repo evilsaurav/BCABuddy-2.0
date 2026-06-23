@@ -226,10 +226,9 @@ function ExamSimulator({
         setGradingError('');
         
         // Convert "Sem 1" to 1, "Sem 2" to 2, etc. (robust: pulls digits)
-        const semesterInt = parseInt(String(semester).replace(/[^0-9]/g, ''), 10);
-        if (!Number.isFinite(semesterInt)) {
-          throw new Error('Invalid semester selected');
-        }
+        const semStr = String(semester || '1');
+        const semesterInt = parseInt(semStr.replace(/[^0-9]/g, ''), 10) || 1;
+        const validSubject = subject || "General BCA";
 
         // Default split: ~20% subjective, rest MCQ (no extra UI added)
         const subjectiveCount = Math.max(0, Math.min(questionCount - 1, Math.round(questionCount * 0.2)));
@@ -245,7 +244,7 @@ function ExamSimulator({
           },
           body: JSON.stringify({
             semester: semesterInt,
-            subject,
+            subject: validSubject,
             mcq_count: mcqCount,
             subjective_count: subjectiveCount
           }),
@@ -263,7 +262,7 @@ function ExamSimulator({
             },
             body: JSON.stringify({
               semester: semesterInt,
-              subject,
+              subject: validSubject,
               count: questionCount
             }),
             signal: quizController.signal,
@@ -314,8 +313,9 @@ function ExamSimulator({
     const token = localStorage.getItem('token');
     if (!token) return;
 
-    const semesterInt = parseInt(String(semester).replace(/[^0-9]/g, ''), 10);
-    if (!Number.isFinite(semesterInt)) return;
+    const semStr = String(semester || '1');
+    const semesterInt = parseInt(semStr.replace(/[^0-9]/g, ''), 10) || 1;
+    const validSubject = subject || "General BCA";
 
     const items = Array.isArray(finalQuizData) ? finalQuizData : [];
     const pending = [];
@@ -343,7 +343,7 @@ function ExamSimulator({
           },
           body: JSON.stringify({
             semester: semesterInt,
-            subject,
+            subject: validSubject,
             question: item.q?.question || '',
             answer: String(item.ans),
             max_marks: maxMarks
@@ -600,7 +600,10 @@ function ExamSimulator({
 
     setExplainingIndex(idx);
     try {
-      const semesterInt = semester ? parseInt(String(semester).replace(/[^0-9]/g, ''), 10) : null;
+      const semStr = String(semester || '1');
+      const semesterInt = parseInt(semStr.replace(/[^0-9]/g, ''), 10) || 1;
+      const validSubject = subject || "General BCA";
+
       const explainController = createAbortController();
       const res = await fetch(`${API_BASE}/explain-mcq`, {
         method: 'POST',
@@ -612,8 +615,8 @@ function ExamSimulator({
           question: String(question.question || ''),
           options: question.options || [],
           correct_answer: resolveCorrectAnswerText(question),
-          subject,
-          semester: Number.isFinite(semesterInt) ? semesterInt : null
+          subject: validSubject,
+          semester: semesterInt
         }),
         signal: explainController.signal,
       });
