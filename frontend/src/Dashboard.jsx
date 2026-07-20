@@ -29,7 +29,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import CountUp from 'react-countup';
+
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { dracula } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -2072,24 +2072,9 @@ const Dashboard = ({ onThemeOverride }) => {
     URL.revokeObjectURL(url);
   };
 
-  const exportAsPDF = async () => {
-    const { jsPDF } = await import('jspdf');
-    const doc = new jsPDF();
-    doc.setFontSize(12);
-    let yPos = 20;
-    messages.forEach(msg => {
-      const lines = doc.splitTextToSize(`${msg.sender.toUpperCase()}: ${msg.text}`, 180);
-      lines.forEach(line => {
-        if (yPos > 280) {
-          doc.addPage();
-          yPos = 20;
-        }
-        doc.text(line, 10, yPos);
-        yPos += 7;
-      });
-      yPos += 5;
-    });
-    doc.save(`BCABuddy_Chat_${Date.now()}.pdf`);
+  const exportAsPDF = () => {
+    // Ponytail lazy mode: native print dialog supports PDF
+    window.print();
   };
 
   const drawer = (
@@ -2562,7 +2547,7 @@ const Dashboard = ({ onThemeOverride }) => {
               <Typography sx={{ color: '#E6EAF0', fontSize: 22, fontWeight: 900, mt: 0.4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {typeof countTo === 'number' ? (
                   <>
-                    <CountUp start={0} end={countTo} duration={2.1} decimals={suffix === 'h' ? 1 : 0} enableScrollSpy scrollSpyOnce scrollSpyDelay={120} />{suffix}
+                    {suffix === 'h' ? Number(countTo).toFixed(1) : Math.round(Number(countTo))}{suffix}
                   </>
                 ) : value}
                 {showActiveDot && (

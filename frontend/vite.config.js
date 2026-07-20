@@ -26,9 +26,8 @@ export default defineConfig({
           mui: ['@mui/material', '@mui/icons-material', '@emotion/react', '@emotion/styled'],
           charts: ['recharts'],
           markdown: ['react-markdown', 'remark-gfm', 'react-syntax-highlighter'],
-          animation: ['framer-motion', 'react-countup', 'swiper', 'react-tsparticles', 'tsparticles'],
-          diagrams: ['mermaid'],
-          pdf: ['jspdf', 'html2pdf.js']
+          animation: ['framer-motion'],
+          diagrams: ['mermaid']
         }
       }
     }

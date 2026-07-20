@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Swords, User, Zap, Trophy, Loader2, Frown } from "lucide-react";
 import Confetti from "react-confetti";
-import { useWindowSize } from "react-use";
 import { API_BASE } from './utils/apiConfig';
 
 export default function LiveBattle() {
@@ -17,7 +16,14 @@ export default function LiveBattle() {
   const [onlineCount, setOnlineCount] = useState(0);
   const [challengeTarget, setChallengeTarget] = useState("");
   const gameIdRef = useRef(null);
-  const { width, height } = useWindowSize();
+  const [windowSize, setWindowSize] = useState({ width: window.innerWidth, height: window.innerHeight });
+
+  useEffect(() => {
+    const handleResize = () => setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+  const { width, height } = windowSize;
 
   const username = localStorage.getItem("username");
 
