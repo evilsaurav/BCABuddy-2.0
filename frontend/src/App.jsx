@@ -4,7 +4,7 @@ import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import Login from './Login';
 import './App.css';
 import './styles/theme.css';
-import { AuthProvider } from './AuthContext';
+
 import { ThemeProvider } from './context/ThemeContext';
 
 const Signup = lazy(() => import('./Signup'));
@@ -142,9 +142,16 @@ function App() {
   useEffect(() => {
     const body = document.body;
     if (frenzyOverride?.active) {
-      body.classList.add('frenzy-mode');
+      body.classList.add('frenzy-mode-preparing');
+      setTimeout(() => {
+        body.classList.add('frenzy-mode');
+        body.classList.remove('frenzy-mode-preparing');
+      }, 50); // slight delay for CSS transition trigger
     } else {
-      body.classList.remove('frenzy-mode');
+      body.classList.add('frenzy-mode-exiting');
+      setTimeout(() => {
+        body.classList.remove('frenzy-mode', 'frenzy-mode-exiting');
+      }, 600); // match transition duration
     }
   }, [frenzyOverride]);
 
@@ -163,7 +170,7 @@ function App() {
   return (
     <ErrorBoundary>
       <ThemeProvider>
-        <AuthProvider>
+
           <MotionConfig transition={{ duration: frenzyOverride?.active ? 2.5 : 0.3 }}>
             <Router>
             <Suspense fallback={
@@ -254,7 +261,7 @@ function App() {
             )}
           </AnimatePresence>
         </MotionConfig>
-          </AuthProvider>
+
         </ThemeProvider>
     </ErrorBoundary>
   );

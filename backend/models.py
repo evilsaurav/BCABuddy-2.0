@@ -100,6 +100,7 @@ class UserProfile(BaseModel):
     total_xp: int = 0
     highest_exam_score: float = 0.0
     current_streak: int = 0
+    elo_rating: int = 1000
 
 class UserProfileUpdate(BaseModel):
     display_name: Optional[str] = None

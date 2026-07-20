@@ -84,7 +84,8 @@ AUTO_CONTINUE_PROMPT = (
     "Continue exactly from where you stopped. "
     "Do not repeat previous lines. Complete any unfinished sentence, list item, or code block."
 )
-SINGLE_CHAT_MODEL = os.getenv("BCABUDDY_CHAT_MODEL", "llama-3.3-70b-versatile")
+PRO_MODEL = os.getenv("BCABUDDY_CHAT_MODEL", "llama-3.3-70b-versatile")
+LITE_MODEL = "llama3-8b-8192"
 USER_PERFORMANCE_REPORTS: dict[int, dict[str, Any]] = {}
 
 

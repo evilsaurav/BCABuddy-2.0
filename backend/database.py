@@ -57,6 +57,7 @@ class User(Base):
     highest_exam_score = Column(Float, default=0.0)
     current_streak = Column(Integer, default=0)
     last_active_date = Column(String, nullable=True)  # YYYY-MM-DD
+    elo_rating = Column(Integer, default=1000)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     sessions = relationship("ChatSession", back_populates="user")
@@ -148,6 +149,7 @@ _sqlite_ensure_column("users", "auto_save_history", "auto_save_history INTEGER D
 _sqlite_ensure_column("users", "show_quick_suggestions", "show_quick_suggestions INTEGER DEFAULT 1")
 _sqlite_ensure_column("users", "privacy_mode", "privacy_mode INTEGER DEFAULT 0")
 _sqlite_ensure_column("users", "achievements_json", "achievements_json TEXT")
+_sqlite_ensure_column("users", "elo_rating", "elo_rating INTEGER DEFAULT 1000")
 
 def get_db():
     db = SessionLocal()

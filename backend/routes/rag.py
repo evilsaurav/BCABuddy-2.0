@@ -156,7 +156,7 @@ def generate_quiz(
         completion = get_ai_response(
             messages=[{"role": "user", "content": prompt}],
             temperature=0.5,
-            max_tokens=8000,
+            max_tokens=2500,
             response_format={"type": "json_object"},
         )
         raw_text = str(getattr(completion.choices[0].message, "content", "") or "")
@@ -167,37 +167,10 @@ def generate_quiz(
                 parsed = _repair_json_with_ai(
                     raw_text,
                     '{"questions": [{"question":"...","options":["A","B","C","D"],"correct_answer":"..."}]}',
-                    max_tokens=8000,
+                    max_tokens=2000,
                 )
             except Exception:
-                # Ultimate Regex Fallback if AI repair fails
                 parsed = {"questions": []}
-                # Simple extraction for question, options, correct_answer
-                q_blocks = re.split(r'["\']?question["\']?\s*:\s*["\']', raw_text)[1:]
-                for block in q_blocks:
-                    try:
-                        q_match = re.split(r'["\']\s*,', block, 1)[0]
-                        
-                        opts = []
-                        opt_match = re.search(r'["\']?options["\']?\s*:\s*\[(.*?)\]', block, re.DOTALL)
-                        if opt_match:
-                            opt_str = opt_match.group(1)
-                            opts = [re.sub(r'^["\']|["\']$', '', o.strip()) for o in re.split(r',\s*(?=(?:[^"]*"[^"]*")*[^"]*$)', opt_str) if o.strip()]
-                            opts = [o.strip('"\' ') for o in opts]
-                        
-                        ans = ""
-                        ans_match = re.search(r'["\']?correct_answer["\']?\s*:\s*["\'](.*?)["\']', block)
-                        if ans_match:
-                            ans = ans_match.group(1)
-                            
-                        if q_match and len(opts) >= 2:
-                            parsed["questions"].append({
-                                "question": q_match.strip().replace('\\"', '"'),
-                                "options": opts[:6],
-                                "correct_answer": ans.strip().replace('\\"', '"')
-                            })
-                    except Exception:
-                        continue
                         
         return _normalize_quiz_items(parsed, count)
     except ProviderRateLimitError as e:
@@ -246,7 +219,7 @@ def generate_exam(
             completion = get_ai_response(
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.45,
-                max_tokens=8000,
+                max_tokens=2000,
                 response_format={"type": "json_object"},
             )
             raw_text = str(getattr(completion.choices[0].message, "content", "") or "")
@@ -257,24 +230,10 @@ def generate_exam(
                     parsed = _repair_json_with_ai(
                         raw_text,
                         '{"items": [{"question":"...","max_marks":10,"model_answer":"..."}]}',
-                        max_tokens=8000,
+                        max_tokens=2000,
                     )
                 except Exception:
-                    # Ultimate Regex Fallback for Subjective
                     parsed = {"items": []}
-                    q_blocks = re.split(r'["\']?question["\']?\s*:\s*["\']', raw_text)[1:]
-                    for block in q_blocks:
-                        try:
-                            q_match = re.split(r'["\']\s*,', block, 1)[0]
-                            ans_match = re.search(r'["\']?model_answer["\']?\s*:\s*["\'](.*?)(?:["\']\s*\}|["\']\s*,)', block, re.DOTALL)
-                            if q_match and ans_match:
-                                parsed["items"].append({
-                                    "question": q_match.strip().replace('\\"', '"'),
-                                    "max_marks": 10,
-                                    "model_answer": ans_match.group(1).strip().replace('\\"', '"')
-                                })
-                        except Exception:
-                            continue
             result.extend(
                 _normalize_subjective_items(
                     parsed,
@@ -304,6 +263,7 @@ def explain_question(
     try:
         completion = get_ai_response(
             messages=[{"role": "user", "content": prompt}],
+            tier="lite",
             temperature=0.35,
             max_tokens=700,
         )
@@ -313,3 +273,93 @@ def explain_question(
         raise HTTPException(status_code=429, detail=e.message)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Explain failed: {str(e)}")
+
+@router.post("/generate-roadmap")
+def generate_roadmap(
+    request: StudyPlanRequest,
+    current_user: User = Depends(get_current_user),
+):
+    from services.chat_service import get_ai_response, ProviderRateLimitError, _safe_json_loads
+    prompt = (
+        f"You are a study planner for an IGNOU BCA student. Create a day-by-day roadmap.\n"
+        f"Subjects: {', '.join(request.subjects)}\n"
+        f"Days left: {request.days_left}\n"
+        f"Daily hours: {request.daily_hours}\n\n"
+        "Return ONLY a valid JSON object with the following schema:\n"
+        '{"roadmap": [{"day": 1, "focus_subject": "...", "topics_to_cover": ["..."], "estimated_hours": 2}]}\n'
+        "CRITICAL RULES:\n"
+        "1. Do not use unescaped quotes.\n"
+        "2. Ensure the JSON is valid.\n"
+        "3. Output ONLY JSON, no markdown.\n"
+    )
+    
+    try:
+        completion = get_ai_response(
+            messages=[{"role": "user", "content": prompt}],
+            tier="lite",
+            temperature=0.3,
+            max_tokens=2500,
+            response_format={"type": "json_object"},
+        )
+        raw_text = str(getattr(completion.choices[0].message, "content", "") or "")
+        try:
+            parsed = _safe_json_loads(raw_text)
+            return parsed.get("roadmap", [])
+        except Exception:
+            return []
+    except ProviderRateLimitError as e:
+        raise HTTPException(status_code=429, detail=e.message)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Roadmap generation failed: {str(e)}")
+
+
+@router.post("/apc/ocr-evaluate")
+async def apc_ocr_evaluate(
+    file: UploadFile = File(...),
+    question: str = Form(default=""),
+    max_marks: int = Form(default=10),
+    current_user: User = Depends(get_current_user),
+):
+    from services.chat_service import _extract_text_from_image_bytes, get_ai_response, _safe_json_loads, ProviderRateLimitError
+    try:
+        data = await file.read()
+        extracted = _extract_text_from_image_bytes(data)
+        if not extracted.strip():
+            raise HTTPException(status_code=400, detail="No readable text found in uploaded image.")
+
+        prompt = (
+            f"You are a strict IGNOU BCA evaluator. Grade this handwritten answer for {max_marks} marks.\n"
+            f"Question: {question}\n"
+            f"Student Answer (OCR Text): {extracted[:9000]}\n\n"
+            "Return ONLY a JSON object with this schema:\n"
+            '{"score": 7, "feedback": "...", "strengths": ["..."], "improvements": ["..."]}\n'
+            "CRITICAL RULES:\n"
+            "1. Output ONLY JSON, no markdown wrappers.\n"
+            "2. 'score' must be an integer between 0 and max_marks.\n"
+        )
+        completion = get_ai_response(
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.2,
+            max_tokens=800,
+            response_format={"type": "json_object"},
+        )
+        raw_text = str(getattr(completion.choices[0].message, "content", "") or "")
+        try:
+            parsed = _safe_json_loads(raw_text)
+        except Exception:
+            parsed = {"score": 0, "feedback": "Error parsing evaluation", "strengths": [], "improvements": []}
+            
+        return {
+            "score": parsed.get("score", 0),
+            "max_marks": max_marks,
+            "feedback": parsed.get("feedback", "No feedback provided."),
+            "strengths": parsed.get("strengths", []),
+            "improvements": parsed.get("improvements", []),
+            "extracted_text": extracted[:2000],
+        }
+    except ProviderRateLimitError as e:
+        raise HTTPException(status_code=429, detail=e.message)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"OCR evaluation failed: {str(e)}")

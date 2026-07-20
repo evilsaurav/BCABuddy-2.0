@@ -519,7 +519,7 @@ def _generate_short_chat_title(first_message: str) -> str:
     )
     try:
         completion = client.chat.completions.create(
-            model=SINGLE_CHAT_MODEL,
+            model=LITE_MODEL,
             messages=[
                 {"role": "system", "content": prompt},
                 {"role": "user", "content": str(first_message or "")[:250]},
@@ -674,10 +674,12 @@ def _get_cache_key(messages: list) -> str:
     context = json.dumps(messages[-3:] if len(messages) >= 3 else messages, sort_keys=True)
     return hashlib.md5(context.encode()).hexdigest()
 
-def get_ai_response(prompt=None, messages=None, models=None, session_state=None, session_id=None, **kwargs):
+def get_ai_response(prompt=None, messages=None, models=None, session_state=None, session_id=None, tier="pro", **kwargs):
     """Groq single-model completion with strict auto-resume stitching."""
     if messages is None:
         messages = [{"role": "user", "content": str(prompt) if prompt is not None else ""}]
+
+    chosen_model = LITE_MODEL if tier == "lite" else PRO_MODEL
 
     # Semantic Cache Check
     cache_key = _get_cache_key(messages)
@@ -716,7 +718,7 @@ def get_ai_response(prompt=None, messages=None, models=None, session_state=None,
 
         try:
             response = client.chat.completions.create(
-                model=SINGLE_CHAT_MODEL,
+                model=chosen_model,
                 messages=cast(Any, invoke_messages),
                 **kwargs
             )

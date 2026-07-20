@@ -38,5 +38,16 @@ export const useDashboardStore = create((set) => ({
   setDashboardStats: (dashboardStats) => set({ dashboardStats }),
   setSyllabusProgress: (syllabusProgress) => set({ syllabusProgress }),
   setToolLoadingState: (toolLoadingState) => set({ toolLoadingState }),
-  setScanningImage: (scanningImage) => set({ scanningImage })
+  setScanningImage: (scanningImage) => set({ scanningImage }),
+
+  profilePic: (() => {
+    const stored = localStorage.getItem('profilePic');
+    return stored && String(stored).trim() ? stored : null;
+  })(),
+  updateProfilePic: (newUrl) => {
+    const next = newUrl && String(newUrl).trim() ? String(newUrl).trim() : null;
+    set({ profilePic: next });
+    if (next) localStorage.setItem('profilePic', next);
+    else localStorage.removeItem('profilePic');
+  }
 }));

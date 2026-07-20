@@ -58,11 +58,52 @@ async def start_game(game_id: str):
         await asyncio.sleep(3)
         
     # Game Over
-    winner = max(game["scores"], key=game["scores"].get)
+    player1, player2 = list(game["scores"].keys())
+    score1, score2 = game["scores"][player1], game["scores"][player2]
+    
+    # Elo Logic
+    from database import SessionLocal, User
+    db = SessionLocal()
+    elo_changes = {player1: 0, player2: 0}
+    try:
+        u1 = db.query(User).filter(User.username == player1).first()
+        u2 = db.query(User).filter(User.username == player2).first()
+        
+        if u1 and u2:
+            r1 = float(getattr(u1, "elo_rating", 1000) or 1000)
+            r2 = float(getattr(u2, "elo_rating", 1000) or 1000)
+            
+            # Expected scores
+            e1 = 1 / (1 + 10 ** ((r2 - r1) / 400))
+            e2 = 1 / (1 + 10 ** ((r1 - r2) / 400))
+            
+            # Actual scores (1 for win, 0.5 for draw, 0 for loss)
+            s1 = 1 if score1 > score2 else (0.5 if score1 == score2 else 0)
+            s2 = 1 if score2 > score1 else (0.5 if score1 == score2 else 0)
+            
+            # K-factor
+            K = 32
+            
+            new_r1 = r1 + K * (s1 - e1)
+            new_r2 = r2 + K * (s2 - e2)
+            
+            elo_changes[player1] = int(round(new_r1 - r1))
+            elo_changes[player2] = int(round(new_r2 - r2))
+            
+            u1.elo_rating = int(round(new_r1)) # type: ignore
+            u2.elo_rating = int(round(new_r2)) # type: ignore
+            db.commit()
+    except Exception as e:
+        print(f"Error updating ELO: {e}")
+    finally:
+        db.close()
+        
+    winner = player1 if score1 > score2 else (player2 if score2 > score1 else "Draw")
     await manager.broadcast_to_game(game_id, {
         "type": "game_over",
         "winner": winner,
-        "final_scores": game["scores"]
+        "final_scores": game["scores"],
+        "elo_changes": elo_changes
     })
     
     del manager.active_games[game_id]

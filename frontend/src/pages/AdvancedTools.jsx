@@ -114,6 +114,17 @@ const CATEGORIES = [
         accentDim: C.goldDim,
         badge: 'PYQ Analysis',
       },
+      {
+        toolId: 'assignment_evaluator',
+        toolKey: 'Assignment Evaluator',
+        title: 'Assignment Evaluator',
+        subtitle: 'Smart OCR Handwriting Grading',
+        description: 'Upload your handwritten answer along with the question. AI will evaluate it like an IGNOU examiner, assign marks, and give actionable feedback.',
+        icon: Assessment,
+        accent: C.purple,
+        accentDim: C.purpleDim,
+        badge: 'Smart OCR',
+      },
     ],
   },
   {

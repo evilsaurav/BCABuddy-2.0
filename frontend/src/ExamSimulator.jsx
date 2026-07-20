@@ -139,9 +139,42 @@ function ExamSimulator({
     try {
       localStorage.setItem(reviewStorageKey, JSON.stringify(items));
     } catch (e) {
-      // ignore
+      console.warn("Storage quota exceeded", e);
     }
   };
+
+  // --- Auto-Save Exam State ---
+  useEffect(() => {
+    if (isExamActive) {
+      localStorage.setItem('bcabuddy_active_exam_v2', JSON.stringify({
+        quizData, responses, timeRemaining, currentQuestionIndex, markedQuestions: Array.from(markedQuestions), userAnswers, subject, semester
+      }));
+    } else if (showResults) {
+      localStorage.removeItem('bcabuddy_active_exam_v2');
+    }
+  }, [quizData, responses, timeRemaining, currentQuestionIndex, markedQuestions, isExamActive, showResults, userAnswers, subject, semester]);
+
+  const resumeExam = () => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('bcabuddy_active_exam_v2'));
+      if (saved && saved.quizData && saved.subject === subject) {
+        setQuizData(saved.quizData);
+        setResponses(saved.responses || {});
+        setTimeRemaining(saved.timeRemaining || (45 * 60));
+        setCurrentQuestionIndex(saved.currentQuestionIndex || 0);
+        setMarkedQuestions(new Set(saved.markedQuestions || []));
+        setUserAnswers(saved.userAnswers || {});
+        setDurationMinutes(saved.timeRemaining ? Math.ceil(saved.timeRemaining / 60) : 45);
+        setQuestionCount(saved.quizData.length);
+        setIsExamActive(true);
+        setShowSetup(false);
+        setStep('quiz');
+        return true;
+      }
+    } catch (e) {}
+    return false;
+  };
+  // -----------------------------
 
   const upsertReviewItem = (item) => {
     const items = readReviewItems();
@@ -831,6 +864,44 @@ function ExamSimulator({
           <Button onClick={startExam} sx={{ bgcolor: NEON_CYAN, color: '#000', fontWeight: 700, px: 4 }}>
             Start Test
           </Button>
+          
+          {(() => {
+            try {
+              const saved = JSON.parse(localStorage.getItem('bcabuddy_active_exam_v2'));
+              if (saved && saved.quizData && saved.subject === subject) {
+                return (
+                  <Box sx={{ mt: 4, display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center' }}>
+                    <Divider sx={{ width: '100%', borderColor: 'rgba(255,255,255,0.1)', mb: 2 }} />
+                    <Typography sx={{ color: 'rgba(255,255,255,0.7)', textAlign: 'center', fontSize: '14px' }}>
+                      You have an active exam saved for {subject}.
+                    </Typography>
+                    <Button
+                      variant="outlined"
+                      onClick={() => {
+                        if (resumeExam()) {
+                          setLoadError('');
+                        }
+                      }}
+                      sx={{
+                        color: NEON_CYAN,
+                        borderColor: NEON_CYAN,
+                        borderRadius: '12px',
+                        textTransform: 'none',
+                        fontWeight: 600,
+                        fontSize: '1rem',
+                        py: 1.5,
+                        px: 4,
+                        '&:hover': { bgcolor: `${NEON_CYAN}15` }
+                      }}
+                    >
+                      Resume Saved Exam
+                    </Button>
+                  </Box>
+                );
+              }
+            } catch (e) {}
+            return null;
+          })()}
         </Card>
       </Box>
     );

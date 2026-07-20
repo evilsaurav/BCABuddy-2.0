@@ -12,7 +12,7 @@ import {
   GetApp as GetAppIcon, History as HistoryIcon
 } from '@mui/icons-material';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from './AuthContext';
+import { useDashboardStore } from './store/dashboardStore';
 import BackButton from './components/BackButton';
 import { API_BASE } from './utils/apiConfig';
 
@@ -24,7 +24,7 @@ const GLASS_BORDER = '1px solid rgba(255, 255, 255, 0.1)';
 const EditProfile = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { updateProfilePic } = useAuth();
+  const updateProfilePic = useDashboardStore(state => state.updateProfilePic);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);

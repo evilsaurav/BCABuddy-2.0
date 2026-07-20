@@ -11,6 +11,7 @@ export default function LiveBattle() {
   const [currentQuestion, setCurrentQuestion] = useState(null);
   const [scores, setScores] = useState({});
   const [winner, setWinner] = useState(null);
+  const [eloChange, setEloChange] = useState(null);
   const [selectedOption, setSelectedOption] = useState(null);
   const [resultMsg, setResultMsg] = useState("");
   const [onlineCount, setOnlineCount] = useState(0);
@@ -70,6 +71,9 @@ export default function LiveBattle() {
       } else if (data.type === "game_over") {
         setWinner(data.winner);
         setScores(data.final_scores);
+        if (data.elo_changes) {
+          setEloChange(data.elo_changes[username]);
+        }
         setGameState("game_over");
       } else if (data.type === "error") {
         alert(data.message);
@@ -110,6 +114,7 @@ export default function LiveBattle() {
     setCurrentQuestion(null);
     setScores({});
     setWinner(null);
+    setEloChange(null);
   };
 
   return (
@@ -276,7 +281,12 @@ export default function LiveBattle() {
             <p style={{ fontSize: "1.8rem", color: "#E5E7EB", marginTop: "1rem", fontWeight: "bold" }}>
               Final Score: {scores[username]} - {scores[opponent]}
             </p>
-            <motion.button 
+            {eloChange !== null && (
+              <p style={{ fontSize: "1.5rem", color: eloChange >= 0 ? "#4CAF50" : "#F87171", marginTop: "0.5rem", fontWeight: "bold" }}>
+                ELO {eloChange >= 0 ? `+${eloChange}` : eloChange}
+              </p>
+            )}
+            <motion.button  
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={quitGame}

@@ -55,13 +55,16 @@ import ParticlesBackground from './ParticlesBackground';
 import EditProfile from './EditProfile';
 import { useTheme } from './context/ThemeContext';
 import { getToken, setToken, clearToken, isTokenExpiringSoon, shouldForceLogout, getTokenRemainingMinutes, shouldWarnTokenExpiry } from './utils/tokenManager';
-import { useAuth } from './AuthContext';
+
 import { API_BASE } from './utils/apiConfig';
 import useHinglishVoice from './hooks/useHinglishVoice';
 import { getExamTrackerSummary } from './utils/examSchedule';
 import { BADGE_CATALOG, normalizeAchievements, computeBadgeTriggers, mergeAchievements, getBadgeById } from './utils/achievements';
 import { TypewriterText, ChartRenderer, SafeMermaidViewer, markdownComponents } from './components/MarkdownRenderer';
-
+import { 
+  ENABLE_LEGACY_QUICK_QUIZ, QUICK_SUGGESTIONS, SUBJECT_LABELS, SEM4_HARD_TOPICS, 
+  DEFAULT_SUBJECT_CHIPS, IGNOU_SYLLABUS 
+} from './utils/constants';
 const drawerWidth = 280;
 const NEON_PURPLE = '#bb86fc';
 const NEON_CYAN = '#03dac6';
@@ -175,39 +178,7 @@ const getLastNDays = (n) => {
   return days;
 };
 
-// Phase 1: legacy Quick Quiz is disabled (kept in codebase per "no deletions" rule)
-const ENABLE_LEGACY_QUICK_QUIZ = false;
-
-const QUICK_SUGGESTIONS = [
-  "Explain Java Inheritance with code",
-  "What is OSI Model in Networking?",
-  "Calculate Mean and Mode formula",
-  "Important Questions for MCS-024",
-  "Draw a diagram of TCP/IP"
-];
-
-const SUBJECT_LABELS = {
-  "BCS-011": "Computer Basics",
-  "BCS-012": "Basic Mathematics",
-  "MCS-012": "Computer Organization",
-  "BCS-040": "Statistical Techniques",
-  "MCS-024": "Java",
-  "BCS-041": "Computer Networks",
-  "BCS-042": "Algorithm Design"
-};
-
-const SEM4_HARD_TOPICS = {
-  "MCS-024": ["Exception Handling", "Multithreading", "JVM Architecture"],
-  "BCS-040": ["Probability Distributions", "Hypothesis Testing"],
-  "BCS-041": ["Subnetting", "OSI vs TCP/IP", "Routing Algorithms"]
-};
-
-const DEFAULT_SUBJECT_CHIPS = [
-  "Explain basics",
-  "Important exam topics",
-  "Go to Unit 1",
-  "Practice MCQ"
-];
+// Constants extracted to utils/constants.js
 
 const ASSIGNMENT_TOOLS = [
   { label: "Assignments", icon: Assignment, prompt: "Generate an assignment question paper for" },
@@ -217,44 +188,6 @@ const ASSIGNMENT_TOOLS = [
   { label: "Lab Work", icon: Science, prompt: "Explain practical Lab experiments for" },
   { label: "Summary", icon: Summarize, prompt: "Give a quick summary of" },
 ];
-
-const IGNOU_SYLLABUS = {
-  "Sem 1": {
-    "BCS-011": ["Computer Basics", "Memory", "I/O Devices", "Software"],
-    "BCS-012": ["Determinants", "Matrices", "Differentiation", "Integration"],
-    "FEG-02": ["Writing", "Grammar", "Listening"],
-    "ECO-01": ["Business", "Management", "Marketing"]
-  },
-  "Sem 2": {
-    "MCS-011": ["Problem Solving", "Loops", "Arrays", "Pointers"],
-    "MCS-012": ["8086 Micro", "Instructions", "Memory Org"],
-    "MCS-015": ["HTML/CSS", "JavaScript", "Forms"],
-    "ECO-02": ["Final Accounts", "Consignment"]
-  },
-  "Sem 3": {
-    "MCS-021": ["Linked Lists", "Stacks/Queues", "Trees", "Sorting"],
-    "MCS-023": ["ER Diagrams", "SQL", "Normalization"],
-    "BCS-031": ["OOPs", "Classes", "Inheritance", "Polymorphism"],
-    "MCS-014": ["SDLC", "DFD", "Testing"]
-  },
-  "Sem 4": {
-    "BCS-040": ["Mean/Mode", "Probability", "Distributions"],
-    "MCS-024": ["Java OOPs", "Inheritance", "Threads", "Applets"],
-    "BCS-041": ["OSI Model", "TCP/IP", "IP Addressing"],
-    "BCS-042": ["Sets", "Relations", "Graphs"]
-  },
-  "Sem 5": {
-    "BCS-051": ["SRS", "Project Mgmt", "UML", "Risk"],
-    "BCS-052": ["Sockets", "TCP Client/Server", "UDP"],
-    "BCS-053": ["XML", "PHP", "ASP.NET"],
-    "BCS-054": ["Numerical Methods", "Interpolation"]
-  },
-  "Sem 6": {
-    "BCS-062": ["E-Commerce Models", "Security", "Payments"],
-    "MCS-022": ["Process Mgmt", "Deadlocks", "Memory Mgmt"],
-    "BCS-092": ["AI Agents", "Logic", "ML Basics"]
-  }
-};
 
 // Typing indicator component
 const TypingIndicator = () => (
@@ -328,7 +261,8 @@ const Dashboard = ({ onThemeOverride }) => {
   const [chatMenuAnchor, setChatMenuAnchor] = useState(null);
   const [chatMenuSessionId, setChatMenuSessionId] = useState(null);
   const [userProfile, setUserProfile] = useState({ username: 'User', display_name: 'User' });
-  const { profilePic, updateProfilePic } = useAuth();
+  const profilePic = useDashboardStore(state => state.profilePic);
+  const updateProfilePic = useDashboardStore(state => state.updateProfilePic);
   const [quizQuestions, setQuizQuestions] = useState([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [quizScore, setQuizScore] = useState(0);
@@ -347,6 +281,8 @@ const Dashboard = ({ onThemeOverride }) => {
   const [apcDurationInput, setApcDurationInput] = useState('15');
   const [vivaSubjectInput, setVivaSubjectInput] = useState('');
   const [quizRemarks, setQuizRemarks] = useState('');
+  const [evalQuestion, setEvalQuestion] = useState('');
+  const [evalMaxMarks, setEvalMaxMarks] = useState(10);
   const [showExamAskInput, setShowExamAskInput] = useState(false);
   const [showRoadmapAskInput, setShowRoadmapAskInput] = useState(false);
   const [examPredictions, setExamPredictions] = useState([]);
@@ -966,6 +902,35 @@ const Dashboard = ({ onThemeOverride }) => {
     } catch (e) {
       console.error('APC OCR quiz failed:', e);
       setMessages(prev => [...prev, { id: makeMessageId(), text: `OCR quiz generate nahi ho paaya: ${e.message}`, sender: 'ai', isTypingComplete: true }]);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const runApcOcrEvaluate = async (file, question, maxMarks) => {
+    if (!file) return;
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('question', String(question || '').trim());
+      formData.append('max_marks', String(maxMarks || '10'));
+      const res = await fetch(`${API_BASE}/apc/ocr-evaluate`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${getToken()}` },
+        body: formData,
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(text || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      
+      const evalMd = `### 📝 Assignment Evaluation\n\n**Score:** ${data.score} / ${data.max_marks}\n\n**Feedback:**\n${data.feedback}\n\n**Strengths:**\n${(data.strengths || []).map(s => '✅ ' + s).join('\\n')}\n\n**Improvements Needed:**\n${(data.improvements || []).map(s => '🎯 ' + s).join('\\n')}`;
+      setMessages(prev => [...prev, { id: makeMessageId(), text: evalMd, sender: 'ai', isTypingComplete: true }]);
+    } catch (e) {
+      console.error('APC OCR evaluation failed:', e);
+      setMessages(prev => [...prev, { id: makeMessageId(), text: `Evaluation fail ho gaya: ${e.message}`, sender: 'ai', isTypingComplete: true }]);
     } finally {
       setIsUploading(false);
     }
@@ -2385,7 +2350,7 @@ const Dashboard = ({ onThemeOverride }) => {
     </Box>
   );
 
-  const DashboardView = () => {
+  const renderDashboardView = () => {
     const displayName = String(userProfile?.display_name || userProfile?.username || 'User').trim();
     const candidateName = displayName.split(' ')[0] || displayName;
 
@@ -2525,7 +2490,7 @@ const Dashboard = ({ onThemeOverride }) => {
       },
     };
 
-    const StatCard = ({ label, value, icon: IconComp, color, countTo = null, suffix = '', showActiveDot = false }) => (
+    const renderStatCard = ({ label, value, icon: IconComp, color, countTo = null, suffix = '', showActiveDot = false }) => (
       <motion.div variants={itemVariants}>
         <Card
           sx={{
@@ -2733,11 +2698,11 @@ const Dashboard = ({ onThemeOverride }) => {
                 <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: 'blur(12px)', height: '100%', overflowY: 'auto' }}>
                   <Typography sx={{ color: NEON_CYAN, fontWeight: 900, letterSpacing: '0.06em', mb: 1.2 }}>Stats</Typography>
                   <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
-                    <StatCard label="Study Hours" value={`${sessionHours}h`} icon={Timer} color={NEON_CYAN} countTo={Number(sessionHours || 0)} suffix="h" />
-                    <StatCard label="Study (7d)" value={`${weeklyHours}h`} icon={School} color={'#10B981'} countTo={Number(weeklyHours || 0)} suffix="h" />
-                    <StatCard label="Avg Quiz Score" value={`${Number(dashboardStats.avg_quiz_score || 0).toFixed(0)}%`} icon={Quiz} color={NEON_PURPLE} countTo={Number(dashboardStats.avg_quiz_score || 0)} suffix="%" />
-                    <StatCard label="Total Sessions" value={Number(dashboardStats.total_sessions || 0)} icon={BarChart} color={'#F59E0B'} countTo={Number(dashboardStats.total_sessions || 0)} />
-                    <StatCard label="Last active" value={String(dashboardStats.recent_activity || '—')} icon={Bolt} color={'#06B6D4'} showActiveDot />
+                    {renderStatCard({ label: "Study Hours", value: `${sessionHours}h`, icon: Timer, color: NEON_CYAN, countTo: Number(sessionHours || 0), suffix: "h" })}
+                    {renderStatCard({ label: "Study (7d)", value: `${weeklyHours}h`, icon: School, color: '#10B981', countTo: Number(weeklyHours || 0), suffix: "h" })}
+                    {renderStatCard({ label: "Avg Quiz Score", value: `${Number(dashboardStats.avg_quiz_score || 0).toFixed(0)}%`, icon: Quiz, color: NEON_PURPLE, countTo: Number(dashboardStats.avg_quiz_score || 0), suffix: "%" })}
+                    {renderStatCard({ label: "Total Sessions", value: Number(dashboardStats.total_sessions || 0), icon: BarChart, color: '#F59E0B', countTo: Number(dashboardStats.total_sessions || 0) })}
+                    {renderStatCard({ label: "Last active", value: String(dashboardStats.recent_activity || '—'), icon: Bolt, color: '#06B6D4', showActiveDot: true })}
                   </Box>
                 </Card>
               </motion.div>
@@ -3920,7 +3885,7 @@ const Dashboard = ({ onThemeOverride }) => {
           ) : (
           activeView === 'dashboard' ? (
             <Box sx={{ flex: 1, overflow: 'auto', pb: 2 }}>
-              <DashboardView />
+              {renderDashboardView()}
             </Box>
           ) : activeView === 'leaderboard' ? (
             <Box sx={{ flex: 1, overflow: 'auto', pb: 2, height: '100%' }}>
@@ -4176,6 +4141,31 @@ const Dashboard = ({ onThemeOverride }) => {
                   </Card>
                 )}
 
+                {normalizeToolKey(activeTool) === 'assignment evaluator' && (
+                  <Card sx={{ p: 1.5, bgcolor: 'rgba(255,255,255,0.04)', border: GLASS_BORDER, borderRadius: '14px', mb: 2 }}>
+                    <Typography sx={{ color: NEON_PURPLE, fontWeight: 800, fontSize: 13, mb: 1 }}>Smart Assignment Evaluator</Typography>
+                    <Typography sx={{ color: 'rgba(255,255,255,0.65)', fontSize: 12, mb: 1.2 }}>Question aur maximum marks daalo, phir apni handwritten answer ki photo upload karo.</Typography>
+                    <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Question"
+                        value={evalQuestion}
+                        onChange={(e) => setEvalQuestion(e.target.value)}
+                        placeholder="e.g. What is Object Oriented Programming?"
+                      />
+                      <TextField
+                        type="number"
+                        size="small"
+                        label="Max Marks"
+                        value={evalMaxMarks}
+                        onChange={(e) => setEvalMaxMarks(e.target.value)}
+                        sx={{ width: 100 }}
+                      />
+                    </Box>
+                  </Card>
+                )}
+
                 {( userSettings.showQuickSuggestions && (normalizeToolKey(activeTool) !== 'exam predictor' || showExamAskInput)
                   && (normalizeToolKey(activeTool) !== 'study roadmap' || showRoadmapAskInput)
                 ) && <QuickSuggestionsChips />}
@@ -4191,6 +4181,10 @@ const Dashboard = ({ onThemeOverride }) => {
                         if (file) {
                           if (normalizeToolKey(activeTool) === 'quiz master') {
                             await runApcOcrQuiz(file, quizRemarks);
+                            return;
+                          }
+                          if (normalizeToolKey(activeTool) === 'assignment evaluator') {
+                            await runApcOcrEvaluate(file, evalQuestion, evalMaxMarks);
                             return;
                           }
                           setIsUploading(true);
