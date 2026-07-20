@@ -44,7 +44,6 @@ Whether you need quick summaries of a block, predictions for your next term-end 
 ### 🎮 Gamification & Progression
 - **XP & Streaks**: Earn XP for chatting, answering quizzes, and studying consistently.
 - **Achievements**: Unlock badges for milestones (e.g., "7-Day Streak", "Quiz Master").
-- **Frenzy Mode**: A hidden easter egg for when you need a "hype-man" to motivate your study sessions. Type `i am frenzy` in the chat to see what happens!
 
 ---
 
