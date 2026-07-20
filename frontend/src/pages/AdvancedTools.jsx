@@ -172,10 +172,11 @@ function ToolCard({ tool, onSelectTool, index }) {
         onClick={() => onSelectTool(tool)}
         sx={{
           height: '100%',
+          minHeight: '260px',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'space-between',
-          p: 2.5,
+          p: { xs: 2, sm: 2.5 },
           borderRadius: '24px',
           bgcolor: C.surface,
           border: `1px solid ${hovered ? tool.accent + '80' : C.border}`,
@@ -223,13 +224,13 @@ function ToolCard({ tool, onSelectTool, index }) {
             />
           </Box>
 
-          <Typography sx={{ color: C.text, fontWeight: 800, fontSize: '16px', mb: 0.3 }}>
+          <Typography sx={{ color: C.text, fontWeight: 800, fontSize: '15px', mb: 0.3, lineHeight: 1.3 }}>
             {tool.title}
           </Typography>
-          <Typography sx={{ color: tool.accent, fontSize: '12px', fontWeight: 700, mb: 1.5, opacity: 0.9 }}>
+          <Typography sx={{ color: tool.accent, fontSize: '11.5px', fontWeight: 700, mb: 1, opacity: 0.9 }}>
             {tool.subtitle}
           </Typography>
-          <Typography sx={{ color: C.textMuted, fontSize: '13px', lineHeight: 1.6 }}>
+          <Typography sx={{ color: C.textMuted, fontSize: '12px', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
             {tool.description}
           </Typography>
         </Box>

@@ -955,7 +955,25 @@ const Dashboard = ({ onThemeOverride }) => {
         alert('Please select semester and subject first.');
         return;
       }
-      await handleSend(`Analyze the last 4 years of PYQs for Semester ${semNum} and Subject ${subjCode}. Return only a numbered list of predicted questions.`);
+      setMessages(prev => [...prev, { id: makeMessageId(), text: `Predicting most important topics for ${subjCode} (Semester ${semNum})...`, sender: 'user' }]);
+      setIsTyping(true);
+      try {
+        const res = await fetch(`${API_BASE}/apc/predict-exam`, {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify({ semester: semNum, subject: subjCode })
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const predictions = data.predictions || [];
+        const md = `### 🔮 Exam Predictor: ${subjCode}\nBased on historical PYQ trends, here are the most high-probability topics for your upcoming exam:\n\n` + predictions.map((p, i) => `${i+1}. ${p}`).join('\n');
+        setMessages(prev => [...prev, { id: makeMessageId(), text: md, sender: 'ai', isTypingComplete: true }]);
+      } catch (err) {
+        console.error('Exam predictor failed:', err);
+        setMessages(prev => [...prev, { id: makeMessageId(), text: 'Failed to predict exam topics. Please try again.', sender: 'ai', isTypingComplete: true }]);
+      } finally {
+        setIsTyping(false);
+      }
       return;
     }
     if (toolKey === 'cheat mode') {
@@ -963,7 +981,8 @@ const Dashboard = ({ onThemeOverride }) => {
         alert('Please select subject first.');
         return;
       }
-      await handleSend(`Use Cheat Mode for ${subjCode}. Give concise flashcard-style answers based on PYQ trends.`);
+      setMessages(prev => [...prev, { id: makeMessageId(), text: `Activating Cheat Mode for ${subjCode}...`, sender: 'user' }]);
+      await handleSend(`[CHEAT MODE ACTIVATED] You are a highly efficient exam cramming assistant for IGNOU BCA subject ${subjCode}. Do NOT write long paragraphs. Provide 5 ultra-concise flashcards covering the most frequently repeated PYQ concepts. Format each as:\n**Q: [Question]**\n*A: [One sentence answer]*\n💡 *Memory Hook: [Mnemonic]*`);
       return;
     }
     if (toolKey === 'viva mentor') {
