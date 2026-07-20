@@ -8,6 +8,7 @@ import {
   PlayArrow, ChevronRight, EmojiObjects, Star,
 } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
+import TiltCard from '../components/TiltCard';
 import BackButton from '../components/BackButton';
 
 // ── Design tokens ────────────────────────────────────────────────────────────
@@ -168,8 +169,8 @@ function ToolCard({ tool, onSelectTool, index }) {
       onHoverEnd={() => setHovered(false)}
       style={{ height: '100%' }}
     >
+      <TiltCard onClick={() => onSelectTool(tool)}>
       <Card
-        onClick={() => onSelectTool(tool)}
         sx={{
           height: '100%',
           minHeight: '260px',
@@ -257,6 +258,7 @@ function ToolCard({ tool, onSelectTool, index }) {
           </motion.div>
         </Box>
       </Card>
+      </TiltCard>
     </motion.div>
   );
 }

@@ -6,6 +6,7 @@ import './App.css';
 import './styles/theme.css';
 
 import { ThemeProvider } from './context/ThemeContext';
+import AmbientParticles from './components/AmbientParticles';
 
 const Signup = lazy(() => import('./Signup'));
 const Dashboard = lazy(() => import('./Dashboard'));
@@ -170,9 +171,9 @@ function App() {
   return (
     <ErrorBoundary>
       <ThemeProvider>
-
-          <MotionConfig transition={{ duration: frenzyOverride?.active ? 2.5 : 0.3 }}>
-            <Router>
+        <AmbientParticles />
+        <MotionConfig transition={{ type: 'spring', bounce: 0.2, duration: frenzyOverride?.active ? 2.5 : 0.3 }}>
+          <Router>
             <Suspense fallback={
               <div style={{
                 minHeight: '100vh',

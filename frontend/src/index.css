@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
 
 :root {
   /* GenZ Cyber-Glassmorphism Theme (Midnight Violet + Neons) */
@@ -48,9 +48,39 @@ html, body {
   color: var(--text-primary);
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+/* 4D Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-cyan);
+  box-shadow: 0 0 10px var(--accent-cyan);
+}
+
+/* 4D Animations */
+@keyframes breathingGlow {
+  0% { box-shadow: 0 0 10px rgba(0, 240, 255, 0.1); }
+  50% { box-shadow: 0 0 25px rgba(0, 240, 255, 0.4); }
+  100% { box-shadow: 0 0 10px rgba(0, 240, 255, 0.1); }
+}
+
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+.glow-on-focus:focus-within {
+  animation: breathingGlow 3s infinite ease-in-out;
+  border-color: var(--accent-cyan) !important;
 }
 
 button {
@@ -62,47 +92,16 @@ button {
   font-family: inherit;
   background-color: #1a1a1a;
   cursor: pointer;
-  transition: border-color 0.25s;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 15px rgba(0, 240, 255, 0.3);
 }
 
 /* Mobile responsiveness */
 @media (max-width: 768px) {
   body {
     font-size: 14px;
-  }
-
-  .chat-container {
-    padding: 10px;
-    overflow-x: hidden;
-  }
-
-  .chat-input {
-    width: 100%;
-    font-size: 1em;
-  }
-
-  .chat-messages {
-    max-height: 60vh;
-    overflow-y: auto;
   }
 }
