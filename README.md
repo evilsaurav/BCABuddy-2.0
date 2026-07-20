@@ -2,7 +2,7 @@
   <img src="https://raw.githubusercontent.com/saurav/BCABuddy/main/frontend/public/logo192.png" alt="BCABuddy Logo" width="150" height="150" />
   
   # BCABuddy
-  **The Intelligent AI Assistant for IGNOU BCA Students**
+  **The Ultimate AI-Powered Academic Assistant for IGNOU BCA Students**
 
   [![React](https://img.shields.io/badge/React-18-blue.svg)](https://reactjs.org/)
   [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green.svg)](https://fastapi.tiangolo.com/)
@@ -14,120 +14,148 @@
 
 ## 🌟 What is BCABuddy?
 
-BCABuddy is not just another study app; it is a personalized, AI-powered academic companion built exclusively for BCA (Bachelor of Computer Applications) students at IGNOU. By leveraging state-of-the-art AI (Groq's Llama 3 models), BCABuddy understands the specific curriculum, syllabus, and examination patterns of IGNOU to deliver highly accurate, contextual, and hyper-personalized study support.
+BCABuddy is a highly specialized, AI-powered study companion designed exclusively for students pursuing a Bachelor of Computer Applications (BCA) at the Indira Gandhi National Open University (IGNOU). 
 
-**Why was it built?**
-It was born out of real student experiences, late-night coding sessions, and a genuine desire to solve the everyday academic struggles faced by BCA students. Built by Saurav, with the constant support and inspiration of Jiya, this platform is a passion project designed *by* a student, *for* the students. 
+Most AI chatbots offer generic, broad answers. **BCABuddy is different.** It has been contextually tuned to understand the specific syllabus, block structure, credit system, and past examination patterns of IGNOU. This ensures that every summary, explanation, and quiz it generates is hyper-relevant to what the student actually needs to pass their Term-End Examinations (TEE) and practicals.
 
-Whether you need quick summaries of a block, predictions for your next term-end exam, a personalized study roadmap, or a live 1v1 quiz battle with your friends to test your knowledge, BCABuddy has you covered.
+**The Origin Story:**
+BCABuddy wasn't built in a corporate boardroom. It was born out of real student experiences, frustrating late-night coding sessions, and the genuine desire to solve the everyday academic struggles faced by open-university students. Built by Saurav, with the constant support and inspiration of Jiya, this platform is a passion project designed *by* a student, *for* the students.
 
 ---
 
-## ✨ Key Features & Structure
+## ✨ Comprehensive Feature Breakdown
 
-### 🧠 Core Intelligence
-- **Agentic Backend Routing**: Dynamically switches between `llama-3.3-70b-versatile` (for complex reasoning, conversational depth, and OCR grading) and `llama3-8b-8192` (for quick tasks like roadmap generation and title creation).
-- **RAG (Retrieval-Augmented Generation)**: Answers questions perfectly aligned with the IGNOU syllabus.
-- **Semantic Caching**: Caches AI responses locally to eliminate redundant API calls, massively saving token costs and reducing latency to zero for repeated queries.
+### 🧠 1. Core Intelligence & Chat System
+- **Agentic Backend Routing**: The backend dynamically routes requests to different AI models to optimize speed and cost. 
+  - *Pro Tier (`llama-3.3-70b-versatile`)*: Used for complex reasoning, answering in-depth programming questions, and grading OCR assignments.
+  - *Lite Tier (`llama3-8b-8192`)*: Used for rapid, deterministic tasks like creating chat titles, explaining simple MCQs, and generating structured JSON roadmaps.
+- **RAG (Retrieval-Augmented Generation)**: Answers are augmented with real IGNOU syllabus data to prevent AI hallucinations.
+- **Semantic Caching**: The system locally caches the semantic meaning of questions. If multiple students ask similar questions (e.g., "What is OOPS?"), the AI instantly returns the cached response, saving API tokens and delivering zero-latency answers.
 
-### 🛠️ Advanced Tools (APC - Advanced Preparation Center)
-- **Exam Predictor**: Predicts important topics for upcoming exams based on the syllabus structure.
-- **Study Roadmap (AI Tutor Mode)**: Generates a day-by-day, hour-by-hour personalized study plan based on your remaining days and daily study hours.
-- **AI Viva Mentor**: Simulates a live, voice-interactive viva/interview experience using Web Speech API to prepare you for practical exams.
-- **Smart Assignment Evaluator**: Upload a picture of your handwritten assignment or code, and the AI will evaluate it using OCR (Optical Character Recognition) and grade it based on the maximum marks.
-- **Quiz Master**: Automatically generates MCQ and subjective quizzes based on a given topic, allowing you to upload handwritten answers for grading.
+### 🛠️ 2. Advanced Preparation Center (APC)
+The APC is a suite of specialized tools built to tackle every aspect of BCA preparation:
+- **Exam Predictor**: Uses historical syllabus weightage to predict which blocks and units are most likely to appear in the upcoming exams.
+- **Study Roadmap (AI Tutor Mode)**: Tell the AI how many days you have left and how many hours you can study daily. It will generate a realistic, hour-by-hour study plan broken down by subject and topic.
+- **Smart Assignment Evaluator**: Use your device's camera to take a picture of a handwritten assignment or code snippet. The backend uses OCR (Optical Character Recognition via EasyOCR) to extract the text and grades your answer against a maximum score, providing constructive feedback.
+- **AI Viva Mentor**: A voice-interactive mentor that uses the browser's Web Speech API. It conducts mock viva-voce interviews by asking you practical questions out loud and listening to your verbal responses, grading you in real-time.
+- **Quiz Master**: Automatically spins up customized multiple-choice and subjective quizzes based on specific chapters you want to revise.
 
-### ⚔️ Live 1v1 Battle (Multiplayer)
-- Real-time WebSocket-based quiz battles against other students.
-- **Ranked ELO System**: Climb the leaderboard! The system utilizes a standard K=32 ELO rating algorithm to adjust your score after every victory, defeat, or draw.
+### ⚔️ 3. Live 1v1 Battle (Multiplayer)
+Studying doesn't have to be lonely.
+- **Real-Time WebSockets**: Challenge your friends to a live quiz battle. Both players receive the same questions simultaneously, racing against a 10-second timer.
+- **Ranked ELO System**: A competitive ladder! Everyone starts at a base ELO rating of 1000. Winning matches against higher-ranked players yields more points using a standard K=32 Elo algorithm, tracked seamlessly in the SQLite database.
 
-### 🎮 Gamification & Progression
-- **XP & Streaks**: Earn XP for chatting, answering quizzes, and studying consistently.
-- **Achievements**: Unlock badges for milestones (e.g., "7-Day Streak", "Quiz Master").
+### 🎮 4. Gamification & Progression
+- **XP & Streaks**: Every action you take—completing a roadmap day, winning a battle, or just chatting—earns you XP. Daily logins build up your study streak.
+- **Achievements**: Unlock dynamic badges like "Early Bird" or "Quiz Master" as you hit specific milestones in your learning journey.
 
 ---
 
 ## 🏗️ Technical Architecture
 
-BCABuddy uses a modern, decoupled architecture:
+### Frontend (Client)
+- **Framework**: React.js with Vite for blazing-fast HMR (Hot Module Replacement).
+- **Styling**: Material-UI (MUI) combined with custom CSS to achieve a sleek, glassmorphic "Cyberpunk/Neon" aesthetic. 
+- **State Management**: `zustand` and Context API for global state, paired with `localStorage` for persisting chat sessions and offline roadmap progress.
+- **Web APIs**: Utilizes the native Web Speech API for voice recognition in the Viva Mentor.
 
-### Frontend (React + Vite)
-- Built with React and Material-UI (MUI) for a sleek, glassmorphic "Cyberpunk/Neon" UI aesthetic.
-- State management handled efficiently via React Hooks and `localStorage`.
-- Real-time WebSocket connections for the Live Battle mode.
-- PWA (Progressive Web App) ready.
-
-### Backend (Python + FastAPI)
-- Asynchronous and highly performant API built with FastAPI.
-- **Database**: SQLite (via SQLAlchemy) for tracking user profiles, chat histories, ELO ratings, and achievements.
-- **AI Integration**: Groq API integration utilizing `groq-llama-3` models.
-- **OCR**: Uses `EasyOCR` to extract text from student-uploaded handwritten assignments for AI grading.
+### Backend (Server)
+- **Framework**: FastAPI (Python), chosen for its asynchronous capabilities and automatic OpenAPI documentation.
+- **Database**: SQLite with SQLAlchemy ORM. Optimized with WAL (Write-Ahead Logging) mode to support high concurrency during live battles.
+- **AI Integration**: Groq API for lightning-fast inference on Llama 3 models.
+- **WebSockets**: Custom socket manager to handle room-based matchmaking and real-time state synchronization for Live Battles.
 
 ---
 
-## 🚀 How to Run Locally
+## 🚀 In-Depth Setup & Installation Guide
+
+Follow these steps carefully to run the entire BCABuddy stack on your local machine.
 
 ### Prerequisites
-- Node.js (v18+)
-- Python (3.10+)
-- A [Groq API Key](https://console.groq.com/keys)
+Before you begin, ensure you have the following installed:
+- [Node.js](https://nodejs.org/en/download/) (v18 or higher)
+- [Python](https://www.python.org/downloads/) (v3.10 or higher)
+- [Git](https://git-scm.com/downloads)
+- A **Groq API Key**. You can get one for free at the [Groq Console](https://console.groq.com/keys).
 
-### 1. Clone the Repository
+### Step 1: Clone the Repository
+Open your terminal (or Command Prompt/PowerShell) and run:
 ```bash
-git clone https://github.com/saurav/BCABuddy.git
-cd BCABuddy
+git clone https://github.com/evilsaurav/BCABuddy-2.0.git
+cd BCABuddy-2.0
 ```
 
-### 2. Setup the Backend
-```bash
-cd backend
-python -m venv .venv
-# Activate the virtual environment
-# Windows:
-.venv\Scripts\activate
-# Mac/Linux:
-source .venv/bin/activate
+### Step 2: Configure and Run the Backend
+The backend powers the AI, database, and WebSockets.
 
-# Install dependencies
-pip install -r requirements.txt
+1. **Navigate to the backend folder**:
+   ```bash
+   cd backend
+   ```
+2. **Create a virtual environment**:
+   ```bash
+   python -m venv .venv
+   ```
+3. **Activate the virtual environment**:
+   - On Windows:
+     ```bash
+     .venv\Scripts\activate
+     ```
+   - On Mac/Linux:
+     ```bash
+     source .venv/bin/activate
+     ```
+4. **Install Python dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+5. **Set up Environment Variables**:
+   Create a file named `.env` inside the `backend` folder and add the following lines (replace `your_groq_api_key_here` with your actual key):
+   ```env
+   GROQ_API_KEY=your_groq_api_key_here
+   DATABASE_URL=sqlite:///./bcabuddy.db
+   SECRET_KEY=super_secret_jwt_key_123
+   ```
+6. **Start the FastAPI Server**:
+   ```bash
+   uvicorn main:app --reload --port 8000
+   ```
+   *Success! The backend is now running at `http://localhost:8000`. Leave this terminal window open.*
 
-# Create a .env file and add your Groq API key
-echo "GROQ_API_KEY=your_groq_api_key_here" > .env
-echo "DATABASE_URL=sqlite:///./bcabuddy.db" >> .env
-echo "SECRET_KEY=super_secret_key" >> .env
+### Step 3: Configure and Run the Frontend
+The frontend is the visual UI you will interact with in your browser.
 
-# Run the FastAPI server
-uvicorn main:app --reload --port 8000
-```
-*The backend will now be running on `http://localhost:8000`*
+1. **Open a new terminal window/tab** and navigate to the frontend folder:
+   ```bash
+   cd frontend
+   ```
+2. **Install Node modules**:
+   ```bash
+   npm install
+   ```
+3. **Set up Environment Variables**:
+   Create a file named `.env` inside the `frontend` folder and add:
+   ```env
+   VITE_API_URL=http://localhost:8000
+   ```
+4. **Start the Vite Development Server**:
+   ```bash
+   npm run dev
+   ```
+   *Success! The frontend is now running at `http://localhost:5173`.*
 
-### 3. Setup the Frontend
-Open a new terminal window:
-```bash
-cd frontend
-npm install
-
-# Create a .env file
-echo "VITE_API_URL=http://localhost:8000" > .env
-
-# Run the Vite development server
-npm run dev
-```
-*The frontend will now be running on `http://localhost:5173`*
+### Step 4: Access the App
+Open your web browser (Chrome/Edge recommended for Web Speech support) and navigate to `http://localhost:5173`. 
+Create a new account on the login screen, select your BCA semester and subjects, and start studying!
 
 ---
 
-## 💡 Usage Guide
-1. **Sign Up**: Create an account and set up your profile (Semester, Subject).
-2. **Chat**: Ask BCABuddy any question related to the IGNOU syllabus.
-3. **Advanced Tools**: Click the "Wrench" icon (or APC button) to access Roadmaps, Evaluators, and Exam Predictors.
-4. **Battle**: Click the "Swords" icon to enter the lobby and queue up for a Live 1v1 match to boost your ELO rating!
+## 🤝 Contributing
+BCABuddy is an open project aimed at helping students. If you're a developer and want to add support for other IGNOU courses (like MCA or BCOM), feel free to fork the repository, add the relevant syllabus JSON files, and submit a Pull Request!
 
----
-
-## 💖 Credits
-- **Creator**: Saurav
+## 💖 Credits & Acknowledgments
+- **Creator & Lead Developer**: Saurav
 - **Inspiration & Support**: Jiya
-- **Powered by**: Groq, FastAPI, React
+- **Core Technologies**: Powered by the incredible speeds of [Groq](https://groq.com/), the robustness of [FastAPI](https://fastapi.tiangolo.com/), and the flexibility of [React](https://reactjs.org/).
 
-*"For the students, by a student."*
+> *"For the students, by a student."*
