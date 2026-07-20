@@ -55,7 +55,12 @@ Studying doesn't have to be lonely.
 
 ### Frontend (Client)
 - **Framework**: React.js with Vite for blazing-fast HMR (Hot Module Replacement).
-- **Styling**: Material-UI (MUI) combined with custom CSS to achieve a sleek, glassmorphic "Cyberpunk/Neon" aesthetic. 
+- **Styling & 4D UI**: 
+  - Material-UI (MUI) combined with custom CSS.
+  - **"4D Modern" Physics Engine**: Utilizes `framer-motion` for spring-physics-based interactions. UI cards dynamically track mouse movements with 3D parallax tilts, and buttons/chat bubbles use staggered spring bounces.
+  - **Glassmorphism 2.0**: High-contrast Cyberpunk/Neon aesthetic with deep `backdrop-filter: blur(20px)` layering, glowing multi-colored box shadows, and custom animated scrollbars.
+  - **Interactive Ambient Environment**: Features a globally injected `@tsparticles/react` background that reacts to cursor hovers (repulsion) and clicks (scattering).
+- **Adaptive Mobile Responsiveness**: The entire application is perfectly scaled for mobile browsers. Dashboards fold gracefully into stacked grids, sidebars tuck into hamburger menus, and chat input zones respect native iOS safe-area keyboards.
 - **State Management**: `zustand` and Context API for global state, paired with `localStorage` for persisting chat sessions and offline roadmap progress.
 - **Web APIs**: Utilizes the native Web Speech API for voice recognition in the Viva Mentor.
 
