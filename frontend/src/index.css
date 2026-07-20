@@ -17,6 +17,9 @@
   --accent-green: #10B981;
   
   --bento-radius: 24px;
+  
+  /* Mobile Safe Areas */
+  --safe-bottom: env(safe-area-inset-bottom, 20px);
 }
 
 * {
@@ -103,5 +106,12 @@ button:hover {
 @media (max-width: 768px) {
   body {
     font-size: 14px;
+  }
+  
+  /* Ensure no horizontal scrolling on mobile */
+  html, body, #root {
+    overflow-x: hidden !important;
+    width: 100vw !important;
+    position: fixed; /* Prevents bounce scroll on iOS */
   }
 }

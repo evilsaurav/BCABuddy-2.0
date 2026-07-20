@@ -283,7 +283,7 @@ function ProChatCard({ onSelectTool, avatarUrl, displayName }) {
         <Box sx={{ position:'absolute', top:-60, right:-60, width:200, height:200, borderRadius:'50%', background:'radial-gradient(circle, rgba(0,240,255,0.15), transparent 70%)', pointerEvents:'none' }} />
         <Box sx={{ position:'absolute', bottom:-40, left:-40, width:150, height:150, borderRadius:'50%', background:'radial-gradient(circle, rgba(139,92,246,0.15), transparent 70%)', pointerEvents:'none' }} />
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5, position: 'relative' }}>
+        <Box sx={{ display: 'flex', alignItems: { xs: 'flex-start', sm: 'center' }, flexDirection: { xs: 'column', sm: 'row' }, gap: 2.5, position: 'relative' }}>
           {/* Avatar */}
           <Box sx={{ position: 'relative', flexShrink: 0 }}>
             <Avatar

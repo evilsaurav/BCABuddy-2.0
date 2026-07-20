@@ -3995,7 +3995,7 @@ const Dashboard = ({ onThemeOverride }) => {
                 display: 'flex',
                 flexDirection: 'column',
                 gap: 1.5,
-                pb: 3
+                pb: { xs: 'calc(var(--safe-bottom) + 12px)', md: 3 }
               }}>
                 {(normalizeToolKey(activeTool) === 'study roadmap' || normalizeToolKey(activeTool) === 'exam predictor') && (
                   <Card sx={{ p: 1.5, bgcolor: 'rgba(255,255,255,0.04)', border: GLASS_BORDER, borderRadius: '14px' }}>

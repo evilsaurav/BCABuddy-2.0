@@ -339,7 +339,7 @@ const ExamSimulationPage = ({ API_BASE: apiBaseOverride }) => {
 
               {error && <Alert severity="error">{error}</Alert>}
 
-              <Box sx={{ display: 'flex', gap: 1.5, mt: 1 }}>
+              <Box sx={{ display: 'flex', gap: 1.5, mt: 1, flexWrap: 'wrap' }}>
                 <Button
                   variant="contained"
                   onClick={startExam}
@@ -388,7 +388,7 @@ const ExamSimulationPage = ({ API_BASE: apiBaseOverride }) => {
               ))}
             </RadioGroup>
 
-            <Box sx={{ display: 'flex', gap: 1.5, mt: 2 }}>
+            <Box sx={{ display: 'flex', gap: 1.5, mt: 2, flexWrap: 'wrap' }}>
               <Button variant="outlined" onClick={goPrev} disabled={currentIndex === 0}>Previous</Button>
               <Button variant="contained" onClick={goNext} sx={{ bgcolor: ACCENT, color: '#031417', fontWeight: 800 }}>
                 {currentIndex < questions.length - 1 ? 'Next' : 'Submit Exam'}
@@ -433,7 +433,7 @@ const ExamSimulationPage = ({ API_BASE: apiBaseOverride }) => {
               })}
             </Box>
 
-            <Box sx={{ display: 'flex', gap: 1.5, mt: 2 }}>
+            <Box sx={{ display: 'flex', gap: 1.5, mt: 2, flexWrap: 'wrap' }}>
               <Button variant="contained" onClick={restart} sx={{ bgcolor: ACCENT, color: '#031417', fontWeight: 800 }}>
                 Restart
               </Button>
