@@ -176,4 +176,10 @@ async def websocket_endpoint(websocket: WebSocket, token: str):
                         })
 
     except WebSocketDisconnect:
-        await manager.disconnect(username)
+        # Grace period for reconnection
+        await asyncio.sleep(15)
+        # If still the same websocket instance is gone (not reconnected)
+        if manager.active_connections.get(username) == websocket:
+            await manager.disconnect(username)
+        elif username not in manager.active_connections:
+            await manager.disconnect(username)

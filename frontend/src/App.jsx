@@ -8,7 +8,7 @@ import './styles/theme.css';
 import { ThemeProvider } from './context/ThemeContext';
 import AmbientParticles from './components/AmbientParticles';
 
-const Signup = lazy(() => import('./Signup'));
+// Signup is now handled inside Login.jsx
 const Dashboard = lazy(() => import('./Dashboard'));
 const EditProfile = lazy(() => import('./EditProfile'));
 const APCPage = lazy(() => import('./pages/APCPage'));
@@ -195,7 +195,7 @@ function App() {
                 />
                 <Route 
                   path="/signup" 
-                  element={<Signup />} 
+                  element={<Navigate to="/" replace />} 
                 />
                 <Route
                   path="/about"

@@ -3,7 +3,10 @@ import io
 
 
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+import logging
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
@@ -21,6 +24,8 @@ from routes.leaderboard import router as leaderboard_router
 from routes.multiplayer import router as multiplayer_router
 import redis
 
+from core.limiter import limiter
+
 settings = get_settings()
 
 app = FastAPI(
@@ -31,6 +36,9 @@ app = FastAPI(
     redoc_url="/redoc",
     openapi_url="/openapi.json"
 )
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Set up CORS
 app.add_middleware(
@@ -60,9 +68,10 @@ import traceback
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
+    logging.error(f"Global Unhandled Error: {str(exc)}\n{traceback.format_exc()}")
     return JSONResponse(
         status_code=500,
-        content={"detail": f"Global Unhandled Error: {str(exc)}\n{traceback.format_exc()}"}
+        content={"detail": "An internal server error occurred. Please try again later."}
     )
 
 @app.get("/health")

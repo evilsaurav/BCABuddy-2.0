@@ -1,11 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Request
+from core.limiter import limiter
 from typing import List, Optional
 import re
 from database import get_db, User
 from auth_utils import get_current_user
 from models import (
     QuizRequest, QuizQuestion, MixedExamRequest, 
-    ExplainQuestionRequest, MCQExplainRequest
+    ExplainQuestionRequest, MCQExplainRequest, StudyPlanRequest
 )
 
 router = APIRouter(tags=["rag_features"])
@@ -275,7 +276,9 @@ def explain_question(
         raise HTTPException(status_code=500, detail=f"Explain failed: {str(e)}")
 
 @router.post("/generate-roadmap")
-def generate_roadmap(
+@limiter.limit("10/minute")
+async def generate_roadmap(
+    http_request: Request,
     request: StudyPlanRequest,
     current_user: User = Depends(get_current_user),
 ):

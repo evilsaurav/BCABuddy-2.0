@@ -1,6 +1,7 @@
 from datetime import datetime
 import json
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from core.limiter import limiter
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
@@ -52,7 +53,9 @@ def get_apc_history(
     return logs
 
 @router.post("/apc/performance-report")
+@limiter.limit("5/minute")
 def generate_performance_report(
+    http_request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):

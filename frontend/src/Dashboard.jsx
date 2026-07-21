@@ -56,6 +56,7 @@ import SidebarAssignments from './components/SidebarAssignments';
 import ThemeToggle from './components/ThemeToggle';
 import ParticlesBackground from './ParticlesBackground';
 import EditProfile from './EditProfile';
+import DailyWelcomeModal from './components/DailyWelcomeModal';
 import { useTheme } from './context/ThemeContext';
 import { getToken, setToken, clearToken, isTokenExpiringSoon, shouldForceLogout, getTokenRemainingMinutes, shouldWarnTokenExpiry } from './utils/tokenManager';
 
@@ -3380,6 +3381,7 @@ const Dashboard = ({ onThemeOverride }) => {
 
   return (
     <>
+      <DailyWelcomeModal username={profileData?.username || localStorage.getItem('username') || 'Student'} />
       <ParticlesBackground />
       <Box
         sx={{

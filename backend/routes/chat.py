@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from core.limiter import limiter
 from sqlalchemy.orm import Session
 from typing import Optional, Any, cast
 
@@ -144,7 +145,8 @@ from services.chat_service import (
 )
 
 @router.post("/chat")
-def chat_endpoint(request: ChatRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+@limiter.limit("20/minute")
+def chat_endpoint(http_request: Request, request: ChatRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     requested_mode = str(getattr(request, "mode", "auto") or "auto").strip().lower()
     is_lite_mode = requested_mode in {"lite", "fast", "quick"}
 
