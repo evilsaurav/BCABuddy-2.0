@@ -48,6 +48,15 @@ Studying doesn't have to be lonely.
 ### 🎮 4. Gamification & Progression
 - **XP & Streaks**: Every action you take—completing a roadmap day, winning a battle, or just chatting—earns you XP. Daily logins build up your study streak.
 - **Achievements**: Unlock dynamic badges like "Early Bird" or "Quiz Master" as you hit specific milestones in your learning journey.
+- **Daily Welcome Modal**: A beautiful, 3D-styled motivational modal greets users upon their first login every day, displaying a countdown to exams and a dynamic motivational quote.
+
+### 🛡️ 5. Enterprise-Grade Security
+- **API Rate Limiting**: Integrated `slowapi` to rigorously rate-limit heavy AI endpoints (e.g., 20 req/min for Chat, 10 req/min for Roadmaps) to prevent DDoS attacks and token draining.
+- **Trace Masking**: A custom global exception handler silently intercepts 500 Server Errors, logging the traceback securely while presenting a safe generic message to the user, preventing sensitive stack trace leaks.
+
+### 📱 6. Progressive Web App (PWA) & Offline UX
+- **Native App Feel**: Fully configured with `vite-plugin-pwa` and Workbox, allowing students to install BCABuddy directly to their phone's home screen.
+- **Reconnect Grace Period**: Live WebSocket battles now feature a built-in 15-second grace period. If a student's network drops during a match, the server pauses the game rather than instantly forfeiting them.
 
 ---
 
@@ -57,7 +66,7 @@ Studying doesn't have to be lonely.
 - **Framework**: React.js with Vite for blazing-fast HMR (Hot Module Replacement).
 - **Styling & 4D UI**: 
   - Material-UI (MUI) combined with custom CSS.
-  - **"4D Modern" Physics Engine**: Utilizes `framer-motion` for spring-physics-based interactions. UI cards dynamically track mouse movements with 3D parallax tilts, and buttons/chat bubbles use staggered spring bounces.
+  - **"4D Modern" Physics Engine**: Utilizes `framer-motion` for immersive interactions. Features a completely unified **Glassmorphism Auth Screen** (Login/Signup combined) with animated glowing background orbs and seamless layout transitions. UI cards dynamically track mouse movements with 3D parallax tilts, and buttons use staggered spring bounces.
   - **Glassmorphism 2.0**: High-contrast Cyberpunk/Neon aesthetic with deep `backdrop-filter: blur(20px)` layering, glowing multi-colored box shadows, and custom animated scrollbars.
   - **Interactive Ambient Environment**: Features a globally injected `@tsparticles/react` background that reacts to cursor hovers (repulsion) and clicks (scattering).
 - **Adaptive Mobile Responsiveness**: The entire application is perfectly scaled for mobile browsers. Dashboards fold gracefully into stacked grids, sidebars tuck into hamburger menus, and chat input zones respect native iOS safe-area keyboards.
