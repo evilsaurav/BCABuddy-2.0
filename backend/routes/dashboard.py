@@ -228,59 +228,7 @@ def get_study_roadmap_history(
 
     return {"groups": grouped}
 
-@router.post("/apc/performance-report")
-def generate_apc_performance_report(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    sessions = db.query(ChatSession).filter(ChatSession.user_id == current_user.id).all()
-    session_ids = [int(getattr(cast(Any, s), "id", 0) or 0) for s in sessions]
-    chats = []
-    if session_ids:
-        chats = db.query(ChatHistory).filter(ChatHistory.session_id.in_(session_ids)).order_by(ChatHistory.id.asc()).all()
 
-    total_messages = len(chats)
-    eta_minutes = 1 if total_messages <= 120 else 2
-    user_msgs = [c for c in chats if str(getattr(cast(Any, c), "sender", "")).lower() == "user"]
-    ai_msgs = [c for c in chats if str(getattr(cast(Any, c), "sender", "")).lower() == "ai"]
-
-    prompt = (
-        "You are a performance analyzer for an IGNOU BCA student. "
-        "Return plain Markdown with these sections: Progress Summary, Weak Areas, Latest Updates, Next 7-Day Action Plan. "
-        "Keep it practical and realistic in Hinglish.\n\n"
-        f"DATA: total_sessions={len(sessions)}, total_messages={total_messages}, "
-        f"user_messages={len(user_msgs)}, ai_messages={len(ai_msgs)}"
-    )
-    completion = get_ai_response(messages=[{"role": "user", "content": prompt}], temperature=0.4)
-    report_markdown = str(getattr(completion.choices[0].message, "content", "") or "").strip()
-
-    highlights: list[str] = []
-    for line in report_markdown.splitlines():
-        t = str(line or "").strip(" -*\t")
-        if not t:
-            continue
-        highlights.append(t)
-        if len(highlights) >= 4:
-            break
-
-    payload = {
-        "generated_at": datetime.utcnow().isoformat(),
-        "eta_minutes": eta_minutes,
-        "highlights": highlights,
-        "report_markdown": report_markdown,
-    }
-    USER_PERFORMANCE_REPORTS[int(getattr(cast(Any, current_user), "id", 0) or 0)] = payload
-    return payload
-
-@router.get("/apc/performance-summary/latest")
-def get_latest_apc_performance_summary(current_user: User = Depends(get_current_user)):
-    user_id = int(getattr(cast(Any, current_user), "id", 0) or 0)
-    return USER_PERFORMANCE_REPORTS.get(user_id, {
-        "generated_at": None,
-        "eta_minutes": 1,
-        "highlights": [],
-        "report_markdown": "",
-    })
 
 
 

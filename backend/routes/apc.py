@@ -10,6 +10,8 @@ from services.chat_service import get_ai_response, _safe_json_loads
 
 router = APIRouter()
 
+USER_PERFORMANCE_REPORTS: dict[int, dict] = {}
+
 class ExamPredictorRequest(BaseModel):
     semester: str
     subject: str
@@ -83,14 +85,27 @@ def generate_performance_report(
         )
         raw = str(getattr(completion.choices[0].message, "content", "") or "")
         parsed = _safe_json_loads(raw)
-        return {
+        payload = {
             "highlights": parsed.get("highlights", ["Keep up the good work!"]),
             "report_markdown": parsed.get("report_markdown", "### Performance Report\nKeep up the consistent effort!"),
             "generated_at": datetime.utcnow().isoformat(),
             "eta_minutes": 0,
         }
+        USER_PERFORMANCE_REPORTS[int(getattr(current_user, "id", 0) or 0)] = payload
+        return payload
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/apc/performance-summary/latest")
+def get_latest_apc_performance_summary(current_user: User = Depends(get_current_user)):
+    user_id = int(getattr(current_user, "id", 0) or 0)
+    return USER_PERFORMANCE_REPORTS.get(user_id, {
+        "generated_at": None,
+        "eta_minutes": 1,
+        "highlights": [],
+        "report_markdown": "",
+    })
 
 @router.post("/apc/predict-exam")
 def predict_exam(
