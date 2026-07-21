@@ -28,6 +28,23 @@ export default defineConfig({
             purpose: 'any maskable'
           }
         ]
+      },
+      workbox: {
+        runtimeCaching: [
+          {
+            // Match any API requests for background syncing
+            urlPattern: /\/api\/.*$/,
+            handler: 'NetworkOnly',
+            options: {
+              backgroundSync: {
+                name: 'bcabuddy-api-queue',
+                options: {
+                  maxRetentionTime: 24 * 60 // Retry for max 24 hours
+                }
+              }
+            }
+          }
+        ]
       }
     })
   ],

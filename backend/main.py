@@ -92,6 +92,8 @@ except Exception as e:
     print(f"[WARNING] Redis not found or error ({type(e).__name__}). Please start Redis server for full performance hardening.")
     redis_client = None
 
+app.state.redis_client = redis_client
+
 if __name__ == "__main__":
     # Read PORT from env (Azure: WEBSITES_PORT, local: PORT, or default 8000)
     port = int(os.getenv("PORT") or os.getenv("WEBSITES_PORT") or 8000)

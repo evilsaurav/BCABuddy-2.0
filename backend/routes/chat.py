@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from core.limiter import limiter
 from sqlalchemy.orm import Session
 from typing import Optional, Any, cast
+import hashlib
+import json
 
 from database import get_db, ChatSession, ChatHistory, User
 from auth_utils import get_current_user
@@ -383,6 +385,26 @@ def chat_endpoint(http_request: Request, request: ChatRequest, current_user: Use
             role = "user" if h.sender == "user" else "assistant"
             messages.append({"role": role, "content": h.text})
 
+        # Redis Semantic Caching
+        redis_client = getattr(http_request.app.state, "redis_client", None)
+        cache_key = None
+        if redis_client:
+            # Hash the raw messages list to create a unique identifier for this conversation state
+            hash_input = json.dumps(messages, sort_keys=True)
+            cache_key = f"chat_cache:{hashlib.sha256(hash_input.encode('utf-8')).hexdigest()}"
+            cached_response = redis_client.get(cache_key)
+            if cached_response:
+                ai_text = cached_response
+                # Skip the API call completely and return cached response
+                if persistence_enabled and session_id is not None:
+                    db.add(ChatHistory(session_id=session_id, sender="ai", text=ai_text))
+                    db.commit()
+
+                payload = _build_response_payload(ai_text)
+                payload["session_id"] = session_id
+                payload["mode"] = "lite" if is_lite_mode else requested_mode
+                return _finalize_reply_payload(session_id, payload)
+
         # Get AI response
         try:
             response = get_ai_response(
@@ -391,6 +413,11 @@ def chat_endpoint(http_request: Request, request: ChatRequest, current_user: Use
                 max_tokens=520 if is_lite_mode else 1400,
             )
             ai_text = str(getattr(response.choices[0].message, "content", "") or "").strip()
+            
+            # Save the new response to Redis cache for 24 hours
+            if redis_client and cache_key:
+                redis_client.setex(cache_key, 86400, ai_text)
+                
         except ProviderRateLimitError as e:
             raise HTTPException(status_code=429, detail=e.message)
         except Exception as e:

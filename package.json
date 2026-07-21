@@ -4,7 +4,8 @@
   "description": "> **AI-Powered IGNOU BCA Learning Assistant**  \r > Full-stack application with intelligent tutoring, exam simulation, roadmap generation, performance analytics, and OCR-powered study tools.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepare": "husky"
   },
   "repository": {
     "type": "git",

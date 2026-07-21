@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { setToken } from './utils/tokenManager';
@@ -18,6 +19,17 @@ const C = {
   textSecondary: '#a0a0a0',
   error: '#ff5555'
 };
+
+const INSPIRATIONAL_QUOTES = [
+  "“Code is like humor. When you have to explain it, it’s bad.” – Cory House",
+  "“First, solve the problem. Then, write the code.” – John Johnson",
+  "“Any fool can write code that a computer can understand. Good programmers write code that humans can understand.” – Martin Fowler",
+  "“Make it work, make it right, make it fast.” – Kent Beck",
+  "“Programming isn't about what you know; it's about what you can figure out.” – Chris Pine",
+  "“The only way to learn a new programming language is by writing programs in it.” – Dennis Ritchie",
+  "“Truth can only be found in one place: the code.” – Robert C. Martin",
+  "“Sometimes it pays to stay in bed on Monday, rather than spending the rest of the week debugging Monday's code.” – Dan Salomon"
+];
 
 const AuthInput = ({ label, type = 'text', value, onChange }) => {
   const [focused, setFocused] = useState(false);
@@ -79,6 +91,11 @@ const AuthPage = ({ setIsAuthenticated }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [quote, setQuote] = useState('');
+  
+  useEffect(() => {
+    setQuote(INSPIRATIONAL_QUOTES[Math.floor(Math.random() * INSPIRATIONAL_QUOTES.length)]);
+  }, []);
   
   const navigate = useNavigate();
 
@@ -325,6 +342,56 @@ const AuthPage = ({ setIsAuthenticated }) => {
               {isLogin ? 'Sign up now' : 'Sign in here'}
             </span>
           </p>
+        </div>
+      </motion.div>
+
+      {/* Animated Footer Info */}
+      <motion.div
+        initial={{ opacity: 0, y: 50 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 1, delay: 0.5, ease: "easeOut" }}
+        style={{
+          position: 'absolute',
+          bottom: '20px',
+          width: '100%',
+          textAlign: 'center',
+          pointerEvents: 'none',
+          zIndex: 5,
+          padding: '0 20px',
+          boxSizing: 'border-box'
+        }}
+      >
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 2, repeat: Infinity, repeatType: 'reverse' }}
+          style={{ marginBottom: '12px' }}
+        >
+          <p style={{ color: C.accent, fontSize: '13px', fontStyle: 'italic', letterSpacing: '0.5px' }}>
+            {quote}
+          </p>
+        </motion.div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center' }}>
+          <p style={{ color: C.textSecondary, fontSize: '12px', letterSpacing: '1px' }}>
+            BCABuddy 2.0 • AI-Powered Study Companion
+          </p>
+          <motion.p 
+            whileHover={{ scale: 1.05 }}
+            style={{ 
+              color: 'rgba(255,255,255,0.6)', 
+              fontSize: '11px', 
+              letterSpacing: '0.5px',
+              pointerEvents: 'auto',
+              cursor: 'default'
+            }}
+          >
+            Designed by <span style={{ color: C.purple, fontWeight: 600 }}>insominac</span> with <motion.span 
+              animate={{ scale: [1, 1.3, 1] }} 
+              transition={{ repeat: Infinity, duration: 1 }} 
+              style={{ display: 'inline-block', color: '#ff5555' }}
+            >❤️</motion.span> for <span style={{ color: C.accent, fontWeight: 600 }}>frenzy</span>
+          </motion.p>
         </div>
       </motion.div>
     </div>

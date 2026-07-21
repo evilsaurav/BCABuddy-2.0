@@ -16,16 +16,30 @@ from datetime import datetime
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./bcabuddy.db")
 
-# Add timeout for Azure App Service file locking issues
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False, "timeout": 15})
+# PostgreSQL driver requires 'postgresql' or 'postgresql+psycopg2'
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-# Enable WAL mode for high concurrency
+connect_args = {}
+# Only SQLite needs check_same_thread=False
+if DATABASE_URL.startswith("sqlite"):
+    connect_args = {"check_same_thread": False, "timeout": 15}
+else:
+    connect_args = {"options": "-c statement_timeout=15000", "connect_timeout": 10} # Prevent infinite hang on DB connect
+
+if DATABASE_URL.startswith("sqlite"):
+    engine = create_engine(DATABASE_URL, connect_args=connect_args)
+else:
+    engine = create_engine(DATABASE_URL)
+
+# Disable WAL mode on Azure because Azure App Service SMB shares don't support SQLite WAL locking, 
+# which causes 115s timeouts and 503 errors.
 @event.listens_for(engine, "connect")
 def set_sqlite_pragma(dbapi_connection, connection_record):
-    if "sqlite" in DATABASE_URL:
+    if DATABASE_URL.startswith("sqlite"):
         cursor = dbapi_connection.cursor()
-        cursor.execute("PRAGMA journal_mode=WAL")
         cursor.execute("PRAGMA synchronous=NORMAL")
+        # Do not use WAL mode here.
         cursor.close()
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
