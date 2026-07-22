@@ -278,16 +278,16 @@ def explain_question(
 @router.post("/generate-roadmap")
 @limiter.limit("10/minute")
 async def generate_roadmap(
-    http_request: Request,
-    request: StudyPlanRequest,
+    request: Request,
+    payload: StudyPlanRequest,
     current_user: User = Depends(get_current_user),
 ):
     from services.chat_service import get_ai_response, ProviderRateLimitError, _safe_json_loads
     prompt = (
         f"You are a study planner for an IGNOU BCA student. Create a day-by-day roadmap.\n"
-        f"Subjects: {', '.join(request.subjects)}\n"
-        f"Days left: {request.days_left}\n"
-        f"Daily hours: {request.daily_hours}\n\n"
+        f"Subjects: {', '.join(payload.subjects)}\n"
+        f"Days left: {payload.days_left}\n"
+        f"Daily hours: {payload.daily_hours}\n\n"
         "Return ONLY a valid JSON object with the following schema:\n"
         '{"roadmap": [{"day": 1, "focus_subject": "...", "topics_to_cover": ["..."], "estimated_hours": 2}]}\n'
         "CRITICAL RULES:\n"

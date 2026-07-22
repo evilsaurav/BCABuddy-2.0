@@ -55,7 +55,7 @@ def get_apc_history(
 @router.post("/apc/performance-report")
 @limiter.limit("5/minute")
 def generate_performance_report(
-    http_request: Request,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):

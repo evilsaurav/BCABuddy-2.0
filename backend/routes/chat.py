@@ -148,21 +148,21 @@ from services.chat_service import (
 
 @router.post("/chat")
 @limiter.limit("20/minute")
-def chat_endpoint(http_request: Request, request: ChatRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    requested_mode = str(getattr(request, "mode", "auto") or "auto").strip().lower()
+def chat_endpoint(request: Request, payload: ChatRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    requested_mode = str(getattr(payload, "mode", "auto") or "auto").strip().lower()
     is_lite_mode = requested_mode in {"lite", "fast", "quick"}
 
-    user_message = request.message[:2200] if is_lite_mode else request.message[:4000]
+    user_message = payload.message[:2200] if is_lite_mode else payload.message[:4000]
     is_creator_user = bool(getattr(current_user, "is_creator", 0))
-    active_tool_raw = getattr(request, "active_tool", None)
+    active_tool_raw = getattr(payload, "active_tool", None)
     active_tool_key = _normalize_tool_key(active_tool_raw)
     active_tool_prompt_name = _resolve_study_tool_prompt_name(active_tool_raw)
-    selected_subject = str(getattr(request, "selected_subject", "") or "").strip()
-    selected_semester = str(getattr(request, "selected_semester", "") or "").strip()
+    selected_subject = str(getattr(payload, "selected_subject", "") or "").strip()
+    selected_semester = str(getattr(payload, "selected_semester", "") or "").strip()
     persistence_enabled = _is_chat_persistence_enabled(current_user)
 
     # Session handling
-    session_id = getattr(request, 'session_id', None) if persistence_enabled else None
+    session_id = getattr(payload, 'session_id', None) if persistence_enabled else None
     history = []
     if persistence_enabled:
         if not session_id:
@@ -386,7 +386,7 @@ def chat_endpoint(http_request: Request, request: ChatRequest, current_user: Use
             messages.append({"role": role, "content": h.text})
 
         # Redis Semantic Caching
-        redis_client = getattr(http_request.app.state, "redis_client", None)
+        redis_client = getattr(request.app.state, "redis_client", None)
         cache_key = None
         if redis_client:
             # Hash the raw messages list to create a unique identifier for this conversation state
