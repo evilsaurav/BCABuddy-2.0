@@ -9,6 +9,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+# Pre-download ML models (EasyOCR, SentenceTransformers) to avoid doing this on every container cold start
+# which causes severe timeouts on Azure App Service
+RUN python download_models.py
+
 EXPOSE 8000
 EXPOSE 8080
 
