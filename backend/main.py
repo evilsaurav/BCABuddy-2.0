@@ -10,6 +10,7 @@ import logging
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
+import uvicorn
 
 from core.dependencies import PROFILE_PICS_DIR, UPLOAD_DIR
 from config import get_settings
