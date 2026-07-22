@@ -87,6 +87,8 @@ def _clean_json_text(text: str) -> str:
     if not text:
         return ""
     cleaned = text.strip()
+    import re
+    cleaned = re.sub(r'<think>.*?</think>', '', cleaned, flags=re.DOTALL).strip()
     if "```json" in cleaned:
         cleaned = cleaned.split("```json")[1].split("```")[0].strip()
     elif "```" in cleaned:
@@ -176,13 +178,32 @@ def _normalize_quiz_items(parsed: Any, count: int) -> list[QuizQuestion]:
         correct_answer = str(item.get("correct_answer", "") or item.get("answer", "")).strip()
         if not question:
             continue
+        if isinstance(options, dict):
+            options = list(options.values())
         if not isinstance(options, list):
             options = []
         option_values = [str(opt).strip() for opt in options if str(opt).strip()]
         if len(option_values) < 2:
             continue
+            
         if not correct_answer or correct_answer not in option_values:
-            correct_answer = option_values[0]
+            matched = False
+            # Try to match "A" with "A. Option" or similar
+            for opt in option_values:
+                if opt.startswith(correct_answer + ".") or opt.startswith(correct_answer + ")") or opt == correct_answer:
+                    correct_answer = opt
+                    matched = True
+                    break
+            # Fallback: check if the answer text is contained inside the option
+            if not matched:
+                for opt in option_values:
+                    if correct_answer.lower() in opt.lower() or opt.lower() in correct_answer.lower():
+                        correct_answer = opt
+                        matched = True
+                        break
+            # Ultimate fallback
+            if not matched:
+                correct_answer = option_values[0]
 
         normalized.append(
             QuizQuestion(
