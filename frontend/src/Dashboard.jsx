@@ -1183,8 +1183,9 @@ const Dashboard = ({ onThemeOverride }) => {
     // Initialize Mermaid — v10.x compatible settings
     // NOTE: 'startOnLoad: false' is important in v10 when using mermaid.render() manually.
     // If startOnLoad is true AND we call render() manually, v10 can double-process and throw.
-    loadMermaidModule()
-      .then((mermaid) => {
+    import('mermaid')
+      .then((mermaidModule) => {
+        const mermaid = mermaidModule.default || mermaidModule;
         mermaid.initialize({
           startOnLoad: false,
           theme: 'dark',
