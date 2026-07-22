@@ -1,6 +1,4 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import LoadingFacts from '../components/LoadingFacts';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -8,6 +6,7 @@ import {
   Box,
   Button,
   Card,
+  CircularProgress,
   FormControl,
   InputLabel,
   MenuItem,
