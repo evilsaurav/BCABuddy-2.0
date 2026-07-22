@@ -5,6 +5,8 @@ import { useTheme } from '../context/ThemeContext';
 
 export default function AmbientParticles() {
   const { isDark } = useTheme();
+  // Optimize for mobile by checking screen size on initial load
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 
   const particlesInit = useCallback(async (engine) => {
     await loadSlim(engine);
@@ -35,7 +37,7 @@ export default function AmbientParticles() {
           links: {
             color: "#ffffff",
             distance: 150,
-            enable: true,
+            enable: !isMobile, // Disable on mobile to save CPU
             opacity: 0.1,
             width: 1,
           },
@@ -44,18 +46,18 @@ export default function AmbientParticles() {
             enable: true,
             outModes: { default: "bounce" },
             random: true,
-            speed: 0.5,
+            speed: isMobile ? 0.3 : 0.5,
             straight: false,
           },
           number: {
             density: { enable: true, area: 800 },
-            value: 40,
+            value: isMobile ? 15 : 40, // Reduce density on mobile
           },
           opacity: { value: 0.3 },
           shape: { type: "circle" },
           size: { value: { min: 1, max: 2 } },
         },
-        detectRetina: true,
+        detectRetina: false, // Turn off retina detection for better mobile perf
       }}
       style={{
         position: 'fixed',

@@ -831,7 +831,7 @@ function ExamSimulator({
           border: GLASS_BORDER,
           borderRadius: '20px',
           p: 4,
-          backdropFilter: 'blur(12px)',
+          backdropFilter: { xs: 'none', md: 'blur(12px)' },
           textAlign: 'center'
         }}>
           <Typography sx={{ color: NEON_CYAN, fontSize: '24px', fontWeight: 700, mb: 2 }}>
@@ -1122,7 +1122,7 @@ function ExamSimulator({
                     border: `1px solid rgba(3, 218, 198, 0.35)`,
                     borderRadius: '16px',
                     p: 2.5,
-                    backdropFilter: 'blur(12px)',
+                    backdropFilter: { xs: 'none', md: 'blur(12px)' },
                     boxShadow: '0 0 18px rgba(3, 218, 198, 0.14)'
                   }}
                 >
@@ -1258,7 +1258,7 @@ function ExamSimulator({
                   border: `1px solid ${borderColor}`,
                   borderRadius: '16px',
                   p: 2.5,
-                  backdropFilter: 'blur(12px)',
+                  backdropFilter: { xs: 'none', md: 'blur(12px)' },
                   boxShadow: glow
                 }}
               >
@@ -1480,7 +1480,7 @@ function ExamSimulator({
             <Grid container spacing={3} sx={{ mt: 2 }}>
               <Grid size={{ xs: 12, md: 6 }}>
                 <motion.div variants={item}>
-                  <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, p: 3, backdropFilter: 'blur(12px)' }}>
+                  <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, p: 3, backdropFilter: { xs: 'none', md: 'blur(12px)' } }}>
                     <Typography sx={{ color: NEON_CYAN, fontWeight: 600, mb: 2 }}>
                       Performance Donut
                     </Typography>
@@ -1510,7 +1510,7 @@ function ExamSimulator({
 
               <Grid size={{ xs: 12, md: 6 }}>
                 <motion.div variants={item}>
-                  <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, p: 3, backdropFilter: 'blur(12px)' }}>
+                  <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, p: 3, backdropFilter: { xs: 'none', md: 'blur(12px)' } }}>
                     <Typography sx={{ color: NEON_CYAN, fontWeight: 600, mb: 2 }}>
                       Performance Comparison
                     </Typography>
@@ -1529,7 +1529,7 @@ function ExamSimulator({
 
               <Grid size={{ xs: 12, md: 6 }}>
                 <motion.div variants={item}>
-                  <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, p: 3, backdropFilter: 'blur(12px)' }}>
+                  <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, p: 3, backdropFilter: { xs: 'none', md: 'blur(12px)' } }}>
                     <Typography sx={{ color: NEON_CYAN, fontWeight: 600, mb: 1 }}>
                       Dynamic Badge
                     </Typography>
@@ -1573,7 +1573,7 @@ function ExamSimulator({
 
               <Grid size={{ xs: 12, md: 6 }}>
                 <motion.div variants={item}>
-                  <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, p: 3, backdropFilter: 'blur(12px)' }}>
+                  <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, p: 3, backdropFilter: { xs: 'none', md: 'blur(12px)' } }}>
                     <Typography sx={{ color: NEON_CYAN, fontWeight: 600, mb: 1 }}>
                       Jiya Maurya
                     </Typography>
@@ -1586,7 +1586,7 @@ function ExamSimulator({
 
               <Grid size={{ xs: 12 }}>
                 <motion.div variants={item}>
-                  <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, p: 3, backdropFilter: 'blur(12px)' }}>
+                  <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, p: 3, backdropFilter: { xs: 'none', md: 'blur(12px)' } }}>
                     <Typography sx={{ color: NEON_CYAN, fontWeight: 700, mb: 1 }}>
                       AI Examiner Review
                     </Typography>
@@ -1599,7 +1599,7 @@ function ExamSimulator({
 
               <Grid size={{ xs: 12 }}>
                 <motion.div variants={item}>
-                  <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, p: 3, backdropFilter: 'blur(12px)' }}>
+                  <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, p: 3, backdropFilter: { xs: 'none', md: 'blur(12px)' } }}>
                     <Typography sx={{ color: NEON_CYAN, fontWeight: 600, mb: 2 }}>
                       Scorecard
                     </Typography>
@@ -1660,7 +1660,7 @@ function ExamSimulator({
 
               <Grid size={{ xs: 12 }}>
                 <motion.div variants={item}>
-                  <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, p: 3, backdropFilter: 'blur(12px)' }}>
+                  <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, p: 3, backdropFilter: { xs: 'none', md: 'blur(12px)' } }}>
                     <Typography sx={{ color: NEON_CYAN, fontWeight: 700, mb: 2 }}>
                       Detailed Answer Review
                     </Typography>
@@ -1715,7 +1715,7 @@ function ExamSimulator({
           p: 2,
           bgcolor: GLASS_BG,
           borderTop: GLASS_BORDER,
-          backdropFilter: 'blur(12px)',
+          backdropFilter: { xs: 'none', md: 'blur(12px)' },
           display: 'flex',
           justifyContent: 'space-between',
           gap: 2,
@@ -1761,7 +1761,7 @@ function ExamSimulator({
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        backdropFilter: 'blur(12px)'
+        backdropFilter: { xs: 'none', md: 'blur(12px)' }
       }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
           <Tooltip title="Back to Dashboard">
@@ -1800,7 +1800,7 @@ function ExamSimulator({
             border: timeRemaining < 300 ? `2px solid #ff6b6b` : GLASS_BORDER,
             p: 2,
             borderRadius: '12px',
-            backdropFilter: 'blur(8px)'
+            backdropFilter: { xs: 'none', md: 'blur(8px)' }
           }}>
             <Timer sx={{ color: timeRemaining < 300 ? '#ff6b6b' : NEON_CYAN, fontSize: '28px' }} />
             <Box>
@@ -1848,7 +1848,7 @@ function ExamSimulator({
                 display: 'flex',
                 flexDirection: 'column',
                 minHeight: 0,
-                backdropFilter: 'blur(12px)'
+                backdropFilter: { xs: 'none', md: 'blur(12px)' }
               }}>
                 {/* Question Header */}
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
@@ -1944,7 +1944,7 @@ function ExamSimulator({
             border: GLASS_BORDER,
             borderRadius: '16px',
             p: 2,
-            backdropFilter: 'blur(12px)'
+            backdropFilter: { xs: 'none', md: 'blur(12px)' }
           }}>
             <Typography sx={{ color: NEON_CYAN, fontSize: '14px', fontWeight: 600, mb: 2 }}>
               Status Legend
@@ -1973,7 +1973,7 @@ function ExamSimulator({
             p: 2,
             flex: 1,
             overflow: 'auto',
-            backdropFilter: 'blur(12px)'
+            backdropFilter: { xs: 'none', md: 'blur(12px)' }
           }}>
             <Typography sx={{ color: NEON_CYAN, fontSize: '14px', fontWeight: 600, mb: 2 }}>
               Question Navigator
@@ -2015,7 +2015,7 @@ function ExamSimulator({
         p: 2,
         bgcolor: GLASS_BG,
         borderTop: GLASS_BORDER,
-        backdropFilter: 'blur(12px)',
+        backdropFilter: { xs: 'none', md: 'blur(12px)' },
         display: 'flex',
         gap: 2,
         flexWrap: 'wrap',

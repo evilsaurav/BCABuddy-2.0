@@ -181,7 +181,7 @@ function ToolCard({ tool, onSelectTool, index }) {
           borderRadius: '24px',
           bgcolor: C.surface,
           border: `1px solid ${hovered ? tool.accent + '80' : C.border}`,
-          backdropFilter: 'blur(14px)',
+          backdropFilter: { xs: 'none', md: 'blur(14px)' },
           cursor: 'pointer',
           transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           boxShadow: hovered ? `0 0 30px ${tool.accent}40` : 'none',
@@ -277,7 +277,7 @@ function ProChatCard({ onSelectTool, avatarUrl, displayName }) {
         borderRadius: '24px',
         background: `linear-gradient(135deg, rgba(0,240,255,0.1) 0%, rgba(139,92,246,0.1) 100%)`,
         border: `1px solid ${C.cyan}40`,
-        backdropFilter: 'blur(20px)',
+        backdropFilter: { xs: 'none', md: 'blur(20px)' },
         position: 'relative', overflow: 'hidden',
       }}>
         <Box sx={{ position:'absolute', top:-60, right:-60, width:200, height:200, borderRadius:'50%', background:'radial-gradient(circle, rgba(0,240,255,0.15), transparent 70%)', pointerEvents:'none' }} />

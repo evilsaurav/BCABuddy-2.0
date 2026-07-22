@@ -1124,7 +1124,7 @@ const Dashboard = ({ onThemeOverride }) => {
           borderRadius: '12px',
           bgcolor: 'rgba(187, 134, 252, 0.05)',
           border: `1px solid ${GLASS_BORDER}`,
-          backdropFilter: 'blur(12px)'
+          backdropFilter: { xs: 'none', md: 'blur(12px)' }
         }}>
           <AnimatePresence>
             {suggestions.map((text, idx) => (
@@ -1150,7 +1150,7 @@ const Dashboard = ({ onThemeOverride }) => {
                     fontWeight: 500,
                     fontSize: '13px',
                     cursor: 'pointer',
-                    backdropFilter: 'blur(8px)',
+                    backdropFilter: { xs: 'none', md: 'blur(8px)' },
                     transition: 'all 200ms ease',
                     '&:hover': {
                       bgcolor: `${NEON_CYAN}20`,
@@ -2017,18 +2017,18 @@ const Dashboard = ({ onThemeOverride }) => {
             </AccordionSummary>
             <AccordionDetails sx={{ display: 'flex', flexDirection: 'column', gap: 1, p: 1 }}>
               <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                <ListItem component="div" role="button" onClick={() => { setActiveView('dashboard'); setMobileOpen(false); }} sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '12px', '&:hover': { backgroundColor: 'rgba(187, 134, 252, 0.1)', borderColor: `${NEON_PURPLE}40` }, backdropFilter: 'blur(12px)', cursor: 'pointer', mb: 1 }}>
+                <ListItem component="div" role="button" onClick={() => { setActiveView('dashboard'); setMobileOpen(false); }} sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '12px', '&:hover': { backgroundColor: 'rgba(187, 134, 252, 0.1)', borderColor: `${NEON_PURPLE}40` }, backdropFilter: { xs: 'none', md: 'blur(12px)' }, cursor: 'pointer', mb: 1 }}>
                   <ListItemText primary="View Stats" secondary={`${dashboardStats.total_sessions} sessions`} sx={{ '& .MuiListItemText-secondary': { color: 'rgba(255, 255, 255, 0.5)' } }} />
                 </ListItem>
               </motion.div>
               <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                <ListItem component="div" role="button" onClick={() => { setActiveView('leaderboard'); setMobileOpen(false); }} sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '12px', '&:hover': { backgroundColor: 'rgba(251, 191, 36, 0.1)', borderColor: '#FBBF24' }, backdropFilter: 'blur(12px)', cursor: 'pointer', mb: 1 }}>
+                <ListItem component="div" role="button" onClick={() => { setActiveView('leaderboard'); setMobileOpen(false); }} sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '12px', '&:hover': { backgroundColor: 'rgba(251, 191, 36, 0.1)', borderColor: '#FBBF24' }, backdropFilter: { xs: 'none', md: 'blur(12px)' }, cursor: 'pointer', mb: 1 }}>
                   <ListItemIcon sx={{ minWidth: 40, color: '#FBBF24' }}><EmojiEvents /></ListItemIcon>
                   <ListItemText primary="Global Leaderboard" secondary="Top students & streaks" sx={{ '& .MuiListItemText-secondary': { color: 'rgba(255, 255, 255, 0.5)' } }} />
                 </ListItem>
               </motion.div>
               <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                <ListItem component="div" role="button" onClick={() => { setActiveView('livebattle'); setMobileOpen(false); }} sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '12px', '&:hover': { backgroundColor: 'rgba(248, 113, 113, 0.1)', borderColor: '#F87171' }, backdropFilter: 'blur(12px)', cursor: 'pointer' }}>
+                <ListItem component="div" role="button" onClick={() => { setActiveView('livebattle'); setMobileOpen(false); }} sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '12px', '&:hover': { backgroundColor: 'rgba(248, 113, 113, 0.1)', borderColor: '#F87171' }, backdropFilter: { xs: 'none', md: 'blur(12px)' }, cursor: 'pointer' }}>
                   <ListItemIcon sx={{ minWidth: 40, color: '#F87171' }}><Gamepad /></ListItemIcon>
                   <ListItemText primary="Live Battle" secondary="1v1 Multiplayer Quizzes" sx={{ '& .MuiListItemText-secondary': { color: 'rgba(255, 255, 255, 0.5)' } }} />
                 </ListItem>
@@ -2099,7 +2099,7 @@ const Dashboard = ({ onThemeOverride }) => {
                     borderRadius: '12px',
                     cursor: 'pointer',
                     '&:hover': { backgroundColor: `${NEON_PURPLE}20`, borderColor: `${NEON_PURPLE}40` },
-                    backdropFilter: 'blur(12px)',
+                    backdropFilter: { xs: 'none', md: 'blur(12px)' },
                     py: 1.2
                   }}
                 >
@@ -2137,7 +2137,7 @@ const Dashboard = ({ onThemeOverride }) => {
                     borderRadius: '12px',
                     cursor: !subject || !semester ? 'not-allowed' : 'pointer',
                     '&:hover': { backgroundColor: !subject || !semester ? GLASS_BG : `${NEON_PURPLE}20`, borderColor: !subject || !semester ? GLASS_BORDER : `${NEON_PURPLE}40` },
-                    backdropFilter: 'blur(12px)',
+                    backdropFilter: { xs: 'none', md: 'blur(12px)' },
                     py: 1.2,
                     opacity: !subject || !semester ? 0.5 : 1
                   }}
@@ -2170,7 +2170,7 @@ const Dashboard = ({ onThemeOverride }) => {
                     borderRadius: '12px',
                     cursor: 'pointer',
                     '&:hover': { backgroundColor: 'rgba(99, 102, 241, 0.2)', borderColor: 'rgba(99, 102, 241, 0.45)' },
-                    backdropFilter: 'blur(12px)',
+                    backdropFilter: { xs: 'none', md: 'blur(12px)' },
                     py: 1.2
                   }}
                 >
@@ -2203,7 +2203,7 @@ const Dashboard = ({ onThemeOverride }) => {
           sx: {
             bgcolor: GLASS_BG,
             border: GLASS_BORDER,
-            backdropFilter: 'blur(12px)',
+            backdropFilter: { xs: 'none', md: 'blur(12px)' },
             borderRadius: '12px',
             mt: 1,
           }
@@ -2387,7 +2387,7 @@ const Dashboard = ({ onThemeOverride }) => {
             border: `1px solid ${color}35`,
             borderRadius: '20px',
             p: 2.3,
-            backdropFilter: 'blur(12px)',
+            backdropFilter: { xs: 'none', md: 'blur(12px)' },
             transition: 'all 200ms',
             '&:hover': { transform: 'translateY(-6px)', borderColor: `${color}75`, boxShadow: `0 0 22px ${color}28` }
           }}
@@ -2462,7 +2462,7 @@ const Dashboard = ({ onThemeOverride }) => {
         </Box>
         <motion.div variants={containerVariants} initial="hidden" animate="visible">
           <motion.div variants={itemVariants} {...cardHoverMotion}>
-            <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '22px', p: 2.8, backdropFilter: 'blur(12px)' }}>
+            <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '22px', p: 2.8, backdropFilter: { xs: 'none', md: 'blur(12px)' } }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
                 <Box sx={{ minWidth: 260 }}>
                   <Typography sx={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: 700, letterSpacing: '0.12em' }}>
@@ -2584,7 +2584,7 @@ const Dashboard = ({ onThemeOverride }) => {
             {/* LEFT COLUMN */}
             <motion.div variants={itemVariants} style={{ display: 'grid', gap: 24, minWidth: 0 }}>
               <motion.div variants={itemVariants} className="h-[400px] flex flex-col" style={{ height: 400, display: 'flex', flexDirection: 'column', minWidth: 0 }} {...cardHoverMotion}>
-                <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: 'blur(12px)', height: '100%', overflowY: 'auto' }}>
+                <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: { xs: 'none', md: 'blur(12px)' }, height: '100%', overflowY: 'auto' }}>
                   <Typography sx={{ color: NEON_CYAN, fontWeight: 900, letterSpacing: '0.06em', mb: 1.2 }}>Stats</Typography>
                   <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
                     {renderStatCard({ label: "Study Hours", value: `${sessionHours}h`, icon: Timer, color: NEON_CYAN, countTo: Number(sessionHours || 0), suffix: "h" })}
@@ -2597,7 +2597,7 @@ const Dashboard = ({ onThemeOverride }) => {
               </motion.div>
 
               <motion.div variants={itemVariants} className="h-[400px] flex flex-col" style={{ height: 400, display: 'flex', flexDirection: 'column', minWidth: 0 }} {...cardHoverMotion}>
-                <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: 'blur(12px)', height: '100%', overflow: 'hidden' }}>
+                <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: { xs: 'none', md: 'blur(12px)' }, height: '100%', overflow: 'hidden' }}>
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
                     <Box>
                       <Typography sx={{ color: NEON_CYAN, fontWeight: 900, letterSpacing: '0.06em' }}>Weekly Study Activity</Typography>
@@ -2642,7 +2642,7 @@ const Dashboard = ({ onThemeOverride }) => {
               </motion.div>
 
               <motion.div variants={itemVariants} {...cardHoverMotion}>
-                <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: 'blur(12px)' }}>
+                <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: { xs: 'none', md: 'blur(12px)' } }}>
                   <Typography sx={{ color: NEON_CYAN, fontWeight: 900, letterSpacing: '0.06em' }}>Exam Performance Trend</Typography>
                   <Typography sx={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, mt: 0.5 }}>
                     Last 5 exams {subject && semester ? `(${subject} • ${semester})` : '(all)'}
@@ -2665,7 +2665,7 @@ const Dashboard = ({ onThemeOverride }) => {
             {/* MIDDLE COLUMN */}
             <motion.div variants={itemVariants} style={{ display: 'grid', gap: 24, minWidth: 0 }}>
               <motion.div variants={itemVariants} {...cardHoverMotion}>
-                <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: 'blur(12px)', overflow: 'hidden' }}>
+                <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: { xs: 'none', md: 'blur(12px)' }, overflow: 'hidden' }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.4 }}>
                     <Typography sx={{ color: NEON_CYAN, fontWeight: 900, letterSpacing: '0.06em' }}>Study Widgets</Typography>
                     <Box sx={{ display: 'flex', gap: 1 }}>
@@ -2810,7 +2810,7 @@ const Dashboard = ({ onThemeOverride }) => {
               </motion.div>
 
               <motion.div variants={itemVariants} {...cardHoverMotion}>
-                <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: 'blur(12px)' }}>
+                <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: { xs: 'none', md: 'blur(12px)' } }}>
                   <Typography sx={{ color: NEON_CYAN, fontWeight: 900, letterSpacing: '0.06em' }}>Roadmap History</Typography>
                   <Typography sx={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, mt: 0.5 }}>
                     Grouped by Semester → Subject with generated date/time
@@ -2851,7 +2851,7 @@ const Dashboard = ({ onThemeOverride }) => {
               </motion.div>
 
               <motion.div variants={itemVariants} {...cardHoverMotion}>
-                <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: 'blur(12px)' }}>
+                <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: { xs: 'none', md: 'blur(12px)' } }}>
                   <Typography sx={{ color: NEON_CYAN, fontWeight: 900, letterSpacing: '0.06em' }}>Recent Chats</Typography>
                   <Typography sx={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, mt: 0.5 }}>
                     Resume where you left off
@@ -2893,7 +2893,7 @@ const Dashboard = ({ onThemeOverride }) => {
               </motion.div>
 
               <motion.div variants={itemVariants} {...cardHoverMotion}>
-                <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: 'blur(12px)' }}>
+                <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: { xs: 'none', md: 'blur(12px)' } }}>
                   <Typography sx={{ color: NEON_CYAN, fontWeight: 900, letterSpacing: '0.06em' }}>Results Snapshot</Typography>
                   <Box sx={{ mt: 1.5, display: 'grid', gap: 1.5 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 2 }}>
@@ -2917,7 +2917,7 @@ const Dashboard = ({ onThemeOverride }) => {
             {/* RIGHT COLUMN */}
             <motion.div variants={itemVariants} style={{ display: 'grid', gap: 24, minWidth: 0 }}>
               <motion.div variants={itemVariants}>
-                <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: 'blur(12px)' }}>
+                <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: { xs: 'none', md: 'blur(12px)' } }}>
                   <Typography sx={{ color: NEON_CYAN, fontWeight: 900, letterSpacing: '0.06em' }}>Daily Goals</Typography>
                   <Typography sx={{ color: 'var(--text-soft)', fontSize: 12, mt: 0.5 }}>
                     Small wins, daily.
@@ -2997,7 +2997,7 @@ const Dashboard = ({ onThemeOverride }) => {
               </motion.div>
 
               <motion.div variants={itemVariants}>
-                <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: 'blur(12px)' }}>
+                <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: { xs: 'none', md: 'blur(12px)' } }}>
                   <Typography sx={{ color: NEON_CYAN, fontWeight: 900, letterSpacing: '0.06em' }}>Performance Summary</Typography>
                   <Typography sx={{ color: 'var(--text-soft)', fontSize: 12, mt: 0.5 }}>
                     Latest analyzer highlights from APC
@@ -3030,7 +3030,7 @@ const Dashboard = ({ onThemeOverride }) => {
               </motion.div>
 
               <motion.div variants={itemVariants}>
-                <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: 'blur(12px)' }}>
+                <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: { xs: 'none', md: 'blur(12px)' } }}>
                   <Typography sx={{ color: NEON_CYAN, fontWeight: 900, letterSpacing: '0.06em' }}>Exam Feed</Typography>
                   <Typography sx={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, mt: 0.5 }}>
                     Latest attempt snapshot
@@ -3077,7 +3077,7 @@ const Dashboard = ({ onThemeOverride }) => {
               </motion.div>
 
               <motion.div variants={itemVariants}>
-                <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: 'blur(12px)' }}>
+                <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: { xs: 'none', md: 'blur(12px)' } }}>
                   <Typography sx={{ color: NEON_CYAN, fontWeight: 900, letterSpacing: '0.06em' }}>Achievement Flex</Typography>
                   <Typography sx={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, mt: 0.5 }}>
                     Flaunt unlocked badges on your dashboard.
@@ -3115,7 +3115,7 @@ const Dashboard = ({ onThemeOverride }) => {
               </motion.div>
 
               <motion.div variants={itemVariants}>
-                <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: 'blur(12px)' }}>
+                <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: { xs: 'none', md: 'blur(12px)' } }}>
                   <Typography sx={{ color: NEON_CYAN, fontWeight: 900, letterSpacing: '0.06em' }}>Attempt Snapshot</Typography>
                   <Typography sx={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, mt: 0.5 }}>
                     Exam + quiz performance summary in one place.
@@ -3182,7 +3182,7 @@ const Dashboard = ({ onThemeOverride }) => {
               </motion.div>
 
               <motion.div variants={itemVariants}>
-                <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: 'blur(12px)' }}>
+                <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: { xs: 'none', md: 'blur(12px)' } }}>
                   <Typography sx={{ color: NEON_CYAN, fontWeight: 900, letterSpacing: '0.06em' }}>Review Center</Typography>
                   <Typography sx={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, mt: 0.5 }}>
                     Past mistakes with Supreme Answers
@@ -3242,7 +3242,7 @@ const Dashboard = ({ onThemeOverride }) => {
               </motion.div>
 
               <motion.div variants={itemVariants}>
-                <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: 'blur(12px)' }}>
+                <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 2.5, backdropFilter: { xs: 'none', md: 'blur(12px)' } }}>
                   <Typography sx={{ color: NEON_CYAN, fontWeight: 900, letterSpacing: '0.06em' }}>Weak Topics</Typography>
                   <Typography sx={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, mt: 0.5 }}>
                     Spaced repetition bucket (auto-resurface)
@@ -3285,7 +3285,7 @@ const Dashboard = ({ onThemeOverride }) => {
 
         <Modal open={reviewOpen} onClose={() => setReviewOpen(false)}>
           <Box sx={{ p: 3, height: '100vh', overflowY: 'auto' }}>
-            <Card sx={{ maxWidth: 980, mx: 'auto', p: 3, bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', backdropFilter: 'blur(12px)' }}>
+            <Card sx={{ maxWidth: 980, mx: 'auto', p: 3, bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', backdropFilter: { xs: 'none', md: 'blur(12px)' } }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                 <Typography sx={{ color: NEON_CYAN, fontWeight: 900, fontSize: 22 }}>
                   Review Center
@@ -3332,7 +3332,7 @@ const Dashboard = ({ onThemeOverride }) => {
 
         <Modal open={showAttemptRecordsModal} onClose={() => setShowAttemptRecordsModal(false)}>
           <Box sx={{ p: 3, height: '100vh', overflowY: 'auto' }}>
-            <Card sx={{ maxWidth: 980, mx: 'auto', p: 3, bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', backdropFilter: 'blur(12px)' }}>
+            <Card sx={{ maxWidth: 980, mx: 'auto', p: 3, bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', backdropFilter: { xs: 'none', md: 'blur(12px)' } }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                 <Typography sx={{ color: NEON_CYAN, fontWeight: 900, fontSize: 22 }}>
                   Full Attempt Record
@@ -3399,7 +3399,7 @@ const Dashboard = ({ onThemeOverride }) => {
           : 'radial-gradient(circle at 18% 35%, rgba(187, 134, 252, 0.12) 0%, transparent 52%), radial-gradient(circle at 82% 70%, rgba(3, 218, 198, 0.10) 0%, transparent 55%)'
       }}
     >
-      <AppBar position="fixed" sx={{ width: '100%', bgcolor: GLASS_BG, border: GLASS_BORDER, backdropFilter: 'blur(12px)', zIndex: 1200, boxShadow: 'none' }}>
+      <AppBar position="fixed" sx={{ width: '100%', bgcolor: GLASS_BG, border: GLASS_BORDER, backdropFilter: { xs: 'none', md: 'blur(12px)' }, zIndex: 1200, boxShadow: 'none' }}>
         <Toolbar sx={{ justifyContent: 'space-between', py: 1.5 }}>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
@@ -3501,7 +3501,7 @@ const Dashboard = ({ onThemeOverride }) => {
                   )}
 
                   {isSupremeArchitect && (
-                    <Box sx={{ position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: '50%', bgcolor: 'rgba(10, 13, 23, 0.9)', border: `1px solid ${NEON_CYAN}80`, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(12px)' }}>
+                    <Box sx={{ position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: '50%', bgcolor: 'rgba(10, 13, 23, 0.9)', border: `1px solid ${NEON_CYAN}80`, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: { xs: 'none', md: 'blur(12px)' } }}>
                       <WorkspacePremium sx={{ fontSize: 14, color: NEON_CYAN }} />
                     </Box>
                   )}
@@ -3513,13 +3513,13 @@ const Dashboard = ({ onThemeOverride }) => {
       </AppBar>
 
       {/* Export Menu */}
-      <MuiMenu open={Boolean(exportMenuAnchor)} anchorEl={exportMenuAnchor} onClose={() => setExportMenuAnchor(null)} sx={{ '& .MuiPaper-root': { bgcolor: GLASS_BG, border: GLASS_BORDER, backdropFilter: 'blur(12px)' } }}>
+      <MuiMenu open={Boolean(exportMenuAnchor)} anchorEl={exportMenuAnchor} onClose={() => setExportMenuAnchor(null)} sx={{ '& .MuiPaper-root': { bgcolor: GLASS_BG, border: GLASS_BORDER, backdropFilter: { xs: 'none', md: 'blur(12px)' } } }}>
         <MenuItem onClick={() => { exportAsTXT(); setExportMenuAnchor(null); }}>📄 Export as TXT</MenuItem>
         <MenuItem onClick={async () => { await exportAsPDF(); setExportMenuAnchor(null); }}>📕 Export as PDF</MenuItem>
       </MuiMenu>
 
       {/* Admin Settings Menu */}
-      <MuiMenu open={Boolean(adminMenuAnchor)} anchorEl={adminMenuAnchor} onClose={() => setAdminMenuAnchor(null)} sx={{ '& .MuiPaper-root': { bgcolor: GLASS_BG, border: GLASS_BORDER, backdropFilter: 'blur(12px)', minWidth: '220px' }, '& .MuiMenuItem-root': { color: 'var(--text-primary)', '&:hover': { bgcolor: `${NEON_CYAN}20` } } }}>
+      <MuiMenu open={Boolean(adminMenuAnchor)} anchorEl={adminMenuAnchor} onClose={() => setAdminMenuAnchor(null)} sx={{ '& .MuiPaper-root': { bgcolor: GLASS_BG, border: GLASS_BORDER, backdropFilter: { xs: 'none', md: 'blur(12px)' }, minWidth: '220px' }, '& .MuiMenuItem-root': { color: 'var(--text-primary)', '&:hover': { bgcolor: `${NEON_CYAN}20` } } }}>
         <Typography sx={{ px: 2, py: 1, fontSize: '12px', color: 'var(--text-soft)', fontWeight: 600, textTransform: 'uppercase' }}>⚙️ Settings</Typography>
         <Divider sx={{ bgcolor: `${NEON_CYAN}20` }} />
         <MenuItem onClick={handleChangePassword} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
@@ -3542,7 +3542,7 @@ const Dashboard = ({ onThemeOverride }) => {
       </MuiMenu>
 
       {/* User Profile Menu */}
-      <MuiMenu open={Boolean(userMenuAnchor)} anchorEl={userMenuAnchor} onClose={() => setUserMenuAnchor(null)} sx={{ '& .MuiPaper-root': { bgcolor: GLASS_BG, border: GLASS_BORDER, backdropFilter: 'blur(12px)', minWidth: '240px' }, '& .MuiMenuItem-root': { color: 'var(--text-primary)', '&:hover': { bgcolor: `${NEON_PURPLE}20` } } }}>
+      <MuiMenu open={Boolean(userMenuAnchor)} anchorEl={userMenuAnchor} onClose={() => setUserMenuAnchor(null)} sx={{ '& .MuiPaper-root': { bgcolor: GLASS_BG, border: GLASS_BORDER, backdropFilter: { xs: 'none', md: 'blur(12px)' }, minWidth: '240px' }, '& .MuiMenuItem-root': { color: 'var(--text-primary)', '&:hover': { bgcolor: `${NEON_PURPLE}20` } } }}>
         <Box sx={{ px: 2, py: 2, display: 'flex', alignItems: 'center', gap: 2, borderBottom: `1px solid ${NEON_CYAN}20` }}>
           <Box sx={{ width: 50, height: 50, borderRadius: '50%', bgcolor: `${NEON_PURPLE}40`, border: `2px solid ${NEON_CYAN}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: NEON_CYAN, fontWeight: 700, fontSize: '18px', position: 'relative', overflow: 'hidden' }}>
             {resolveAvatarUrl(userProfile?.profile_pic_url || userProfile?.profile_picture_url || profilePic) ? (
@@ -3556,7 +3556,7 @@ const Dashboard = ({ onThemeOverride }) => {
             )}
 
             {isSupremeArchitect && (
-              <Box sx={{ position: 'absolute', top: -7, right: -7, width: 22, height: 22, borderRadius: '50%', bgcolor: 'rgba(10, 13, 23, 0.9)', border: `1px solid ${NEON_CYAN}80`, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(12px)' }}>
+              <Box sx={{ position: 'absolute', top: -7, right: -7, width: 22, height: 22, borderRadius: '50%', bgcolor: 'rgba(10, 13, 23, 0.9)', border: `1px solid ${NEON_CYAN}80`, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: { xs: 'none', md: 'blur(12px)' } }}>
                 <WorkspacePremium sx={{ fontSize: 15, color: NEON_CYAN }} />
               </Box>
             )}
@@ -3613,7 +3613,7 @@ const Dashboard = ({ onThemeOverride }) => {
               m: '12px', 
               borderRadius: '24px', 
               height: 'calc(100vh - 24px)', 
-              backdropFilter: 'blur(12px)', 
+              backdropFilter: { xs: 'none', md: 'blur(12px)' }, 
               boxSizing: 'border-box',
               overflow: 'hidden',
               display: 'flex',
@@ -3708,7 +3708,7 @@ const Dashboard = ({ onThemeOverride }) => {
           }}>
           {isExamEveMode ? (
             <Box sx={{ flex: 1, overflow: 'auto', pb: 2 }}>
-              <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 3, backdropFilter: 'blur(12px)' }}>
+              <Card sx={{ bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 3, backdropFilter: { xs: 'none', md: 'blur(12px)' } }}>
                 <Typography sx={{ color: '#ff8a80', fontSize: '12px', fontWeight: 900, letterSpacing: '0.08em' }}>
                   EXAM EVE MODE
                 </Typography>
@@ -3788,7 +3788,7 @@ const Dashboard = ({ onThemeOverride }) => {
           ) : (
             normalizeToolKey(activeTool) === 'performance analytics' ? (
               <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', pb: 3 }}>
-                <Card sx={{ width: '100%', maxWidth: 760, bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '22px', p: 3, backdropFilter: 'blur(12px)' }}>
+                <Card sx={{ width: '100%', maxWidth: 760, bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '22px', p: 3, backdropFilter: { xs: 'none', md: 'blur(12px)' } }}>
                   <Typography sx={{ color: NEON_CYAN, fontWeight: 900, fontSize: '24px', mb: 1 }}>Performance Analyzer</Typography>
                   <Typography sx={{ color: 'rgba(255,255,255,0.72)', mb: 2 }}>
                     Chat interface yahan disabled hai. Direct report generation mode active.
@@ -4064,7 +4064,7 @@ const Dashboard = ({ onThemeOverride }) => {
                   && (normalizeToolKey(activeTool) !== 'study roadmap' || showRoadmapAskInput)
                 ) && (
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} whileHover={{ scale: isAiThinking ? 1 : 1.01 }}>
-                  <Paper sx={{ bgcolor: normalizeToolKey(activeTool) === 'viva mentor' ? 'rgba(0, 15, 0, 0.88)' : GLASS_BG, border: normalizeToolKey(activeTool) === 'viva mentor' ? '1.5px solid rgba(57,255,20,0.45)' : (isAiThinking ? `2px solid ${NEON_CYAN}` : GLASS_BORDER), borderRadius: '28px', p: 1.5, mx: 0, backdropFilter: 'blur(12px)', boxShadow: normalizeToolKey(activeTool) === 'viva mentor' ? '0 0 20px rgba(57,255,20,0.2)' : (isAiThinking ? `0 0 20px ${NEON_CYAN}50` : 'none'), transition: 'all 200ms' }}>
+                  <Paper sx={{ bgcolor: normalizeToolKey(activeTool) === 'viva mentor' ? 'rgba(0, 15, 0, 0.88)' : GLASS_BG, border: normalizeToolKey(activeTool) === 'viva mentor' ? '1.5px solid rgba(57,255,20,0.45)' : (isAiThinking ? `2px solid ${NEON_CYAN}` : GLASS_BORDER), borderRadius: '28px', p: 1.5, mx: 0, backdropFilter: { xs: 'none', md: 'blur(12px)' }, boxShadow: normalizeToolKey(activeTool) === 'viva mentor' ? '0 0 20px rgba(57,255,20,0.2)' : (isAiThinking ? `0 0 20px ${NEON_CYAN}50` : 'none'), transition: 'all 200ms' }}>
                     <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
                       <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={async (e) => {
                         const file = e.target.files[0];
@@ -4218,7 +4218,7 @@ const Dashboard = ({ onThemeOverride }) => {
                   height: '100%',
                   bgcolor: 'rgba(15, 23, 42, 0.98)',
                   borderLeft: `1px solid ${NEON_CYAN}35`,
-                  backdropFilter: 'blur(12px)',
+                  backdropFilter: { xs: 'none', md: 'blur(12px)' },
                   p: 3,
                   overflowY: 'auto',
                 }}
@@ -4259,7 +4259,7 @@ const Dashboard = ({ onThemeOverride }) => {
             bgcolor: 'rgba(15, 23, 42, 0.98)',
             border: `1px solid ${NEON_CYAN}35`,
             borderRadius: '20px',
-            backdropFilter: 'blur(12px)',
+            backdropFilter: { xs: 'none', md: 'blur(12px)' },
             p: { xs: 2, md: 3 },
           }}
         >
@@ -4330,7 +4330,7 @@ const Dashboard = ({ onThemeOverride }) => {
 
       {ENABLE_LEGACY_QUICK_QUIZ && (
         <Modal open={quizModalOpen} onClose={closeQuickQuiz} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Card sx={{ width: '90%', maxWidth: '600px', bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 3, backdropFilter: 'blur(12px)' }}>
+          <Card sx={{ width: '90%', maxWidth: '600px', bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '20px', p: 3, backdropFilter: { xs: 'none', md: 'blur(12px)' } }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
               <Button
                 onClick={closeQuickQuiz}
