@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import LoadingFacts from '../components/LoadingFacts';
 import { useNavigate } from 'react-router-dom';
 import {
   Alert,
   Box,
   Button,
   Card,
-  CircularProgress,
   FormControl,
   InputLabel,
   MenuItem,
@@ -399,8 +401,7 @@ const ExamSimulationPage = ({ API_BASE: apiBaseOverride }) => {
 
         {examState === 'submitted' && (
           <Card sx={{ p: 2.5, border: BORDER, bgcolor: CARD_BG, borderRadius: '18px', textAlign: 'center' }}>
-            <CircularProgress sx={{ color: ACCENT }} />
-            <Typography sx={{ mt: 1.5 }}>Submitting exam...</Typography>
+            <LoadingFacts message="Submitting exam and calculating results..." />
           </Card>
         )}
 

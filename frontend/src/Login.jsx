@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { setToken } from './utils/tokenManager';
 import { API_BASE } from './utils/apiConfig';
 import BrandLogo from './components/BrandLogo';
+import LoadingFacts from './components/LoadingFacts';
 
 // Premium Color Palette
 const C = {
@@ -92,6 +93,7 @@ const AuthPage = ({ setIsAuthenticated }) => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [quote, setQuote] = useState('');
+  const [showAbout, setShowAbout] = useState(false);
   
   useEffect(() => {
     setQuote(INSPIRATIONAL_QUOTES[Math.floor(Math.random() * INSPIRATIONAL_QUOTES.length)]);
@@ -167,6 +169,21 @@ const AuthPage = ({ setIsAuthenticated }) => {
       overflow: 'hidden',
       fontFamily: "'Outfit', sans-serif"
     }}>
+      {loading && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          style={{
+            position: 'absolute', inset: 0, zIndex: 100,
+            background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}
+        >
+          <LoadingFacts message={isLogin ? "Signing you in..." : "Creating your account..."} />
+        </motion.div>
+      )}
+
       {/* 4D Animated Background Orbs */}
       <motion.div
         animate={{
@@ -376,6 +393,12 @@ const AuthPage = ({ setIsAuthenticated }) => {
           <p style={{ color: C.textSecondary, fontSize: '12px', letterSpacing: '1px' }}>
             BCABuddy 2.0 • AI-Powered Study Companion
           </p>
+          <p 
+            onClick={() => setShowAbout(true)} 
+            style={{ color: C.purple, fontSize: '12px', cursor: 'pointer', textDecoration: 'underline', pointerEvents: 'auto', marginBottom: '8px' }}
+          >
+            About BCABuddy
+          </p>
           <motion.p 
             whileHover={{ scale: 1.05 }}
             style={{ 
@@ -394,6 +417,56 @@ const AuthPage = ({ setIsAuthenticated }) => {
           </motion.p>
         </div>
       </motion.div>
+
+      {/* About Modal */}
+      <AnimatePresence>
+        {showAbout && (
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            style={{
+              position: 'absolute', inset: 0, zIndex: 50,
+              background: 'rgba(5, 5, 5, 0.95)', backdropFilter: 'blur(20px)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: '20px'
+            }}
+          >
+            <div style={{
+              background: C.glass, border: `1px solid ${C.glassBorder}`,
+              borderRadius: '24px', padding: '40px', maxWidth: '600px',
+              textAlign: 'center', color: C.textPrimary
+            }}>
+              <BrandLogo imgHeight={48} />
+              <h2 style={{ marginTop: '20px', color: C.accent }}>Your Ultimate BCA Companion</h2>
+              <p style={{ color: C.textSecondary, fontSize: '15px', lineHeight: 1.6, marginTop: '16px' }}>
+                BCABuddy 2.0 is an AI-powered intelligence platform specifically crafted for IGNOU BCA students.
+                It features Exam Predictors, Study Roadmaps, Live Quizzes, and a 24/7 AI Mentor to help you score the highest possible grades with the least amount of friction.
+              </p>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginTop: '24px' }}>
+                <div style={{ background: 'rgba(255,255,255,0.05)', padding: '16px', borderRadius: '12px', flex: 1 }}>
+                  <h4 style={{ color: C.purple, margin: '0 0 8px 0' }}>AI Powered</h4>
+                  <p style={{ fontSize: '12px', color: C.textSecondary, margin: 0 }}>Trained on thousands of PYQs and IGNOU materials.</p>
+                </div>
+                <div style={{ background: 'rgba(255,255,255,0.05)', padding: '16px', borderRadius: '12px', flex: 1 }}>
+                  <h4 style={{ color: C.accent, margin: '0 0 8px 0' }}>Offline Ready</h4>
+                  <p style={{ fontSize: '12px', color: C.textSecondary, margin: 0 }}>PWA support so you can keep studying anywhere.</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAbout(false)}
+                style={{
+                  marginTop: '32px', padding: '12px 32px', borderRadius: '12px',
+                  background: 'transparent', border: `1px solid ${C.accent}`,
+                  color: C.accent, cursor: 'pointer', fontWeight: 600
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

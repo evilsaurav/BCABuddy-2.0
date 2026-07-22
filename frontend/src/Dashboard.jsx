@@ -65,6 +65,7 @@ import useHinglishVoice from './hooks/useHinglishVoice';
 import { getExamTrackerSummary } from './utils/examSchedule';
 import { BADGE_CATALOG, normalizeAchievements, computeBadgeTriggers, mergeAchievements, getBadgeById } from './utils/achievements';
 import { TypewriterText, ChartRenderer, SafeMermaidViewer, markdownComponents } from './components/MarkdownRenderer';
+import LoadingFacts from './components/LoadingFacts';
 import { 
   ENABLE_LEGACY_QUICK_QUIZ, QUICK_SUGGESTIONS, SUBJECT_LABELS, SEM4_HARD_TOPICS, 
   DEFAULT_SUBJECT_CHIPS, IGNOU_SYLLABUS 
@@ -4363,9 +4364,8 @@ const Dashboard = ({ onThemeOverride }) => {
                 <Button onClick={handleAnswerSubmit} variant="contained" sx={{ bgcolor: NEON_PURPLE, color: 'white', mt: 2, '&:hover': { bgcolor: NEON_CYAN, color: '#000' } }}>Next</Button>
               </Box>
             ) : (
-              <Box sx={{ textAlign: 'center' }}>
-                <CircularProgress sx={{ color: NEON_CYAN }} />
-                <Typography sx={{ color: '#E6EAF0', mt: 2 }}>Loading quiz questions...</Typography>
+              <Box sx={{ textAlign: 'center', p: 4 }}>
+                <LoadingFacts message="Loading quiz questions..." />
               </Box>
             )}
           </Card>

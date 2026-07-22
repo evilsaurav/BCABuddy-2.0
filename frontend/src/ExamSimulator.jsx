@@ -22,6 +22,7 @@ import { normalizeChoice, resolveCorrectAnswerText, isAnswerCorrect } from './ut
 import { computeBadgeTriggers, BADGE_CATALOG } from './utils/achievements';
 import BackButton from './components/BackButton';
 import BrandLogo from './components/BrandLogo';
+import LoadingFacts from './components/LoadingFacts';
 import { API_BASE as DEFAULT_API_BASE } from './utils/apiConfig';
 
 const NEON_PURPLE = '#bb86fc';
@@ -922,8 +923,7 @@ function ExamSimulator({
         gap: 2
       }}>
         <BackButton onClick={handleExit} />
-        <CircularProgress sx={{ color: NEON_CYAN }} size={60} />
-        <Typography sx={{ color: '#E6EAF0', fontSize: '18px' }}>Loading exam questions...</Typography>
+        <LoadingFacts message="Loading exam questions..." />
         <Button onClick={onClose} startIcon={<Home />} sx={{
           bgcolor: GLASS_BG,
           color: '#E6EAF0',
