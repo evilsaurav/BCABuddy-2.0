@@ -824,7 +824,7 @@ const Dashboard = ({ onThemeOverride }) => {
         return;
       }
       setMessages(prev => [...prev, { id: makeMessageId(), text: `Predicting most important topics for ${subjCode} (Semester ${semNum})...`, sender: 'user' }]);
-      setIsTyping(true);
+      setIsAiThinking(true);
       try {
         const res = await fetch(`${API_BASE}/apc/predict-exam`, {
           method: 'POST',
@@ -840,7 +840,7 @@ const Dashboard = ({ onThemeOverride }) => {
         console.error('Exam predictor failed:', err);
         setMessages(prev => [...prev, { id: makeMessageId(), text: 'Failed to predict exam topics. Please try again.', sender: 'ai', isTypingComplete: true }]);
       } finally {
-        setIsTyping(false);
+        setIsAiThinking(false);
       }
       return;
     }
