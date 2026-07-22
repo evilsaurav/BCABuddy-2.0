@@ -40,10 +40,17 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+# Ensure Azure Static Web Apps frontend is explicitly allowed
+cors_origins = list(settings.backend_cors_origins)
+azure_origin = "https://kind-sea-0b41fb700.2.azurestaticapps.net"
+if azure_origin not in cors_origins:
+    cors_origins.append(azure_origin)
+
 # Set up CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.backend_cors_origins,
+    allow_origins=cors_origins,
+    allow_origin_regex=r"https://.*\.azurestaticapps\.net",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
