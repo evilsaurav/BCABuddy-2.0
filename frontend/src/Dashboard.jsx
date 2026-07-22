@@ -3381,7 +3381,7 @@ const Dashboard = ({ onThemeOverride }) => {
 
   return (
     <>
-      <DailyWelcomeModal username={profileData?.username || localStorage.getItem('username') || 'Student'} />
+      <DailyWelcomeModal username={userProfile?.username || localStorage.getItem('username') || 'Student'} />
       <ParticlesBackground />
       <Box
         sx={{
