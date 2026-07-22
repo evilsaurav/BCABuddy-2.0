@@ -6,12 +6,13 @@
 import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, Button, Card, Radio, RadioGroup, FormControlLabel,
-  CircularProgress, Alert, Select, MenuItem, FormControl, InputLabel, Chip
+  Alert, Select, MenuItem, FormControl, InputLabel, Chip
 } from '@mui/material';
 import { CheckCircle, Cancel, Home, Refresh, Assignment, BarChart } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import LoadingFacts from './components/LoadingFacts';
 import { downloadResultPDF } from './utils/pdfExport';
 import { normalizeChoice, resolveCorrectAnswerText, isAnswerCorrect } from './utils/answerNormalization';
 import { computeBadgeTriggers, BADGE_CATALOG } from './utils/achievements';
@@ -356,7 +357,7 @@ const QuizSection = ({ onClose, API_BASE: apiBaseOverride, globalAbortRef = null
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', bgcolor: 'rgba(10, 13, 23, 0.95)' }}>
         <BackButton />
-        <CircularProgress sx={{ color: NEON_CYAN }} />
+        <LoadingFacts message="Loading quiz questions..." />
       </Box>
     );
   }
@@ -380,7 +381,7 @@ const QuizSection = ({ onClose, API_BASE: apiBaseOverride, globalAbortRef = null
     // Review Mode - Show Answer Breakdown
     if (reviewMode) {
       return (
-        <Box sx={{ p: 4, height: '100vh', bgcolor: 'rgba(10, 13, 23, 0.95)', overflowY: 'auto' }}>
+        <Box id="quiz-review-dashboard" sx={{ p: { xs: 2, md: 4 }, minHeight: '100%', maxHeight: '100vh', bgcolor: 'rgba(10, 13, 23, 0.95)', overflowY: 'auto' }}>
           <BackButton />
           <Card sx={{ maxWidth: 800, mx: 'auto', p: 4, bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '16px' }}>
             {/* Header */}
@@ -540,7 +541,7 @@ const QuizSection = ({ onClose, API_BASE: apiBaseOverride, globalAbortRef = null
 
     // Summary View
     return (
-      <Box id="quiz-results-dashboard" sx={{ p: 4, height: '100vh', bgcolor: 'rgba(10, 13, 23, 0.95)', overflowY: 'auto' }}>
+      <Box id="quiz-results-dashboard" sx={{ p: { xs: 2, md: 4 }, minHeight: '100%', maxHeight: '100vh', bgcolor: 'rgba(10, 13, 23, 0.95)', overflowY: 'auto' }}>
         <BackButton />
         <Card sx={{ maxWidth: 600, mx: 'auto', p: 4, bgcolor: GLASS_BG, border: GLASS_BORDER, borderRadius: '16px', textAlign: 'center' }}>
           <Typography sx={{ fontSize: '48px', mb: 2 }}>{remarks.emoji}</Typography>

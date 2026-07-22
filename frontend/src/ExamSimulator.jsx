@@ -1435,7 +1435,7 @@ function ExamSimulator({
           }
         }} />
 
-        <Box id="exam-results-dashboard" sx={{ position: 'relative', zIndex: 1, p: 4, flex: 1, overflowY: 'auto', minHeight: 0 }}>
+        <Box id="exam-results-dashboard" sx={{ position: 'relative', zIndex: 1, p: { xs: 2, md: 4 }, flex: 1, overflowY: 'auto', minHeight: '100%', maxHeight: '100vh' }}>
           <motion.div variants={stagger} initial="hidden" animate="show">
             <motion.div variants={item}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
