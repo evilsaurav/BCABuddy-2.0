@@ -18,7 +18,7 @@ const C = {
   borderLight: '#e5e3df',
 };
 
-const SEMESTERS = ['Sem 1','Sem 2','Sem 3','Sem 4','Sem 5','Sem 6'];
+import { SEMESTERS } from './utils/subjects';
 
 const STEPS = [
   { n:'01', label:'Create your free account', active:true },

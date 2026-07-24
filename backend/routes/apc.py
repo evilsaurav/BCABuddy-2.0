@@ -17,6 +17,10 @@ class ExamPredictorRequest(BaseModel):
     semester: str
     subject: str
 
+class FlashcardRequest(BaseModel):
+    semester: str
+    subject: str
+
 
 @router.post("/apc/log")
 def log_apc_activity(
@@ -132,5 +136,31 @@ def predict_exam(
         raw = str(getattr(completion.choices[0].message, "content", "") or "")
         parsed = _safe_json_loads(raw)
         return {"predictions": parsed.get("predictions", [])}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/apc/flashcards")
+def generate_flashcards(
+    request: FlashcardRequest,
+    current_user: User = Depends(get_current_user),
+):
+    prompt = (
+        f"You are an IGNOU BCA tutor. Create 10 to 12 highly important flashcards for Semester {request.semester}, Subject: {request.subject}. "
+        "Focus on key definitions, acronyms, and core concepts that frequently appear in exams. "
+        "Return a JSON object with this exact schema:\n"
+        '{"flashcards": [{"term": "...", "definition": "..."}]}'
+    )
+    try:
+        completion = get_ai_response(
+            messages=[{"role": "user", "content": prompt}],
+            tier="lite",
+            temperature=0.4,
+            max_tokens=1500,
+            response_format={"type": "json_object"}
+        )
+        raw = str(getattr(completion.choices[0].message, "content", "") or "")
+        parsed = _safe_json_loads(raw)
+        return {"flashcards": parsed.get("flashcards", [])}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -27,15 +27,7 @@ const QUIZ_ATTEMPTS_KEY = 'bcabuddy_quiz_attempts';
 const REVIEW_STORAGE_KEY = 'bcabuddy_review_items';
 const WEAK_TOPICS_KEY = 'bcabuddy_weak_topics';
 
-const SEMESTERS = ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4', 'Sem 5', 'Sem 6'];
-const SUBJECTS = {
-  'Sem 1': ['BCS-011', 'MCS-011', 'BCS-012'],
-  'Sem 2': ['MCS-011', 'MCS-012', 'MCS-015', 'ECO-02'],
-  'Sem 3': ['MCS-021', 'MCS-023', 'BCS-031', 'MCS-014'],
-  'Sem 4': ['MCS-024', 'BCS-040', 'BCS-041', 'BCS-042'],
-  'Sem 5': ['BCS-051', 'BCS-052', 'BCS-053', 'BCS-054'],
-  'Sem 6': ['BCS-062', 'MCS-022', 'BCS-092']
-};
+import { SEMESTERS, SUBJECTS } from './utils/subjects';
 
 const QuizSection = ({ onClose, API_BASE: apiBaseOverride, globalAbortRef = null }) => {
   const API_BASE = apiBaseOverride || DEFAULT_API_BASE;
